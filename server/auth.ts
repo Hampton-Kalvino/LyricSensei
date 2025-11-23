@@ -387,8 +387,10 @@ export async function setupNewAuth(app: Express) {
   // Guest mode
   app.post("/api/auth/guest", async (req: Request, res: Response) => {
     try {
+      const guestId = generateId();
       const guestUser = await storage.createUser({
-        id: generateId(),
+        id: guestId,
+        email: `guest_${guestId}@lyricsensei.local`,
         username: `Guest_${Math.random().toString(36).substr(2, 9)}`,
         authProvider: "guest",
         isGuest: true,
