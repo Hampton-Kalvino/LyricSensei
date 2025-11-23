@@ -1,0 +1,126 @@
+{
+  "app": {
+    "name": "LyricSync",
+    "tagline": "AI音楽翻訳と発音学習"
+  },
+  "nav": {
+    "home": "ホーム",
+    "library": "ライブラリ",
+    "pricing": "料金",
+    "account": "アカウント",
+    "login": "ログイン",
+    "logout": "ログアウト"
+  },
+  "home": {
+    "title": "音楽を認識して翻訳",
+    "noSongTitle": "曲が選択されていません",
+    "noSongDescription": "認識ボタンをタップして近くで再生されている曲を識別するか、最近の履歴から選択してください",
+    "listening": "聞いています...",
+    "processing": "処理中...",
+    "recognizeButton": "タップして認識",
+    "selectLanguage": "翻訳言語を選択",
+    "learningTipsTitle": "学習のヒント",
+    "learningTip1": "• 歌詞の任意の行をクリックして、曲のその部分にジャンプ",
+    "learningTip2": "• 発音ガイドを使用して発音を練習",
+    "learningTip3": "• 言語を変更して翻訳を比較",
+    "howItWorksTitle": "使い方",
+    "howItWorksStep1": "近くの任意のソースから音楽を再生",
+    "howItWorksStep2": "マイクボタンをタップして認識",
+    "howItWorksStep3": "目標言語を選択",
+    "howItWorksStep4": "リアルタイム翻訳で歌詞を追う",
+    "howItWorksStep5": "発音ガイドで発音を学ぶ"
+  },
+  "mobile": {
+    "search": "検索",
+    "menu": "メニュー",
+    "lyrics": "歌詞",
+    "albumInfo": "アルバム情報",
+    "searchSongs": "曲を検索",
+    "swipeHint": "スワイプしてナビゲート"
+  },
+  "library": {
+    "title": "認識履歴",
+    "description": "認識したすべての曲を表示",
+    "search": "曲を検索...",
+    "emptyTitle": "まだ曲がありません",
+    "emptyDescription": "曲の認識を開始してライブラリを構築しましょう",
+    "recognizedAt": "認識日時",
+    "listenOn": "聴く"
+  },
+  "pricing": {
+    "title": "プランを選択",
+    "freeTitle": "無料",
+    "freePrice": "¥0",
+    "freeFeature1": "曲の認識",
+    "freeFeature2": "歌詞表示",
+    "freeFeature3": "1日4回の翻訳",
+    "freeFeature4": "広告あり",
+    "premiumTitle": "プレミアム",
+    "premiumPrice": "¥500",
+    "premiumPriceUnit": "/月",
+    "premiumFeature1": "無料の全機能",
+    "premiumFeature2": "無制限の翻訳",
+    "premiumFeature3": "広告なし",
+    "premiumFeature4": "優先サポート",
+    "currentPlan": "現在のプラン",
+    "upgradeToPremium": "プレミアムにアップグレード",
+    "getStarted": "始める"
+  },
+  "account": {
+    "title": "アカウント設定",
+    "profile": "プロフィール",
+    "subscription": "サブスクリプション",
+    "status": "ステータス",
+    "free": "無料",
+    "premium": "プレミアム",
+    "manageBilling": "請求管理",
+    "upgradeToPremium": "プレミアムにアップグレード",
+    "translationsToday": "本日の翻訳",
+    "of": "/",
+    "unlimited": "無制限"
+  },
+  "player": {
+    "play": "再生",
+    "pause": "一時停止",
+    "volume": "音量",
+    "mute": "ミュート",
+    "unmute": "ミュート解除"
+  },
+  "lyrics": {
+    "original": "原文",
+    "translated": "翻訳",
+    "phonetic": "発音",
+    "loading": "歌詞を読み込み中..."
+  },
+  "ads": {
+    "title": "動画広告",
+    "waitMessage": "{{seconds}}秒お待ちください...",
+    "canClose": "この広告を閉じることができます",
+    "continue": "翻訳へ進む",
+    "skipAd": "広告をスキップ"
+  },
+  "errors": {
+    "recognitionFailed": "認識失敗",
+    "recognitionFailedDescription": "曲を識別できませんでした",
+    "translationFailed": "翻訳失敗",
+    "dailyLimitReached": "1日の制限に達しました",
+    "dailyLimitDescription": "1日の翻訳制限に達しました。無制限アクセスのためにプレミアムにアップグレードしてください。",
+    "loginRequired": "この機能を使用するにはログインしてください"
+  },
+  "success": {
+    "songRecognized": "曲を認識しました！",
+    "translationComplete": "翻訳完了"
+  },
+  "premium": {
+    "banner": "無制限の翻訳と広告なしの体験のためにプレミアムにアップグレード",
+    "upgradeNow": "今すぐアップグレード"
+  },
+  "settings": {
+    "uiLanguage": "アプリの言語",
+    "selectLanguage": "言語を選択",
+    "targetLanguage": "対象言語"
+  },
+  "history": {
+    "recentSongs": "最近の曲"
+  }
+}

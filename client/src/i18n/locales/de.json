@@ -1,0 +1,126 @@
+{
+  "app": {
+    "name": "LyricSync",
+    "tagline": "KI-Musikübersetzung und Phonetisches Lernen"
+  },
+  "nav": {
+    "home": "Startseite",
+    "library": "Bibliothek",
+    "pricing": "Preise",
+    "account": "Konto",
+    "login": "Anmelden",
+    "logout": "Abmelden"
+  },
+  "home": {
+    "title": "Musik Erkennen und Übersetzen",
+    "noSongTitle": "Kein Lied Ausgewählt",
+    "noSongDescription": "Tippen Sie auf die Erkennungsschaltfläche, um ein in der Nähe gespieltes Lied zu identifizieren, oder wählen Sie aus Ihrer letzten Historie",
+    "listening": "Hört zu...",
+    "processing": "Verarbeitet...",
+    "recognizeButton": "Zum Erkennen Tippen",
+    "selectLanguage": "Übersetzungssprache Auswählen",
+    "learningTipsTitle": "Lerntipps",
+    "learningTip1": "• Klicken Sie auf eine beliebige Textzeile, um zu diesem Teil des Liedes zu springen",
+    "learningTip2": "• Verwenden Sie den phonetischen Leitfaden, um die Aussprache zu üben",
+    "learningTip3": "• Wechseln Sie die Sprachen, um Übersetzungen zu vergleichen",
+    "howItWorksTitle": "Wie es Funktioniert",
+    "howItWorksStep1": "Musik von einer beliebigen Quelle in der Nähe abspielen",
+    "howItWorksStep2": "Tippen Sie auf die Mikrofontaste zum Erkennen",
+    "howItWorksStep3": "Wählen Sie Ihre Zielsprache",
+    "howItWorksStep4": "Folgen Sie mit Echtzeitübersetzungen",
+    "howItWorksStep5": "Lernen Sie die Aussprache mit phonetischen Leitfäden"
+  },
+  "mobile": {
+    "search": "Suchen",
+    "menu": "Menü",
+    "lyrics": "Texte",
+    "albumInfo": "Albuminfo",
+    "searchSongs": "Lieder suchen",
+    "swipeHint": "Zum Navigieren wischen"
+  },
+  "library": {
+    "title": "Erkennungsverlauf",
+    "description": "Alle erkannten Lieder anzeigen",
+    "search": "Lieder suchen...",
+    "emptyTitle": "Noch Keine Lieder",
+    "emptyDescription": "Beginnen Sie mit dem Erkennen von Liedern, um Ihre Bibliothek aufzubauen",
+    "recognizedAt": "Erkannt",
+    "listenOn": "Hören auf"
+  },
+  "pricing": {
+    "title": "Wählen Sie Ihren Plan",
+    "freeTitle": "Kostenlos",
+    "freePrice": "0€",
+    "freeFeature1": "Liederkennung",
+    "freeFeature2": "Textanzeige",
+    "freeFeature3": "4 Übersetzungen/Tag",
+    "freeFeature4": "Mit Werbung",
+    "premiumTitle": "Premium",
+    "premiumPrice": "4,99€",
+    "premiumPriceUnit": "/Monat",
+    "premiumFeature1": "Alles in Kostenlos",
+    "premiumFeature2": "Unbegrenzte Übersetzungen",
+    "premiumFeature3": "Werbefreies Erlebnis",
+    "premiumFeature4": "Prioritätssupport",
+    "currentPlan": "Aktueller Plan",
+    "upgradeToPremium": "Auf Premium Upgraden",
+    "getStarted": "Loslegen"
+  },
+  "account": {
+    "title": "Kontoeinstellungen",
+    "profile": "Profil",
+    "subscription": "Abonnement",
+    "status": "Status",
+    "free": "Kostenlos",
+    "premium": "Premium",
+    "manageBilling": "Abrechnung Verwalten",
+    "upgradeToPremium": "Auf Premium Upgraden",
+    "translationsToday": "Übersetzungen Heute",
+    "of": "von",
+    "unlimited": "Unbegrenzt"
+  },
+  "player": {
+    "play": "Abspielen",
+    "pause": "Pause",
+    "volume": "Lautstärke",
+    "mute": "Stumm",
+    "unmute": "Ton An"
+  },
+  "lyrics": {
+    "original": "Original",
+    "translated": "Übersetzt",
+    "phonetic": "Phonetisch",
+    "loading": "Texte werden geladen..."
+  },
+  "ads": {
+    "title": "Videowerbung",
+    "waitMessage": "Bitte warten Sie {{seconds}} Sekunden...",
+    "canClose": "Sie können diese Anzeige jetzt schließen",
+    "continue": "Weiter zur Übersetzung",
+    "skipAd": "Anzeige Überspringen"
+  },
+  "errors": {
+    "recognitionFailed": "Erkennung Fehlgeschlagen",
+    "recognitionFailedDescription": "Lied konnte nicht identifiziert werden",
+    "translationFailed": "Übersetzung Fehlgeschlagen",
+    "dailyLimitReached": "Tageslimit Erreicht",
+    "dailyLimitDescription": "Sie haben Ihr tägliches Übersetzungslimit erreicht. Upgraden Sie auf Premium für unbegrenzten Zugang.",
+    "loginRequired": "Bitte melden Sie sich an, um diese Funktion zu verwenden"
+  },
+  "success": {
+    "songRecognized": "Lied Erkannt!",
+    "translationComplete": "Übersetzung Abgeschlossen"
+  },
+  "premium": {
+    "banner": "Upgraden Sie auf Premium für unbegrenzte Übersetzungen und werbefreies Erlebnis",
+    "upgradeNow": "Jetzt Upgraden"
+  },
+  "settings": {
+    "uiLanguage": "App-Sprache",
+    "selectLanguage": "Sprache Auswählen",
+    "targetLanguage": "Zielsprache"
+  },
+  "history": {
+    "recentSongs": "Kürzlich Gespielt"
+  }
+}

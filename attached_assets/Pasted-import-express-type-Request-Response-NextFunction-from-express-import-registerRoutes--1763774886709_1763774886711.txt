@@ -1,0 +1,143 @@
+import express, { type Request, Response, NextFunction } from "express";
+import { registerRoutes } from "./routes";
+import { setupVite, serveStatic, log } from "./vite";
+import path from "path";
+import fs from "fs";
+
+const app = express();
+
+declare module 'http' {
+  interface IncomingMessage {
+    rawBody: unknown
+  }
+}
+app.use(express.json({
+  limit: '10mb', // Increase limit for audio uploads
+  verify: (req, _res, buf) => {
+    req.rawBody = buf;
+  }
+}));
+app.use(express.urlencoded({ extended: false, limit: '10mb' }));
+
+// --- Corrected CORS Middleware ---
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+
+  const allowedOrigins = [
+    'https://localhost',
+    'http://localhost',
+    'https://lyricsensei.com',
+    'http://lyricsensei.com',
+    'http://10.0.2.2:5000', // Android emulator
+  ];
+
+  // Check if the request origin is in our list or matches a pattern.
+  if (origin && (allowedOrigins.includes(origin) || origin.includes('localhost') || origin.includes('10.0.2.2'))) {
+    // If it is, reflect that specific origin in the header.
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS, HEAD');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept, Origin, X-Requested-With');
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Access-Control-Max-Age', '3600');
+    res.setHeader('Vary', 'Origin');
+  }
+
+  // Always handle preflight (OPTIONS) requests. The browser sends these to check permissions.
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(204);
+  }
+
+  next();
+});
+
+app.use((req, res, next) => {
+  const start = Date.now();
+  const path = req.path;
+  let capturedJsonResponse: Record<string, any> | undefined = undefined;
+
+  const originalResJson = res.json;
+  res.json = function (bodyJson, ...args) {
+    capturedJsonResponse = bodyJson;
+    return originalResJson.apply(res, [bodyJson, ...args]);
+  };
+
+  res.on("finish", () => {
+    const duration = Date.now() - start;
+    if (path.startsWith("/api")) {
+      let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
+      if (capturedJsonResponse) {
+        logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
+      }
+
+      if (logLine.length > 80) {
+        logLine = logLine.slice(0, 79) + "…";
+      }
+
+      log(logLine);
+    }
+  });
+
+  next();
+});
+
+(async () => {
+  const server = await registerRoutes(app);
+
+  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+    const status = err.status || err.statusCode || 500;
+    const message = err.message || "Internal Server Error";
+
+    res.status(status).json({ message });
+    throw err;
+  });
+
+  // importantly only setup vite in development and after
+  // setting up all the other routes so the catch-all route
+  // doesn't interfere with the other routes
+  if (app.get("env") === "development") {
+    await setupVite(app, server);
+  } else {
+    // In production, try multiple possible locations for the built client files
+    const possiblePaths = [
+      path.resolve(import.meta.dirname, "public"),           // If server is at dist/ and client at dist/public/
+      path.resolve(import.meta.dirname, "..", "public"),     // If server is at dist/server/ and client at dist/public/
+      path.resolve(process.cwd(), "dist", "public"),         // Absolute path from workspace root
+      path.resolve(process.cwd(), "public"),                 // If deployment copies to workspace root
+    ];
+    
+    let productionDistPath = "";
+    for (const testPath of possiblePaths) {
+      if (fs.existsSync(testPath) && fs.existsSync(path.join(testPath, "index.html"))) {
+        productionDistPath = testPath;
+        break;
+      }
+    }
+    
+    if (!productionDistPath) {
+      const errorMsg = `Could not find production build directory. Tried:\n${possiblePaths.map(p => `  - ${p}`).join('\n')}\n\nCurrent working directory: ${process.cwd()}\nimport.meta.dirname: ${import.meta.dirname}\n\nMake sure to build the client first with: npm run build`;
+      log(errorMsg, "express");
+      throw new Error(errorMsg);
+    }
+    
+    log(`Serving static files from: ${productionDistPath}`, "express");
+    app.use(express.static(productionDistPath));
+    
+    // Fallback to index.html for client-side routing
+    app.use("*", (_req, res) => {
+      res.sendFile(path.resolve(productionDistPath, "index.html"));
+    });
+  }
+
+  // ALWAYS serve the app on the port specified in the environment variable PORT
+  // Other ports are firewalled. Default to 5000 if not specified.
+  // this serves both the API and the client.
+  // It is the only port that is not firewalled.
+  const port = parseInt(process.env.PORT || '5000', 10);
+  server.listen({
+    port,
+    host: "0.0.0.0",
+    reusePort: true,
+  }, () => {
+    log(`serving on port ${port}`);
+  });
+})();

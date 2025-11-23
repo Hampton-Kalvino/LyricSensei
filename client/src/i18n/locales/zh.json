@@ -1,0 +1,126 @@
+{
+  "app": {
+    "name": "LyricSync",
+    "tagline": "AI音乐翻译和发音学习"
+  },
+  "nav": {
+    "home": "主页",
+    "library": "音乐库",
+    "pricing": "定价",
+    "account": "账户",
+    "login": "登录",
+    "logout": "退出"
+  },
+  "home": {
+    "title": "识别和翻译音乐",
+    "noSongTitle": "未选择歌曲",
+    "noSongDescription": "点击识别按钮识别附近播放的歌曲，或从最近的历史记录中选择",
+    "listening": "正在听...",
+    "processing": "处理中...",
+    "recognizeButton": "点击识别",
+    "selectLanguage": "选择翻译语言",
+    "learningTipsTitle": "学习提示",
+    "learningTip1": "• 点击任何歌词行跳转到歌曲的该部分",
+    "learningTip2": "• 使用发音指南练习发音",
+    "learningTip3": "• 切换语言比较翻译",
+    "howItWorksTitle": "使用方法",
+    "howItWorksStep1": "播放附近任何来源的音乐",
+    "howItWorksStep2": "点击麦克风按钮进行识别",
+    "howItWorksStep3": "选择您的目标语言",
+    "howItWorksStep4": "跟随实时翻译",
+    "howItWorksStep5": "使用发音指南学习发音"
+  },
+  "mobile": {
+    "search": "搜索",
+    "menu": "菜单",
+    "lyrics": "歌词",
+    "albumInfo": "专辑信息",
+    "searchSongs": "搜索歌曲",
+    "swipeHint": "滑动导航"
+  },
+  "library": {
+    "title": "识别历史",
+    "description": "查看所有已识别的歌曲",
+    "search": "搜索歌曲...",
+    "emptyTitle": "还没有歌曲",
+    "emptyDescription": "开始识别歌曲以建立您的音乐库",
+    "recognizedAt": "识别时间",
+    "listenOn": "收听"
+  },
+  "pricing": {
+    "title": "选择您的计划",
+    "freeTitle": "免费",
+    "freePrice": "¥0",
+    "freeFeature1": "歌曲识别",
+    "freeFeature2": "歌词显示",
+    "freeFeature3": "每天4次翻译",
+    "freeFeature4": "含广告",
+    "premiumTitle": "高级版",
+    "premiumPrice": "¥35",
+    "premiumPriceUnit": "/月",
+    "premiumFeature1": "免费版全部功能",
+    "premiumFeature2": "无限翻译",
+    "premiumFeature3": "无广告体验",
+    "premiumFeature4": "优先支持",
+    "currentPlan": "当前计划",
+    "upgradeToPremium": "升级到高级版",
+    "getStarted": "开始使用"
+  },
+  "account": {
+    "title": "账户设置",
+    "profile": "个人资料",
+    "subscription": "订阅",
+    "status": "状态",
+    "free": "免费",
+    "premium": "高级版",
+    "manageBilling": "管理账单",
+    "upgradeToPremium": "升级到高级版",
+    "translationsToday": "今日翻译",
+    "of": "/",
+    "unlimited": "无限"
+  },
+  "player": {
+    "play": "播放",
+    "pause": "暂停",
+    "volume": "音量",
+    "mute": "静音",
+    "unmute": "取消静音"
+  },
+  "lyrics": {
+    "original": "原文",
+    "translated": "翻译",
+    "phonetic": "发音",
+    "loading": "加载歌词中..."
+  },
+  "ads": {
+    "title": "视频广告",
+    "waitMessage": "请等待{{seconds}}秒...",
+    "canClose": "现在可以关闭此广告",
+    "continue": "继续翻译",
+    "skipAd": "跳过广告"
+  },
+  "errors": {
+    "recognitionFailed": "识别失败",
+    "recognitionFailedDescription": "无法识别歌曲",
+    "translationFailed": "翻译失败",
+    "dailyLimitReached": "已达每日限额",
+    "dailyLimitDescription": "您已达到每日翻译限额。升级到高级版以获得无限访问。",
+    "loginRequired": "请登录以使用此功能"
+  },
+  "success": {
+    "songRecognized": "歌曲已识别！",
+    "translationComplete": "翻译完成"
+  },
+  "premium": {
+    "banner": "升级到高级版，享受无限翻译和无广告体验",
+    "upgradeNow": "立即升级"
+  },
+  "settings": {
+    "uiLanguage": "应用语言",
+    "selectLanguage": "选择语言",
+    "targetLanguage": "目标语言"
+  },
+  "history": {
+    "recentSongs": "最近歌曲"
+  }
+}

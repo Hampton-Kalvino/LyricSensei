@@ -1,0 +1,191 @@
+{
+  "app": {
+    "name": "LyricSync",
+    "tagline": "AI Music Translation & Phonetic Learning"
+  },
+  "nav": {
+    "menu": "Menu",
+    "home": "Home",
+    "library": "Library",
+    "pricing": "Pricing",
+    "account": "Account",
+    "login": "Sign In",
+    "logout": "Sign Out"
+  },
+  "pwa": {
+    "installApp": "Install App"
+  },
+  "landing": {
+    "heroTitle": "LyricSync",
+    "heroSubtitle": "AI-Powered Music Translation & Phonetic Learning",
+    "heroDescription": "Recognize songs, translate lyrics in real-time, and learn pronunciation with AI-powered phonetic guides in 13+ languages.",
+    "getStarted": "Get Started",
+    "feature1Title": "Song Recognition",
+    "feature1Description": "Identify any song playing nearby with our AI-powered recognition system",
+    "feature2Title": "Real-Time Translation",
+    "feature2Description": "Translate lyrics into 13+ languages with synchronized playback",
+    "feature3Title": "Phonetic Guides",
+    "feature3Description": "Learn correct pronunciation with detailed phonetic transcriptions",
+    "premiumTitle": "Try Premium Free",
+    "premiumSubtitle": "Unlimited Translations • Ad-Free Experience • Priority Support",
+    "startFreeTrial": "Start Free Trial"
+  },
+  "home": {
+    "title": "Recognize & Translate Music",
+    "noSongTitle": "No Song Selected",
+    "noSongDescription": "Tap the recognition button to identify a song playing nearby, or select from your recent history",
+    "listening": "Listening...",
+    "processing": "Processing...",
+    "recognizeButton": "Tap to Recognize",
+    "selectLanguage": "Select Translation Language",
+    "learningTipsTitle": "Learning Tips",
+    "learningTip1": "• Click any lyric line to jump to that part of the song",
+    "learningTip2": "• Use the phonetic guide to practice pronunciation",
+    "learningTip3": "• Change languages to compare translations",
+    "howItWorks": "How It Works",
+    "step1": "Play music from any source nearby",
+    "step2": "Tap the microphone button to recognize",
+    "step3": "Select your target language and follow along with translations"
+  },
+  "mobile": {
+    "search": "Search",
+    "menu": "Menu",
+    "lyrics": "Lyrics",
+    "albumInfo": "Album Info",
+    "searchSongs": "Search Songs",
+    "swipeHint": "Swipe to navigate"
+  },
+  "library": {
+    "title": "Recognition History",
+    "description": "View all the songs you've recognized",
+    "search": "Search songs...",
+    "emptyTitle": "No Songs Yet",
+    "emptyDescription": "Start recognizing songs to build your library",
+    "recognizedAt": "Recognized",
+    "listenOn": "Listen on"
+  },
+  "pricing": {
+    "title": "Choose Your Plan",
+    "description": "Get the most out of LyricSync with Premium features",
+    "monthly": "Monthly",
+    "yearly": "Yearly",
+    "save": "Save",
+    "billedYearly": "billed yearly",
+    "freeTitle": "Free",
+    "freePrice": "$0",
+    "perMonth": "/month",
+    "freeFeature1": "Song recognition",
+    "freeFeature2": "Real-time lyrics",
+    "freeFeature3": "12+ language translations",
+    "freeFeature4": "Phonetic pronunciation guides",
+    "freeFeature5": "Music player with sync",
+    "premiumTitle": "Premium",
+    "premiumPrice": "$4.99",
+    "premiumPriceUnit": "/month",
+    "popular": "Popular",
+    "premiumFeature1": "Everything in Free",
+    "premiumFeature2": "Ad-free experience",
+    "premiumFeature3": "Unlimited translations",
+    "premiumFeature4": "Priority support",
+    "premiumFeature5": "Offline translations",
+    "premiumFeature6": "Advanced analytics",
+    "currentPlan": "Current Plan",
+    "active": "Active",
+    "upgradeToPremium": "Upgrade to Premium",
+    "getStarted": "Get Started",
+    "footer": "Cancel anytime. No long-term commitments."
+  },
+  "account": {
+    "title": "Account Settings",
+    "description": "Manage your account and subscription",
+    "profile": "Profile",
+    "subscription": "Subscription",
+    "status": "Status",
+    "free": "Free",
+    "premium": "Premium",
+    "email": "Email",
+    "name": "Name",
+    "currentPlan": "Current Plan",
+    "premiumPlan": "Premium - $4.99/month",
+    "nextBillingDate": "Next Billing Date",
+    "billingDateAvailable": "Available after Stripe integration",
+    "manageSubscription": "Manage Subscription",
+    "cancelSubscription": "Cancel Subscription",
+    "loading": "Loading...",
+    "freeUser": "You are currently on the free plan",
+    "freeLimitInfo": "Limited to 4 translations per day with ads",
+    "upgradeToPremium": "Upgrade to Premium",
+    "manageBilling": "Manage Billing",
+    "translationsToday": "Translations Today",
+    "of": "of",
+    "unlimited": "Unlimited",
+    "portalError": "Error",
+    "portalErrorDescription": "Failed to open billing portal. Please try again.",
+    "cancelConfirmation": "Are you sure you want to cancel your premium subscription?"
+  },
+  "player": {
+    "play": "Play",
+    "pause": "Pause",
+    "volume": "Volume",
+    "mute": "Mute",
+    "unmute": "Unmute"
+  },
+  "lyrics": {
+    "original": "Original",
+    "translated": "Translated",
+    "phonetic": "Phonetic",
+    "loading": "Loading lyrics..."
+  },
+  "ads": {
+    "title": "Video Advertisement",
+    "waitMessage": "Please wait {{seconds}} seconds...",
+    "canClose": "You can now close this ad",
+    "continue": "Continue to Translation",
+    "skipAd": "Skip Ad"
+  },
+  "errors": {
+    "recognitionFailed": "Recognition Failed",
+    "recognitionFailedDescription": "Could not identify the song",
+    "translationFailed": "Translation Failed",
+    "dailyLimitReached": "Daily Limit Reached",
+    "dailyLimitDescription": "You've reached your daily translation limit. Upgrade to Premium for unlimited access.",
+    "loginRequired": "Please sign in to use this feature"
+  },
+  "success": {
+    "songRecognized": "Song Recognized!",
+    "translationComplete": "Translation Complete"
+  },
+  "premium": {
+    "banner": "Upgrade to Premium for unlimited translations and ad-free experience",
+    "upgradeNow": "Upgrade Now"
+  },
+  "settings": {
+    "uiLanguage": "App Language",
+    "selectLanguage": "Select Language",
+    "targetLanguage": "Target Language"
+  },
+  "history": {
+    "recentSongs": "Recent Songs"
+  },
+  "checkout": {
+    "title": "Subscribe to Premium",
+    "description": "Upgrade to remove ads and unlock unlimited translations",
+    "preparingCheckout": "Preparing checkout...",
+    "premiumSubscription": "LyricSync Premium",
+    "monthlySubscription": "Monthly subscription",
+    "yearlySubscription": "Yearly subscription",
+    "price": "$4.99",
+    "perMonth": "/month",
+    "submitPayment": "Subscribe to Premium",
+    "processing": "Processing...",
+    "termsAgreement": "By subscribing, you agree to our terms of service.",
+    "cancelAnytime": "Cancel anytime from your account settings.",
+    "alreadySubscribed": "Already Subscribed",
+    "alreadySubscribedDescription": "You already have an active premium subscription!",
+    "paymentFailed": "Payment Failed",
+    "paymentSuccess": "Payment Successful",
+    "paymentSuccessDescription": "Welcome to LyricSync Premium!",
+    "error": "Error",
+    "errorDescription": "Failed to initialize payment. Please try again."
+  }
+}

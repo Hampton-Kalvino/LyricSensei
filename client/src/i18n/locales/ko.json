@@ -1,0 +1,126 @@
+{
+  "app": {
+    "name": "LyricSync",
+    "tagline": "AI 음악 번역 및 발음 학습"
+  },
+  "nav": {
+    "home": "홈",
+    "library": "라이브러리",
+    "pricing": "요금제",
+    "account": "계정",
+    "login": "로그인",
+    "logout": "로그아웃"
+  },
+  "home": {
+    "title": "음악 인식 및 번역",
+    "noSongTitle": "선택된 곡 없음",
+    "noSongDescription": "인식 버튼을 눌러 주변에서 재생 중인 곡을 식별하거나 최근 기록에서 선택하세요",
+    "listening": "듣는 중...",
+    "processing": "처리 중...",
+    "recognizeButton": "탭하여 인식",
+    "selectLanguage": "번역 언어 선택",
+    "learningTipsTitle": "학습 팁",
+    "learningTip1": "• 가사 라인을 클릭하여 해당 부분으로 이동",
+    "learningTip2": "• 발음 가이드를 사용하여 발음 연습",
+    "learningTip3": "• 언어를 변경하여 번역 비교",
+    "howItWorksTitle": "사용 방법",
+    "howItWorksStep1": "주변의 모든 소스에서 음악 재생",
+    "howItWorksStep2": "마이크 버튼을 눌러 인식",
+    "howItWorksStep3": "목표 언어 선택",
+    "howItWorksStep4": "실시간 번역으로 따라가기",
+    "howItWorksStep5": "발음 가이드로 발음 학습"
+  },
+  "mobile": {
+    "search": "검색",
+    "menu": "메뉴",
+    "lyrics": "가사",
+    "albumInfo": "앨범 정보",
+    "searchSongs": "노래 검색",
+    "swipeHint": "스와이프하여 탐색"
+  },
+  "library": {
+    "title": "인식 기록",
+    "description": "인식한 모든 곡 보기",
+    "search": "곡 검색...",
+    "emptyTitle": "아직 곡이 없습니다",
+    "emptyDescription": "곡 인식을 시작하여 라이브러리를 구축하세요",
+    "recognizedAt": "인식 날짜",
+    "listenOn": "듣기"
+  },
+  "pricing": {
+    "title": "요금제 선택",
+    "freeTitle": "무료",
+    "freePrice": "₩0",
+    "freeFeature1": "곡 인식",
+    "freeFeature2": "가사 표시",
+    "freeFeature3": "하루 4회 번역",
+    "freeFeature4": "광고 포함",
+    "premiumTitle": "프리미엄",
+    "premiumPrice": "₩5,900",
+    "premiumPriceUnit": "/월",
+    "premiumFeature1": "무료의 모든 기능",
+    "premiumFeature2": "무제한 번역",
+    "premiumFeature3": "광고 없는 경험",
+    "premiumFeature4": "우선 지원",
+    "currentPlan": "현재 요금제",
+    "upgradeToPremium": "프리미엄으로 업그레이드",
+    "getStarted": "시작하기"
+  },
+  "account": {
+    "title": "계정 설정",
+    "profile": "프로필",
+    "subscription": "구독",
+    "status": "상태",
+    "free": "무료",
+    "premium": "프리미엄",
+    "manageBilling": "결제 관리",
+    "upgradeToPremium": "프리미엄으로 업그레이드",
+    "translationsToday": "오늘의 번역",
+    "of": "/",
+    "unlimited": "무제한"
+  },
+  "player": {
+    "play": "재생",
+    "pause": "일시정지",
+    "volume": "볼륨",
+    "mute": "음소거",
+    "unmute": "음소거 해제"
+  },
+  "lyrics": {
+    "original": "원문",
+    "translated": "번역",
+    "phonetic": "발음",
+    "loading": "가사 로딩 중..."
+  },
+  "ads": {
+    "title": "동영상 광고",
+    "waitMessage": "{{seconds}}초 기다려 주세요...",
+    "canClose": "이제 이 광고를 닫을 수 있습니다",
+    "continue": "번역으로 계속",
+    "skipAd": "광고 건너뛰기"
+  },
+  "errors": {
+    "recognitionFailed": "인식 실패",
+    "recognitionFailedDescription": "곡을 식별할 수 없습니다",
+    "translationFailed": "번역 실패",
+    "dailyLimitReached": "일일 한도 도달",
+    "dailyLimitDescription": "일일 번역 한도에 도달했습니다. 무제한 액세스를 위해 프리미엄으로 업그레이드하세요.",
+    "loginRequired": "이 기능을 사용하려면 로그인하세요"
+  },
+  "success": {
+    "songRecognized": "곡 인식 완료!",
+    "translationComplete": "번역 완료"
+  },
+  "premium": {
+    "banner": "무제한 번역과 광고 없는 경험을 위해 프리미엄으로 업그레이드",
+    "upgradeNow": "지금 업그레이드"
+  },
+  "settings": {
+    "uiLanguage": "앱 언어",
+    "selectLanguage": "언어 선택",
+    "targetLanguage": "대상 언어"
+  },
+  "history": {
+    "recentSongs": "최근 곡"
+  }
+}

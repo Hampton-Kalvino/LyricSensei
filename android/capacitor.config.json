@@ -1,0 +1,21 @@
+{
+  "appId": "com.lyricsensei.app",
+  "appName": "Lyric Sensei",
+  "webDir": "../dist/public",
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 2000,
+      "backgroundColor": "#7c3aed",
+      "showSpinner": false
+    },
+    "SpeechRecognition": {
+      "language": "en-US",
+      "maxResults": 5,
+      "popup": true,
+      "partialResults": true
+    }
+  },
+  "server": {
+    "androidScheme": "https"
+  }
+}

@@ -1,0 +1,126 @@
+{
+  "app": {
+    "name": "LyricSync",
+    "tagline": "Traducción Musical AI y Aprendizaje Fonético"
+  },
+  "nav": {
+    "home": "Inicio",
+    "library": "Biblioteca",
+    "pricing": "Precios",
+    "account": "Cuenta",
+    "login": "Iniciar Sesión",
+    "logout": "Cerrar Sesión"
+  },
+  "home": {
+    "title": "Reconocer y Traducir Música",
+    "noSongTitle": "Ninguna Canción Seleccionada",
+    "noSongDescription": "Toca el botón de reconocimiento para identificar una canción cercana, o selecciona de tu historial reciente",
+    "listening": "Escuchando...",
+    "processing": "Procesando...",
+    "recognizeButton": "Toca para Reconocer",
+    "selectLanguage": "Seleccionar Idioma de Traducción",
+    "learningTipsTitle": "Consejos de Aprendizaje",
+    "learningTip1": "• Haz clic en cualquier línea de letra para saltar a esa parte de la canción",
+    "learningTip2": "• Usa la guía fonética para practicar la pronunciación",
+    "learningTip3": "• Cambia idiomas para comparar traducciones",
+    "howItWorksTitle": "Cómo Funciona",
+    "howItWorksStep1": "Reproduce música de cualquier fuente cercana",
+    "howItWorksStep2": "Toca el botón de micrófono para reconocer",
+    "howItWorksStep3": "Selecciona tu idioma objetivo",
+    "howItWorksStep4": "Sigue con traducciones en tiempo real",
+    "howItWorksStep5": "Aprende pronunciación con guías fonéticas"
+  },
+  "mobile": {
+    "search": "Buscar",
+    "menu": "Menú",
+    "lyrics": "Letras",
+    "albumInfo": "Info del Álbum",
+    "searchSongs": "Buscar Canciones",
+    "swipeHint": "Desliza para navegar"
+  },
+  "library": {
+    "title": "Historial de Reconocimiento",
+    "description": "Ver todas las canciones que has reconocido",
+    "search": "Buscar canciones...",
+    "emptyTitle": "Aún No Hay Canciones",
+    "emptyDescription": "Comienza a reconocer canciones para construir tu biblioteca",
+    "recognizedAt": "Reconocido",
+    "listenOn": "Escuchar en"
+  },
+  "pricing": {
+    "title": "Elige Tu Plan",
+    "freeTitle": "Gratis",
+    "freePrice": "$0",
+    "freeFeature1": "Reconocimiento de canciones",
+    "freeFeature2": "Visualización de letras",
+    "freeFeature3": "4 traducciones/día",
+    "freeFeature4": "Con anuncios",
+    "premiumTitle": "Premium",
+    "premiumPrice": "$4.99",
+    "premiumPriceUnit": "/mes",
+    "premiumFeature1": "Todo en Gratis",
+    "premiumFeature2": "Traducciones ilimitadas",
+    "premiumFeature3": "Sin anuncios",
+    "premiumFeature4": "Soporte prioritario",
+    "currentPlan": "Plan Actual",
+    "upgradeToPremium": "Actualizar a Premium",
+    "getStarted": "Comenzar"
+  },
+  "account": {
+    "title": "Configuración de Cuenta",
+    "profile": "Perfil",
+    "subscription": "Suscripción",
+    "status": "Estado",
+    "free": "Gratis",
+    "premium": "Premium",
+    "manageBilling": "Gestionar Facturación",
+    "upgradeToPremium": "Actualizar a Premium",
+    "translationsToday": "Traducciones Hoy",
+    "of": "de",
+    "unlimited": "Ilimitadas"
+  },
+  "player": {
+    "play": "Reproducir",
+    "pause": "Pausar",
+    "volume": "Volumen",
+    "mute": "Silenciar",
+    "unmute": "Activar Sonido"
+  },
+  "lyrics": {
+    "original": "Original",
+    "translated": "Traducido",
+    "phonetic": "Fonético",
+    "loading": "Cargando letras..."
+  },
+  "ads": {
+    "title": "Anuncio de Video",
+    "waitMessage": "Por favor espera {{seconds}} segundos...",
+    "canClose": "Ahora puedes cerrar este anuncio",
+    "continue": "Continuar a la Traducción",
+    "skipAd": "Saltar Anuncio"
+  },
+  "errors": {
+    "recognitionFailed": "Reconocimiento Fallido",
+    "recognitionFailedDescription": "No se pudo identificar la canción",
+    "translationFailed": "Traducción Fallida",
+    "dailyLimitReached": "Límite Diario Alcanzado",
+    "dailyLimitDescription": "Has alcanzado tu límite diario de traducciones. Actualiza a Premium para acceso ilimitado.",
+    "loginRequired": "Por favor inicia sesión para usar esta función"
+  },
+  "success": {
+    "songRecognized": "¡Canción Reconocida!",
+    "translationComplete": "Traducción Completa"
+  },
+  "premium": {
+    "banner": "Actualiza a Premium para traducciones ilimitadas y experiencia sin anuncios",
+    "upgradeNow": "Actualizar Ahora"
+  },
+  "settings": {
+    "uiLanguage": "Idioma de la Aplicación",
+    "selectLanguage": "Seleccionar Idioma",
+    "targetLanguage": "Idioma Objetivo"
+  },
+  "history": {
+    "recentSongs": "Canciones Recientes"
+  }
+}

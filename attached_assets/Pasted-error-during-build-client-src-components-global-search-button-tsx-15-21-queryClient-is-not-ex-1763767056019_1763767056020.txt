@@ -1,0 +1,20 @@
+error during build:
+client/src/components/global-search-button.tsx (15:21): "queryClient" is not exported by "client/src/lib/queryClient.ts", imported by "client/src/components/global-search-button.tsx".
+file: C:/Users/Dell/Downloads/lyric-sensei-mobile/client/src/components/global-search-button.tsx:15:21
+
+13: import { useLocation } from "wouter";
+14: import { useMutation } from "@tanstack/react-query";
+15: import { apiRequest, queryClient } from "@/lib/queryClient";
+                         ^
+16: import { useToast } from "@/hooks/use-toast";
+17: import type { RecognitionResult } from "@shared/schema";
+
+    at getRollupError (file:///C:/Users/Dell/Downloads/lyric-sensei-mobile/node_modules/rollup/dist/es/shared/parseAst.js:396:41)
+    at error (file:///C:/Users/Dell/Downloads/lyric-sensei-mobile/node_modules/rollup/dist/es/shared/parseAst.js:392:42)    at Module.error (file:///C:/Users/Dell/Downloads/lyric-sensei-mobile/node_modules/rollup/dist/es/shared/node-entry.js:15588:16)
+    at Module.traceVariable (file:///C:/Users/Dell/Downloads/lyric-sensei-mobile/node_modules/rollup/dist/es/shared/node-entry.js:16037:29)
+    at ModuleScope.findVariable (file:///C:/Users/Dell/Downloads/lyric-sensei-mobile/node_modules/rollup/dist/es/shared/node-entry.js:13820:39)
+    at FunctionScope.findVariable (file:///C:/Users/Dell/Downloads/lyric-sensei-mobile/node_modules/rollup/dist/es/shared/node-entry.js:5283:38)
+    at FunctionBodyScope.findVariable (file:///C:/Users/Dell/Downloads/lyric-sensei-mobile/node_modules/rollup/dist/es/shared/node-entry.js:5283:38)
+    at ReturnValueScope.findVariable (file:///C:/Users/Dell/Downloads/lyric-sensei-mobile/node_modules/rollup/dist/es/shared/node-entry.js:5283:38)
+    at FunctionBodyScope.findVariable (file:///C:/Users/Dell/Downloads/lyric-sensei-mobile/node_modules/rollup/dist/es/shared/node-entry.js:5283:38)
+    at MemberExpression.bind (file:///C:/Users/Dell/Downloads/lyric-sensei-mobile/node_modules/rollup/dist/es/shared/node-entry.js:6922:49)
