@@ -1,4 +1,6 @@
 import express, { type Request, Response, NextFunction } from "express";
+import session from "express-session";
+import passport from "passport";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 
@@ -22,7 +24,6 @@ app.use(express.urlencoded({ extended: false, limit: '10mb' }));
 app.use((req, res, next) => {
   const origin = req.headers.origin;
   
-  // Log EVERY incoming request with its origin
   log(`[CORS] ${req.method} ${req.path} | Origin: ${origin || 'NONE'}`);
   
   const allowedOrigins = [
@@ -38,17 +39,13 @@ app.use((req, res, next) => {
     'http://127.0.0.1:5000',
   ];
 
-  // More permissive matching
   let shouldAllow = false;
   
   if (origin) {
-    // Exact match
     if (allowedOrigins.includes(origin)) {
       shouldAllow = true;
       log(`[CORS] ✓ Exact match for: ${origin}`);
-    }
-    // Pattern match
-    else if (
+    } else if (
       origin.includes('localhost') || 
       origin.includes('127.0.0.1') ||
       origin.includes('10.0.2.2') ||
@@ -57,8 +54,7 @@ app.use((req, res, next) => {
     ) {
       shouldAllow = true;
       log(`[CORS] ✓ Pattern match for: ${origin}`);
-    }
-    else {
+    } else {
       log(`[CORS] ✗ BLOCKING: ${origin}`);
     }
     
@@ -67,17 +63,14 @@ app.use((req, res, next) => {
       res.setHeader('Access-Control-Allow-Credentials', 'true');
     }
   } else {
-    // No origin - allow with wildcard
     log(`[CORS] No origin header, using wildcard`);
     res.setHeader('Access-Control-Allow-Origin', '*');
   }
 
-  // ALWAYS set these
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS, HEAD');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept, Origin, X-Requested-With');
   res.setHeader('Access-Control-Max-Age', '86400');
 
-  // Handle preflight
   if (req.method === 'OPTIONS') {
     log(`[CORS] OPTIONS preflight for ${req.path}`);
     return res.status(204).end();
@@ -85,6 +78,24 @@ app.use((req, res, next) => {
 
   next();
 });
+
+// --- SESSION MANAGEMENT ---
+// This is the core of the authentication system.
+app.use(session({
+  secret: process.env.SESSION_SECRET || 'your-default-secret', // IMPORTANT: Set SESSION_SECRET in your .env file
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: process.env.NODE_ENV === 'production', // Use secure cookies in production
+    httpOnly: true,
+    maxAge: 24 * 60 * 60 * 1000, // 24 hours
+  }
+}));
+
+// Initialize Passport and connect it to the session.
+app.use(passport.initialize());
+app.use(passport.session());
+// --- END SESSION MANAGEMENT ---
 
 // Request logging
 app.use((req, res, next) => {
@@ -121,7 +132,7 @@ app.use((req, res, next) => {
 (async () => {
   const server = await registerRoutes(app);
 
-  // Error handler - MUST come after routes but BEFORE Vite
+  // Error handler
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
@@ -141,7 +152,7 @@ app.use((req, res, next) => {
     log(`========================================`);
     log(`✓ Server running on http://0.0.0.0:${PORT}`);
     log(`✓ CORS enabled for Capacitor mobile apps`);
-    log(`✓ Watching for origins containing: localhost, 127.0.0.1, capacitor://`);
+    log(`✓ Session management enabled`);
     log(`========================================`);
   });
 })();

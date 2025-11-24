@@ -1,6 +1,6 @@
 import { Switch, Route, useLocation, Router as WouterRouter } from "wouter";
 import { useHashLocation } from "wouter/use-hash-location";
-import { queryClient } from "./lib/queryClient";
+import { queryClient, setGuestUserId } from "./lib/queryClient"; // Import setGuestUserId
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -25,6 +25,17 @@ import Terms from "@/pages/terms";
 import NotFound from "@/pages/not-found";
 import { Footer } from "@/components/footer";
 import "@/i18n/config";
+
+// --- Guest User Initialization ---
+// On app startup, check for stored guest ID
+function initAuth() {
+  const storedGuestId = localStorage.getItem('guestUserId');
+  if (storedGuestId) {
+    setGuestUserId(storedGuestId);
+  }
+}
+initAuth(); // Run this logic once on app load
+// --- End Guest User Initialization ---
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();

@@ -7,6 +7,19 @@ async function throwIfResNotOk(res: Response) {
   }
 }
 
+// --- Guest User ID Management ---
+let guestUserId: string | null = null;
+
+export function setGuestUserId(id: string) {
+  guestUserId = id;
+}
+
+export function getGuestUserId() {
+  return guestUserId;
+}
+// --- End Guest User ID Management ---
+
+
 // Detect if running in Capacitor (mobile app)
 const isCapacitor = !!(window as any).Capacitor;
 
@@ -34,40 +47,76 @@ export async function apiRequest<T = unknown>(
     ? `${BACKEND_URL}${url}`
     : url;
   
-  const res = await fetch(fullUrl, {
-    method,
-    headers: data ? { "Content-Type": "application/json" } : {},
-    body: data ? JSON.stringify(data) : undefined,
-    credentials: "include",
-  });
+  console.log(`[API Request] ${method} ${fullUrl}`);
+  
+  try {
+    const headers: Record<string, string> = {
+      ...(data ? { "Content-Type": "application/json" } : {}),
+      "Accept": "application/json",
+    };
+    
+    // Add guest ID header if available
+    if (guestUserId) {
+      headers['X-Guest-Id'] = guestUserId;
+    }
 
-  await throwIfResNotOk(res);
-  return await res.json();
+    const res = await fetch(fullUrl, {
+      method,
+      headers,
+      body: data ? JSON.stringify(data) : undefined,
+      credentials: "include",
+      mode: "cors",
+    });
+
+    console.log(`[API Response] ${res.status} ${res.statusText}`);
+    await throwIfResNotOk(res);
+    return await res.json();
+  } catch (error) {
+    console.error(`[API Error] ${method} ${fullUrl}:`, error);
+    throw error;
+  }
 }
 
 type UnauthorizedBehavior = "returnNull" | "throw";
 export const getQueryFn: <T>(options: {
   on401: UnauthorizedBehavior;
-}) => QueryFunction<T> =
+}) => QueryFunction<T> = 
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
     const url = queryKey.join("/") as string;
-    // For Capacitor (Android), use the custom domain
-    // For web browser, use relative URL (same origin)
     const fullUrl = isCapacitor && !url.startsWith("http")
       ? `${BACKEND_URL}${url}`
       : url;
     
-    const res = await fetch(fullUrl, {
-      credentials: "include",
-    });
+    console.log(`[API Request] GET ${fullUrl}`);
+    
+    try {
+      const headers: Record<string, string> = {
+        "Accept": "application/json",
+      };
+      
+      if (guestUserId) {
+        headers['X-Guest-Id'] = guestUserId;
+      }
+      
+      const res = await fetch(fullUrl, {
+        headers,
+        credentials: "include",
+        mode: "cors",
+      });
 
-    if (unauthorizedBehavior === "returnNull" && res.status === 401) {
-      return null;
+      console.log(`[API Response] ${res.status} ${res.statusText}`);
+
+      if (unauthorizedBehavior === "returnNull" && res.status === 401) {
+        return null;
+      }
+
+      await throwIfResNotOk(res);
+      return await res.json();
+    } catch (error) {
+      console.error(`[API Error] GET ${fullUrl}:`, error);
+      throw error;
     }
-
-    await throwIfResNotOk(res);
-    return await res.json();
   };
 
 export const queryClient = new QueryClient({

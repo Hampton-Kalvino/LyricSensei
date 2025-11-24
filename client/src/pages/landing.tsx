@@ -1,9 +1,22 @@
 import { Button } from "@/components/ui/button";
 import { Music2, Globe, Headphones, Star, Music } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { useAuth } from "@/hooks/useAuth"; // Import the useAuth hook
 
 export default function Landing() {
   const { t } = useTranslation();
+  const { loginAsGuest } = useAuth(); // Get the loginAsGuest function
+
+  const handleGuestLogin = async () => {
+    try {
+      await loginAsGuest();
+      // No redirect needed. The app will re-render automatically.
+    } catch (error) {
+      console.error("Failed to log in as guest:", error);
+      // Optionally, show a toast or error message to the user here
+    }
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-background">
       {/* Hero Section */}
@@ -38,10 +51,7 @@ export default function Landing() {
               size="lg"
               className="text-lg"
               variant="outline"
-              onClick={async () => {
-                const response = await fetch("/api/auth/guest", { method: "POST", credentials: "include" });
-                if (response.ok) window.location.href = "/#/";
-              }}
+              onClick={handleGuestLogin} // Use the correct handler
               data-testid="button-guest"
             >
               Continue as Guest
