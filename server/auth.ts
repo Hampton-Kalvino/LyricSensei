@@ -501,8 +501,24 @@ export async function setupNewAuth(app: Express) {
   // Note: /api/auth/user endpoint is defined in routes.ts to handle both authenticated and guest users
 }
 
-// Middleware to check authentication and normalize user ID
+// Middleware to check authentication (supports both session-based and header-based guest auth)
 export const isAuthenticated = (req: Request, res: Response, next: NextFunction) => {
+  // Check for guest ID in headers (for mobile/header-based auth)
+  const guestId = (req.headers as any)['x-guest-id'];
+  if (guestId && typeof guestId === 'string' && guestId.startsWith('guest-')) {
+    // Create a temporary guest user object on req for this request
+    (req as any).user = {
+      id: guestId,
+      email: null,
+      username: 'Guest',
+      isGuest: true,
+      isPremium: false,
+      authProvider: 'guest',
+    };
+    return next();
+  }
+
+  // Check for session-based authentication (Passport)
   if (!req.isAuthenticated() || !req.user) {
     return res.status(401).json({ error: "Authentication required" });
   }

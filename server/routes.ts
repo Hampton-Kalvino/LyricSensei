@@ -6,7 +6,7 @@ import passport from "passport";
 import bcrypt from "bcryptjs";
 import { storage } from "./storage";
 import { batchTranslateLyrics, detectLanguage } from "./azure-translator";
-import { setupAuth, isAuthenticated } from "./replitAuth";
+import { isAuthenticated } from "./auth";
 import { getACRCloudClient } from "./acrcloud";
 import { fetchLyricsFromLrcLib } from "./lrclib";
 import { getTrackDetails } from "./spotify";
