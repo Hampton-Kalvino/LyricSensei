@@ -111,7 +111,21 @@ export default function Home() {
   const { data: translations = [], isLoading: isTranslationsLoading, isError: isTranslationsError, refetch: refetchTranslations } = useQuery<Translation[]>({
     queryKey: ["/api/translations", currentSongId, selectedLanguage],
     queryFn: async () => {
+      // Import needed for guest ID header
+      const { getGuestUserId } = await import('@/lib/queryClient');
+      const guestUserId = getGuestUserId();
+      
+      const headers: Record<string, string> = {
+        "Accept": "application/json",
+      };
+      
+      // Add guest ID header if available
+      if (guestUserId) {
+        headers['X-Guest-Id'] = guestUserId;
+      }
+      
       const response = await fetch(`/api/translations/${currentSongId}/${selectedLanguage}`, {
+        headers,
         credentials: "include",
       });
       

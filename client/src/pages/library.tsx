@@ -359,7 +359,23 @@ function SongLyricsSection({ songId }: { songId: string }) {
   const { data: translations = [], isLoading: isLoadingTranslations } = useQuery<Translation[]>({
     queryKey: [`/api/translations/${songId}`, targetLanguage],
     queryFn: async () => {
-      const response = await fetch(`/api/translations/${songId}/${targetLanguage}`);
+      // Import needed for guest ID header
+      const { getGuestUserId } = await import('@/lib/queryClient');
+      const guestUserId = getGuestUserId();
+      
+      const headers: Record<string, string> = {
+        "Accept": "application/json",
+      };
+      
+      // Add guest ID header if available
+      if (guestUserId) {
+        headers['X-Guest-Id'] = guestUserId;
+      }
+      
+      const response = await fetch(`/api/translations/${songId}/${targetLanguage}`, {
+        headers,
+        credentials: "include",
+      });
       if (!response.ok) throw new Error("Failed to fetch translations");
       return response.json();
     },
