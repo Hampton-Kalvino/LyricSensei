@@ -23,9 +23,9 @@ app.use(express.urlencoded({ extended: false, limit: '10mb' }));
 // --- ENHANCED CORS Middleware with detailed logging ---
 app.use((req, res, next) => {
   const origin = req.headers.origin;
-  
+
   log(`[CORS] ${req.method} ${req.path} | Origin: ${origin || 'NONE'}`);
-  
+
   const allowedOrigins = [
     'https://localhost',
     'http://localhost',
@@ -40,7 +40,7 @@ app.use((req, res, next) => {
   ];
 
   let shouldAllow = false;
-  
+
   if (origin) {
     if (allowedOrigins.includes(origin)) {
       shouldAllow = true;
@@ -50,14 +50,16 @@ app.use((req, res, next) => {
       origin.includes('127.0.0.1') ||
       origin.includes('10.0.2.2') ||
       origin.startsWith('capacitor://') ||
-      origin.startsWith('ionic://')
+      origin.startsWith('ionic://') ||
+      origin.includes('.replit.dev') ||
+      origin.includes('.repl.co')
     ) {
       shouldAllow = true;
       log(`[CORS] ✓ Pattern match for: ${origin}`);
     } else {
       log(`[CORS] ✗ BLOCKING: ${origin}`);
     }
-    
+
     if (shouldAllow) {
       res.setHeader('Access-Control-Allow-Origin', origin);
       res.setHeader('Access-Control-Allow-Credentials', 'true');
@@ -120,7 +122,7 @@ app.use((req, res, next) => {
       if (logLine.length > 80) {
         logLine = logLine.slice(0, 79) + "…";
       }
-      
+
       log(logLine);
     }
   });
