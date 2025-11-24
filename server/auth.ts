@@ -384,24 +384,25 @@ export async function setupNewAuth(app: Express) {
     }
   });
 
-  // Guest mode
+  // Guest mode - simplified for mobile compatibility
   app.post("/api/auth/guest", async (req: Request, res: Response) => {
     try {
-      const guestId = generateId();
-      const guestUser = await storage.createUser({
+      // Generate a simple guest ID without creating a database user
+      const guestId = `guest-${randomBytes(16).toString("hex")}`;
+      
+      // Return the guest user object (matches what frontend expects)
+      const guestUser = {
         id: guestId,
-        email: `guest_${guestId}@lyricsensei.local`,
-        username: `Guest_${Math.random().toString(36).substr(2, 9)}`,
-        authProvider: "guest",
+        email: null,
+        username: 'Guest',
         isGuest: true,
-      });
+        isPremium: false,
+        authProvider: 'guest',
+        createdAt: new Date().toISOString(),
+      };
 
-      req.logIn(guestUser, (err: any) => {
-        if (err) {
-          return res.status(500).json({ error: "Guest login failed" });
-        }
-        res.json({ user: guestUser });
-      });
+      // Don't create session - mobile apps will use header-based auth
+      res.json({ user: guestUser });
     } catch (error) {
       console.error("Guest login error:", error);
       res.status(500).json({ error: "Guest login failed" });
@@ -497,13 +498,7 @@ export async function setupNewAuth(app: Express) {
     });
   });
 
-  // Get current user
-  app.get("/api/auth/user", (req: Request, res: Response) => {
-    if (!req.user) {
-      return res.status(401).json({ error: "Not authenticated" });
-    }
-    res.json(req.user);
-  });
+  // Note: /api/auth/user endpoint is defined in routes.ts to handle both authenticated and guest users
 }
 
 // Middleware to check authentication and normalize user ID

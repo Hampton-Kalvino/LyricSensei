@@ -10,12 +10,33 @@ async function throwIfResNotOk(res: Response) {
 // --- Guest User ID Management ---
 let guestUserId: string | null = null;
 
+// Initialize from localStorage on app load (for persistence)
+if (typeof window !== 'undefined') {
+  const stored = localStorage.getItem('guestUserId');
+  if (stored && stored.startsWith('guest-')) {
+    guestUserId = stored;
+    console.log('[Guest Auth] Loaded guest ID from localStorage:', guestUserId);
+  }
+}
+
 export function setGuestUserId(id: string) {
   guestUserId = id;
+  if (typeof window !== 'undefined') {
+    localStorage.setItem('guestUserId', id);
+    console.log('[Guest Auth] Set guest ID:', id);
+  }
 }
 
 export function getGuestUserId() {
   return guestUserId;
+}
+
+export function clearGuestUserId() {
+  guestUserId = null;
+  if (typeof window !== 'undefined') {
+    localStorage.removeItem('guestUserId');
+    console.log('[Guest Auth] Cleared guest ID');
+  }
 }
 // --- End Guest User ID Management ---
 

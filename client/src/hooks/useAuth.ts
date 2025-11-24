@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { getQueryFn, apiRequest, setGuestUserId } from "@/lib/queryClient";
+import { getQueryFn, apiRequest, setGuestUserId, clearGuestUserId } from "@/lib/queryClient";
 
 interface AuthUser {
   id: string;
@@ -28,8 +28,6 @@ export function useAuth() {
       const response: any = await apiRequest('POST', '/api/auth/guest');
       if (response && response.user) {
         setGuestUserId(response.user.id);
-        // Store in localStorage for persistence
-        localStorage.setItem('guestUserId', response.user.id);
         
         // Invalidate the user query to refetch and update auth state
         await queryClient.invalidateQueries({ queryKey: ['/api/auth/user'] });
@@ -41,10 +39,32 @@ export function useAuth() {
     }
   }
 
+  async function logout() {
+    try {
+      // If authenticated user, call logout endpoint
+      if (user && !user.isGuest) {
+        await apiRequest('POST', '/api/auth/logout');
+      }
+      
+      // Clear guest ID
+      clearGuestUserId();
+      
+      // Clear user query
+      queryClient.setQueryData(['/api/auth/user'], null);
+      
+      // Invalidate to refetch
+      await queryClient.invalidateQueries({ queryKey: ['/api/auth/user'] });
+    } catch (error) {
+      console.error('Logout failed:', error);
+      throw error;
+    }
+  }
+
   return {
     user: user as AuthUser | undefined,
     isLoading,
     isAuthenticated: !!user,
-    loginAsGuest, // Expose the new function
+    loginAsGuest,
+    logout, // Add logout function
   };
 }
