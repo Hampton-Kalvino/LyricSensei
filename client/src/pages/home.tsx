@@ -111,9 +111,23 @@ export default function Home() {
   const { data: translations = [], isLoading: isTranslationsLoading, isError: isTranslationsError, refetch: refetchTranslations } = useQuery<Translation[]>({
     queryKey: ["/api/translations", currentSongId, selectedLanguage],
     queryFn: async () => {
-      // Import needed for guest ID header
+      // Import needed for guest ID header and backend URL
       const { getGuestUserId } = await import('@/lib/queryClient');
       const guestUserId = getGuestUserId();
+      
+      // Detect if running in Capacitor (mobile app)
+      const isCapacitor = !!(window as any).Capacitor;
+      
+      // Get backend URL - use lyricsensei.com for production, same origin for web
+      const getBackendUrl = () => {
+        if (isCapacitor) {
+          return "https://lyricsensei.com";
+        }
+        return window.location.origin;
+      };
+      
+      const backendUrl = getBackendUrl();
+      const url = `${backendUrl}/api/translations/${currentSongId}/${selectedLanguage}`;
       
       const headers: Record<string, string> = {
         "Accept": "application/json",
@@ -124,7 +138,7 @@ export default function Home() {
         headers['X-Guest-Id'] = guestUserId;
       }
       
-      const response = await fetch(`/api/translations/${currentSongId}/${selectedLanguage}`, {
+      const response = await fetch(url, {
         headers,
         credentials: "include",
       });

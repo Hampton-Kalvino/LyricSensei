@@ -359,9 +359,23 @@ function SongLyricsSection({ songId }: { songId: string }) {
   const { data: translations = [], isLoading: isLoadingTranslations } = useQuery<Translation[]>({
     queryKey: [`/api/translations/${songId}`, targetLanguage],
     queryFn: async () => {
-      // Import needed for guest ID header
+      // Import needed for guest ID header and backend URL
       const { getGuestUserId } = await import('@/lib/queryClient');
       const guestUserId = getGuestUserId();
+      
+      // Detect if running in Capacitor (mobile app)
+      const isCapacitor = !!(window as any).Capacitor;
+      
+      // Get backend URL - use lyricsensei.com for production, same origin for web
+      const getBackendUrl = () => {
+        if (isCapacitor) {
+          return "https://lyricsensei.com";
+        }
+        return window.location.origin;
+      };
+      
+      const backendUrl = getBackendUrl();
+      const url = `${backendUrl}/api/translations/${songId}/${targetLanguage}`;
       
       const headers: Record<string, string> = {
         "Accept": "application/json",
@@ -372,7 +386,7 @@ function SongLyricsSection({ songId }: { songId: string }) {
         headers['X-Guest-Id'] = guestUserId;
       }
       
-      const response = await fetch(`/api/translations/${songId}/${targetLanguage}`, {
+      const response = await fetch(url, {
         headers,
         credentials: "include",
       });
