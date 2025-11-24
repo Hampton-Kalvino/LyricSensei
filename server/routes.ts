@@ -35,25 +35,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const { setupNewAuth } = await import("./auth");
   await setupNewAuth(app);
 
-  // New auth endpoint - get current user (updated for new auth system)
+  // Add this after setupAuth(app) call, around line 28
+  await setupAuth(app);
+
+  // Auth endpoint - get current user
   app.get("/api/auth/user", (req: any, res) => {
     if (!req.user) {
       return res.status(401).json({ error: "Not authenticated" });
     }
     res.json(req.user);
-  });
-
-  // OLD - Keep for backward compatibility but won't be used
-  // Auth endpoint - get current user
-  app.get("/api/auth/user-old", isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = (req.user as any).id || (req.user as any).claims?.sub;
-      const user = await storage.getUser(userId);
-      res.json(user);
-    } catch (error) {
-      console.error("Error fetching user:", error);
-      res.status(500).json({ message: "Failed to fetch user" });
-    }
   });
 
   // Update user profile
@@ -110,140 +100,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Google OAuth routes
-  // Initiate Google OAuth
-  app.get('/auth/google', passport.authenticate('google', { 
-    scope: ['profile', 'email'] 
-  }));
-
-  // Google OAuth callback
-  app.get('/api/auth/google/callback', 
-    passport.authenticate('google', { failureRedirect: '/#/auth/login' }),
-    (req: any, res) => {
-      // Redirect to home page after successful login
-      res.redirect('/#/');
-    }
-  );
-
-  // Apple OAuth routes
-  app.get('/auth/apple', passport.authenticate('apple', {
-    scope: ['name', 'email']
-  }));
-
-  app.get('/api/auth/apple/callback',
-    passport.authenticate('apple', { failureRedirect: '/#/auth/login' }),
-    (req: any, res) => {
-      res.redirect('/#/');
-    }
-  );
-
-  // Facebook OAuth routes
-  app.get('/auth/facebook', passport.authenticate('facebook', {
-    scope: ['email', 'public_profile']
-  }));
-
-  app.get('/api/auth/facebook/callback',
-    passport.authenticate('facebook', { failureRedirect: '/#/auth/login' }),
-    (req: any, res) => {
-      res.redirect('/#/');
-    }
-  );
-
-  // Twitter OAuth routes
-  app.get('/auth/twitter', passport.authenticate('twitter'));
-
-  app.get('/api/auth/twitter/callback',
-    passport.authenticate('twitter', { failureRedirect: '/#/auth/login' }),
-    (req: any, res) => {
-      res.redirect('/#/');
-    }
-  );
-
-  // Login route - password-based auth
-  app.post('/api/auth/login', async (req: any, res, next) => {
-    passport.authenticate('local', (err: any, user: any, info: any) => {
-      if (err) {
-        return res.status(500).json({ error: 'Authentication error' });
-      }
-      if (!user) {
-        return res.status(401).json({ error: info?.message || 'Invalid credentials' });
-      }
-      req.logIn(user, (err: any) => {
-        if (err) {
-          return res.status(500).json({ error: 'Login failed' });
-        }
-        res.json({ user });
-      });
-    })(req, res, next);
-  });
-
-  // Signup route
-  app.post('/api/auth/signup', async (req: any, res) => {
-    try {
-      const { email, password, username, firstName, lastName } = req.body;
-
-      if (!email || !password || !username) {
-        return res.status(400).json({ error: 'Email, password, and username are required' });
-      }
-
-      // Check if user already exists
-      const existingUser = await storage.getUserByEmail(email);
-      if (existingUser) {
-        return res.status(409).json({ error: 'Email already registered' });
-      }
-
-      // Hash password
-      const passwordHash = await bcrypt.hash(password, 10);
-
-      // Create user
-      const user = await storage.createUser({
-        id: randomBytes(16).toString('hex'),
-        email,
-        passwordHash,
-        username,
-        firstName,
-        lastName,
-        authProvider: 'password',
-        isGuest: false,
-      });
-
-      // Log in the user
-      req.logIn(user, (err: any) => {
-        if (err) {
-          return res.status(500).json({ error: 'Signup failed' });
-        }
-        res.json({ user });
-      });
-    } catch (error) {
-      console.error('Signup error:', error);
-      res.status(500).json({ error: 'Signup failed' });
-    }
-  });
-
-  // Guest mode route
-  app.post('/api/auth/guest', async (req: any, res) => {
-    try {
-      // Create a guest user
-      const guestUser = await storage.createUser({
-        id: randomBytes(16).toString('hex'),
-        email: `guest-${Date.now()}@lyricsensei.local`,
-        username: `Guest_${Math.random().toString(36).substring(7)}`,
-        authProvider: 'guest',
-        isGuest: true,
-      });
-
-      // Log in the guest user
-      req.logIn(guestUser, (err: any) => {
-        if (err) {
-          return res.status(500).json({ error: 'Guest login failed' });
-        }
-        res.json({ user: guestUser });
-      });
-    } catch (error) {
-      console.error('Guest login error:', error);
-      res.status(500).json({ error: 'Guest login failed' });
-    }
-  });
+  // NOTE: All OAuth routes (Google, Apple, Facebook, Twitter) and auth endpoints
+  // (login, signup, guest) are now handled by setupNewAuth() in server/auth.ts
+  // These duplicate implementations have been removed to prevent conflicts.
 
   // Logout route
   app.post('/api/auth/logout', (req: any, res) => {
