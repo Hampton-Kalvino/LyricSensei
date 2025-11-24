@@ -37,9 +37,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // New auth endpoint - get current user (updated for new auth system)
   app.get("/api/auth/user", (req: any, res) => {
+    // Check for guest ID in headers
+    const guestId = req.headers['x-guest-id'];
+    
+    if (guestId && typeof guestId === 'string' && guestId.startsWith('guest-')) {
+      // Return a guest user object
+      return res.json({
+        id: guestId,
+        email: null,
+        username: 'Guest',
+        isGuest: true,
+        isPremium: false,
+        createdAt: new Date().toISOString(),
+      });
+    }
+    
+    // Check for authenticated user
     if (!req.user) {
       return res.status(401).json({ error: "Not authenticated" });
     }
+    
     res.json(req.user);
   });
 
