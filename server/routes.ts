@@ -538,12 +538,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const songLanguage = song?.detectedLanguage;
         
         try {
+          console.log(`[Translation] Starting translation for ${lyricTexts.length} lines to ${language}`);
+          console.log(`[Translation] Song detected language: ${songLanguage}, First line: "${lyricTexts[0]}"`);
+          
           // Pass song's language as source to prevent Azure from mis-detecting each line
           const translationResults = await batchTranslateLyrics(
             lyricTexts, 
             language, 
             songLanguage && songLanguage !== 'unknown' ? songLanguage : undefined
           );
+          
+          console.log(`[Translation] Got ${translationResults.length} results from Azure`);
           
           translations = translationResults.map((result) => ({
             ...result,
@@ -561,8 +566,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           // Cache translations
           await storage.saveTranslations(songId, language, translations);
+          console.log(`[Translation] Successfully cached ${translations.length} translations`);
         } catch (translationError: any) {
-          console.error("Translation error:", translationError);
+          console.error("[Translation] Azure error:", translationError);
+          console.error("[Translation] Error details:", {
+            message: translationError?.message,
+            status: translationError?.status,
+            response: translationError?.response?.statusText,
+          });
           
           return res.status(503).json({ 
             error: "Translation service is currently unavailable. Please try again later." 

@@ -364,7 +364,22 @@ export class DatabaseStorage implements IStorage {
   }
 
   async checkAndUpdateTranslationLimit(userId: string): Promise<{ allowed: boolean, remaining: number }> {
-    const user = await this.getUser(userId);
+    let user = await this.getUser(userId);
+    
+    // Auto-create guest user if doesn't exist
+    if (!user && userId.startsWith('guest-')) {
+      await db.insert(users).values({
+        id: userId,
+        email: `${userId}@lyricsensei.local`,
+        username: 'Guest',
+        isGuest: true,
+        isPremium: false,
+        authProvider: 'guest',
+      }).onConflictDoNothing();
+      
+      // Fetch the newly created user
+      user = await this.getUser(userId);
+    }
     
     if (!user) {
       return { allowed: false, remaining: 0 };
@@ -470,6 +485,22 @@ export class DatabaseStorage implements IStorage {
 
   // Favorites
   async addFavorite(userId: string, songId: string): Promise<UserFavorite> {
+    // Auto-create guest user if doesn't exist (for foreign key constraint)
+    if (userId.startsWith('guest-')) {
+      const existingUser = await this.getUser(userId);
+      if (!existingUser) {
+        // Auto-create minimal guest user record
+        await db.insert(users).values({
+          id: userId,
+          email: `${userId}@lyricsensei.local`,
+          username: 'Guest',
+          isGuest: true,
+          isPremium: false,
+          authProvider: 'guest',
+        }).onConflictDoNothing();
+      }
+    }
+    
     const [favorite] = await db.insert(userFavorites).values({
       userId,
       songId,
