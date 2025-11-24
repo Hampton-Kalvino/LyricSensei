@@ -494,20 +494,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       if (translations.length === 0) {
-        // Check user authentication - but allow unauthenticated access with limitations
+        // Check user authentication - guest and authenticated users both need to be tracked
         let userId: string | null = null;
-        if (req.isAuthenticated()) {
-          userId = (req.user as any).claims.sub;
-          
-          // Check daily translation limit for free users
+        let isGuestUser = false;
+        
+        // Check for guest ID in headers
+        const guestId = (req.headers as any)['x-guest-id'];
+        if (guestId && typeof guestId === 'string' && guestId.startsWith('guest-')) {
+          userId = guestId;
+          isGuestUser = true;
+        } else if (req.isAuthenticated()) {
+          userId = (req.user as any).id || (req.user as any).claims?.sub;
+          isGuestUser = false;
+        }
+        
+        if (userId) {
+          // Check daily translation limit for free users and ALL guests
           const limitCheck = await storage.checkAndUpdateTranslationLimit(userId!);
           
           if (!limitCheck.allowed) {
-            return res.status(429).json({ 
-              error: "Daily translation limit reached. Upgrade to Premium for unlimited translations!",
-              dailyLimitReached: true,
-              remaining: 0
-            });
+            if (isGuestUser) {
+              return res.status(403).json({ 
+                error: "Daily translation limit reached. Create an account to continue translating!",
+                dailyLimitReached: true,
+                remaining: 0,
+                requiresUpgrade: true
+              });
+            } else {
+              return res.status(429).json({ 
+                error: "Daily translation limit reached. Upgrade to Premium for unlimited translations!",
+                dailyLimitReached: true,
+                remaining: 0
+              });
+            }
           }
         }
 
@@ -611,12 +630,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const validated = recognizeSongRequestSchema.parse(req.body);
       
-      // Check user authentication
-      if (!req.isAuthenticated()) {
+      // Check for guest ID in headers (for mobile/header-based auth)
+      const guestId = (req.headers as any)['x-guest-id'];
+      if (!guestId && !req.isAuthenticated()) {
         return res.status(401).json({ error: "Authentication required" });
       }
 
-      const userId = (req.user as any).claims.sub;
+      // Get user ID (works for both guest and authenticated users)
+      const userId = guestId || (req.user as any).id || (req.user as any).claims?.sub;
       
       // Use ACRCloud for real song recognition
       try {
@@ -796,11 +817,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get user recognition history
   app.get("/api/recognition-history", async (req, res) => {
     try {
-      if (!req.isAuthenticated()) {
+      // Check for guest ID in headers (for mobile/header-based auth)
+      const guestId = (req.headers as any)['x-guest-id'];
+      if (!guestId && !req.isAuthenticated()) {
         return res.status(401).json({ error: "Authentication required" });
       }
 
-      const userId = (req.user as any).id || (req.user as any).claims?.sub;
+      // Get user ID (works for both guest and authenticated users)
+      const userId = guestId || (req.user as any).id || (req.user as any).claims?.sub;
       const limit = parseInt(req.query.limit as string) || 50;
       
       const history = await storage.getUserRecognitionHistory(userId, limit);
