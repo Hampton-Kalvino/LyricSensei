@@ -340,6 +340,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = (req.user as any).id || (req.user as any).claims?.sub;
 
       console.log('[Manual Select] Creating song:', title, 'by', artist);
+      console.log('[Manual Select] User ID:', userId);
+
+      // Ensure guest users exist in database before saving recognition history
+      if (userId && typeof userId === 'string' && userId.startsWith('guest-')) {
+        console.log('[Manual Select] Ensuring guest user exists in database');
+        await storage.upsertUser({
+          id: userId,
+          email: `${userId}@lyricsensei.local`,
+          username: userId,
+          isPremium: false,
+          profileImageUrl: null,
+          firstName: null,
+          lastName: null,
+          country: null,
+          dailyTranslationCount: 0,
+          isGuest: true,
+          authProvider: 'guest',
+        });
+        console.log('[Manual Select] Guest user ensured in database');
+      }
 
       // Find or create song in database
       const song = await storage.findOrCreateSongByMetadata(
