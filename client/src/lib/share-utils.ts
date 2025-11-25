@@ -61,20 +61,9 @@ export async function generateStoryCard(
         align-items: center;
         gap: 50px;
       ">
-        <!-- Logo at top -->
-        <img 
-          src="/lyric-sensei-logo.png" 
-          style="
-            width: 100px;
-            height: 100px;
-            object-fit: contain;
-            filter: drop-shadow(0 8px 24px rgba(102, 126, 234, 0.4));
-          "
-          crossorigin="anonymous"
-        />
-
-        <!-- Album Art -->
+        <!-- Album Art with Logo Overlay (Tidal-style) -->
         <div style="
+          position: relative;
           width: 650px;
           height: 650px;
           border-radius: 30px;
@@ -87,6 +76,25 @@ export async function generateStoryCard(
               width: 100%;
               height: 100%;
               object-fit: cover;
+            "
+            crossorigin="anonymous"
+          />
+          
+          <!-- Logo overlay on top-left corner -->
+          <img 
+            src="/lyric-sensei-logo.png" 
+            style="
+              position: absolute;
+              top: 20px;
+              left: 20px;
+              width: 80px;
+              height: 80px;
+              object-fit: contain;
+              background: rgba(255,255,255,0.95);
+              border-radius: 12px;
+              padding: 8px;
+              box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+              z-index: 10;
             "
             crossorigin="anonymous"
           />
@@ -239,50 +247,78 @@ export async function generateStoryCardCanvas(
 
         ctx.shadowColor = 'transparent';
 
-        // Load logo image and continue drawing
+        // Draw album art with rounded corners
+        const artSize = 650;
+        const artX = (1080 - artSize) / 2;
+        const artY = cardY + 80;
+
+        ctx.save();
+        const artRadius = 30;
+        ctx.beginPath();
+        ctx.moveTo(artX + artRadius, artY);
+        ctx.lineTo(artX + artSize - artRadius, artY);
+        ctx.quadraticCurveTo(artX + artSize, artY, artX + artSize, artY + artRadius);
+        ctx.lineTo(artX + artSize, artY + artSize - artRadius);
+        ctx.quadraticCurveTo(artX + artSize, artY + artSize, artX + artSize - artRadius, artY + artSize);
+        ctx.lineTo(artX + artRadius, artY + artSize);
+        ctx.quadraticCurveTo(artX, artY + artSize, artX, artY + artSize - artRadius);
+        ctx.lineTo(artX, artY + artRadius);
+        ctx.quadraticCurveTo(artX, artY, artX + artRadius, artY);
+        ctx.closePath();
+        ctx.clip();
+
+        ctx.drawImage(img, artX, artY, artSize, artSize);
+        ctx.restore();
+
+        // Load and draw logo image on top-left corner (like Tidal)
         const logoImg = new Image();
         logoImg.crossOrigin = 'anonymous';
         
-        const drawLogo = () => {
+        const drawWithLogo = () => {
           try {
-            // Draw logo image at top
-            const logoCenterX = 540;
-            const logoCenterY = cardY + 100;
-            const logoSize = 100;
-            
-            ctx.drawImage(
-              logoImg,
-              logoCenterX - logoSize / 2,
-              logoCenterY - logoSize / 2,
-              logoSize,
-              logoSize
-            );
+            // Draw white rounded background for logo (top-left corner)
+            const logoBgX = artX + 20;
+            const logoBgY = artY + 20;
+            const logoBgSize = 96;
+            const logoBgRadius = 12;
+
+            ctx.fillStyle = 'rgba(255,255,255,0.95)';
+            ctx.shadowColor = 'rgba(0,0,0,0.3)';
+            ctx.shadowBlur = 16;
+            ctx.shadowOffsetX = 0;
+            ctx.shadowOffsetY = 4;
+
+            ctx.beginPath();
+            ctx.moveTo(logoBgX + logoBgRadius, logoBgY);
+            ctx.lineTo(logoBgX + logoBgSize - logoBgRadius, logoBgY);
+            ctx.quadraticCurveTo(logoBgX + logoBgSize, logoBgY, logoBgX + logoBgSize, logoBgY + logoBgRadius);
+            ctx.lineTo(logoBgX + logoBgSize, logoBgY + logoBgSize - logoBgRadius);
+            ctx.quadraticCurveTo(logoBgX + logoBgSize, logoBgY + logoBgSize, logoBgX + logoBgSize - logoBgRadius, logoBgY + logoBgSize);
+            ctx.lineTo(logoBgX + logoBgRadius, logoBgY + logoBgSize);
+            ctx.quadraticCurveTo(logoBgX, logoBgY + logoBgSize, logoBgX, logoBgY + logoBgSize - logoBgRadius);
+            ctx.lineTo(logoBgX, logoBgY + logoBgRadius);
+            ctx.quadraticCurveTo(logoBgX, logoBgY, logoBgX + logoBgRadius, logoBgY);
+            ctx.closePath();
+            ctx.fill();
+
+            ctx.shadowColor = 'transparent';
+
+            // Draw logo image
+            if (logoImg.complete && logoImg.naturalWidth > 0) {
+              const logoPadding = 8;
+              ctx.drawImage(
+                logoImg,
+                logoBgX + logoPadding,
+                logoBgY + logoPadding,
+                logoBgSize - logoPadding * 2,
+                logoBgSize - logoPadding * 2
+              );
+            }
           } catch (e) {
-            // Logo failed to load, continue without it
+            console.error('[Share] Logo draw error:', e);
           }
 
-          // Draw album art
-          const artSize = 650;
-          const artX = (1080 - artSize) / 2;
-          const artY = cardY + 180;
-
-          ctx.save();
-          const artRadius = 30;
-          ctx.beginPath();
-          ctx.moveTo(artX + artRadius, artY);
-          ctx.lineTo(artX + artSize - artRadius, artY);
-          ctx.quadraticCurveTo(artX + artSize, artY, artX + artSize, artY + artRadius);
-          ctx.lineTo(artX + artSize, artY + artSize - artRadius);
-          ctx.quadraticCurveTo(artX + artSize, artY + artSize, artX + artSize - artRadius, artY + artSize);
-          ctx.lineTo(artX + artRadius, artY + artSize);
-          ctx.quadraticCurveTo(artX, artY + artSize, artX, artY + artSize - artRadius);
-          ctx.lineTo(artX, artY + artRadius);
-          ctx.quadraticCurveTo(artX, artY, artX + artRadius, artY);
-          ctx.closePath();
-          ctx.clip();
-
-          ctx.drawImage(img, artX, artY, artSize, artSize);
-          ctx.restore();
+          // Continue with text
 
           // Text content
           ctx.textAlign = 'center';
@@ -326,8 +362,8 @@ export async function generateStoryCardCanvas(
           );
         };
 
-        logoImg.onload = drawLogo;
-        logoImg.onerror = drawLogo;
+        logoImg.onload = drawWithLogo;
+        logoImg.onerror = drawWithLogo;
         logoImg.src = '/lyric-sensei-logo.png';
       } catch (error) {
         reject(error);
