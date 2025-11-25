@@ -677,35 +677,98 @@ function splitIntoSyllables(phonetic: string): string {
   const syllabifiedWords = words.map(word => {
     if (word.length <= 2) return word; // Don't split very short words
     
-    let result = word;
-    
     // All recognized vowel sounds (including nasal vowels from French)
-    const vowelPattern = 'ahn|ohn|an|yan|wah|ah|eh|ee|oh|oo|ay|oy|ow|weh|wah|woh|yeh|yah|yoh|uh';
+    // Order by length (longest first) to match correctly
+    const vowelSounds = ['ahn', 'ohn', 'yan', 'wah', 'woh', 'weh', 'yeh', 'yah', 'yoh', 'ehn', 'uan',
+                          'ah', 'eh', 'ee', 'oh', 'oo', 'ay', 'oy', 'ow', 'uh', 'an', 'on'];
     
-    // Match pattern: (vowel sound) + (consonants) + (vowel sound)
-    // Break before the last consonant if there's a cluster, or before the consonant if single
-    const syllableRegex = new RegExp(`(${vowelPattern})([bcdfghjklmnpqrstvwxz]+)(${vowelPattern})`, 'gi');
+    const syllables: string[] = [];
+    let currentSyllable = '';
+    let i = 0;
     
-    result = result.replace(syllableRegex, (match, v1, cons, v2) => {
-      // Handle digraphs (ch, rr, ny, sh, zh) - keep them together
-      if (cons.length > 1) {
-        // Check for digraphs at the end
-        if (cons.endsWith('ch') || cons.endsWith('rr') || cons.endsWith('ny') || 
-            cons.endsWith('sh') || cons.endsWith('zh')) {
-          return `${v1}-${cons}${v2}`;
+    while (i < word.length) {
+      // Try to match a vowel sound (longest first)
+      let foundVowel = false;
+      for (const vowelSound of vowelSounds) {
+        if (word.substring(i).toLowerCase().startsWith(vowelSound)) {
+          // If we already have consonants from the end of last vowel, start new syllable
+          if (currentSyllable && !currentSyllable.match(/[aeiouhs]$/i)) {
+            // Current syllable ends with consonants, need to split
+            syllables.push(currentSyllable);
+            currentSyllable = vowelSound;
+          } else if (currentSyllable) {
+            // Add to current syllable
+            currentSyllable += vowelSound;
+          } else {
+            // Start new syllable with vowel
+            currentSyllable = vowelSound;
+          }
+          i += vowelSound.length;
+          foundVowel = true;
+          break;
         }
-        // Check for digraphs at the start
-        if (cons.startsWith('ch') || cons.startsWith('sh') || cons.startsWith('zh')) {
-          return `${v1}-${cons}${v2}`;
-        }
-        // Split before last consonant for regular clusters
-        return `${v1}${cons.slice(0, -1)}-${cons.slice(-1)}${v2}`;
       }
-      // Single consonant goes with following vowel
-      return `${v1}-${cons}${v2}`;
-    });
+      
+      if (!foundVowel) {
+        // It's a consonant
+        // Check for digraphs
+        const digraphs = ['ch', 'sh', 'zh', 'rr', 'ny', 'ph', 'th', 'gh', 'nk', 'ks'];
+        let foundDigraph = false;
+        
+        for (const digraph of digraphs) {
+          if (word.substring(i).toLowerCase().startsWith(digraph)) {
+            // If syllable has vowel and consonants, might need to split
+            if (currentSyllable && currentSyllable.match(/[aeiouhs]$/i)) {
+              // Syllable ends with vowel, add digraph to current syllable
+              currentSyllable += digraph;
+            } else if (currentSyllable) {
+              // Syllable ends with consonants, might be coda or onset
+              // Check if it's likely a coda (m, n, ng at end)
+              if (currentSyllable.match(/(m|n|ng|t|d|r|s|x|z)$/i)) {
+                // Keep with current syllable
+                currentSyllable += digraph;
+              } else {
+                // Start new syllable
+                syllables.push(currentSyllable);
+                currentSyllable = digraph;
+              }
+            } else {
+              currentSyllable = digraph;
+            }
+            i += digraph.length;
+            foundDigraph = true;
+            break;
+          }
+        }
+        
+        if (!foundDigraph) {
+          // Single consonant
+          const consonant = word[i];
+          if (currentSyllable && currentSyllable.match(/[aeiouhs]$/i)) {
+            // Syllable ends with vowel, add consonant
+            currentSyllable += consonant;
+          } else if (currentSyllable) {
+            // Syllable ends with consonants - might need split
+            if (currentSyllable.match(/(m|n|ng|t|d|r|s|x|z)$/i)) {
+              currentSyllable += consonant;
+            } else {
+              syllables.push(currentSyllable);
+              currentSyllable = consonant;
+            }
+          } else {
+            currentSyllable = consonant;
+          }
+          i += 1;
+        }
+      }
+    }
     
-    return result;
+    // Add final syllable
+    if (currentSyllable) {
+      syllables.push(currentSyllable);
+    }
+    
+    return syllables.join('-');
   });
   
   return syllabifiedWords.join(' ');

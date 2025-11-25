@@ -47,6 +47,11 @@ I prefer iterative development with clear communication on significant changes. 
 - **Lyric Timing & Scrolling**: Absolute time positioning and container-based scrolling with IntersectionObserver for center detection.
 - **Album Artwork**: Fetched from Spotify API with fallback.
 
+## Recent Fixes & Improvements
+
+### Fixed Issues
+- **French & Spanish Phonetic Spelling (Nov 25, 2025)**: Fixed bug where French and Spanish words were being spelled letter-by-letter instead of pronounced as whole words. Root cause was `splitIntoSyllables` function using regex that only matched vowel→consonants→vowel patterns, missing edge cases. Replaced with character-by-character state machine algorithm that properly handles digraphs, nasal vowels, and edge cases. Now correctly syllabifies: "bonjour"→"bon-zhoor", "hola"→"oh-lah".
+
 ## External Dependencies
 - **ACRCloud**: Music recognition service.
 - **Azure Translator**: Microsoft Cognitive Services for translation and transliteration.
