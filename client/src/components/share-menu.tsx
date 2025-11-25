@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Share2, Instagram, Facebook, Twitter, MessageCircle, Send, Copy, X } from "lucide-react";
+import { useState, useRef } from "react";
+import { Share2, Instagram, Facebook, Twitter, MessageCircle, Send, Copy, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Popover,
@@ -15,7 +15,14 @@ import {
   shareToTelegram,
   copyShareLink,
   isMobileDevice,
+  generateShareUrl,
 } from "@/lib/social-share";
+import {
+  generateStoryImageFromComponent,
+  shareStoryToNativeApps,
+  canShareStories,
+} from "@/lib/story-generator";
+import { StoryCard } from "@/components/story-card";
 import type { Song } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -38,10 +45,62 @@ export function ShareMenu({
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
+  const storyCardRef = useRef<HTMLDivElement>(null);
+
+  const handleShareStory = async () => {
+    if (!storyCardRef.current) {
+      toast({
+        title: "Error",
+        description: "Failed to generate story",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsLoading("story");
+    try {
+      // Generate high-quality story image
+      const imageDataUrl = await generateStoryImageFromComponent(
+        storyCardRef.current,
+        { quality: 0.95, pixelRatio: 2 }
+      );
+
+      // Share to native apps
+      const success = await shareStoryToNativeApps(
+        imageDataUrl,
+        song.title,
+        song.artist,
+        generateShareUrl(song.id)
+      );
+
+      if (success) {
+        toast({
+          title: "Shared!",
+          description: "Story shared to your apps",
+        });
+      }
+
+      setOpen(false);
+      onShareComplete?.();
+    } catch (error) {
+      console.error("Failed to share story:", error);
+      toast({
+        title: "Share failed",
+        description: "Could not share story. Try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(null);
+    }
+  };
 
   const handleShare = async (
-    platform: "native" | "instagram" | "facebook" | "twitter" | "whatsapp" | "telegram" | "copy"
+    platform: "native" | "instagram" | "facebook" | "twitter" | "whatsapp" | "telegram" | "copy" | "story"
   ) => {
+    if (platform === "story") {
+      await handleShareStory();
+      return;
+    }
     setIsLoading(platform);
     try {
       switch (platform) {
@@ -112,7 +171,32 @@ export function ShareMenu({
       </PopoverTrigger>
 
       <PopoverContent className="w-auto p-2" align="end">
+        {/* Hidden story card for image generation */}
+        <div style={{ position: "absolute", left: "-9999px", top: "-9999px" }}>
+          <StoryCard
+            ref={storyCardRef}
+            song={song}
+            userName="User"
+          />
+        </div>
+
         <div className="grid grid-cols-3 gap-2">
+          {/* Share Story (mobile only) */}
+          {canShareStories() && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="flex flex-col items-center gap-1 h-auto py-2 px-2"
+              onClick={() => handleShare("story")}
+              disabled={isLoading !== null}
+              data-testid="button-share-story"
+              title="Share as story"
+            >
+              <Sparkles className="h-4 w-4" />
+              <span className="text-xs">Story</span>
+            </Button>
+          )}
+
           {/* Native Share (uses device's native share sheet) */}
           <Button
             variant="ghost"

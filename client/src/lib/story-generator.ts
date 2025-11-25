@@ -1,3 +1,4 @@
+import { toPng } from "html-to-image";
 import type { Song } from "@shared/schema";
 import logoImage from "@assets/ChatGPT Image Nov 5, 2025, 05_37_31 PM_1762887933822.png";
 
@@ -146,4 +147,95 @@ function wrapText(
   }
 
   return lines;
+}
+
+/**
+ * Generate story image from React component using html-to-image
+ * High quality output for Instagram/Snapchat stories
+ */
+export async function generateStoryImageFromComponent(
+  cardElement: HTMLDivElement,
+  options?: {
+    quality?: number;
+    pixelRatio?: number;
+  }
+): Promise<string> {
+  if (!cardElement) {
+    throw new Error("Card element not found");
+  }
+
+  try {
+    const dataUrl = await toPng(cardElement, {
+      quality: options?.quality ?? 0.95,
+      pixelRatio: options?.pixelRatio ?? 2,
+      width: 1080,
+      height: 1920,
+      cacheBust: true,
+    });
+
+    return dataUrl;
+  } catch (error) {
+    console.error("Failed to generate story image:", error);
+    throw new Error("Failed to generate story image");
+  }
+}
+
+/**
+ * Convert data URL to blob for sharing
+ */
+export async function dataUrlToBlob(dataUrl: string): Promise<Blob> {
+  const response = await fetch(dataUrl);
+  return response.blob();
+}
+
+/**
+ * Check if device supports story sharing
+ */
+export function canShareStories(): boolean {
+  if (typeof window === "undefined") return false;
+
+  const isAndroid = /Android/.test(navigator.userAgent);
+  const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
+
+  return isAndroid || isIOS;
+}
+
+/**
+ * Share story image to native apps using Web Share API
+ */
+export async function shareStoryToNativeApps(
+  imageDataUrl: string,
+  songTitle: string,
+  artist: string,
+  shareUrl: string
+): Promise<boolean> {
+  try {
+    if (!navigator.share) {
+      console.log("Web Share API not available");
+      return false;
+    }
+
+    // Convert data URL to blob
+    const blob = await dataUrlToBlob(imageDataUrl);
+    const file = new File([blob], `story-${Date.now()}.png`, {
+      type: "image/png",
+    });
+
+    // Use Web Share API with file
+    await navigator.share({
+      title: `${songTitle} - ${artist}`,
+      text: `Check out "${songTitle}" by ${artist} on Lyric Sensei!`,
+      url: shareUrl,
+      files: [file],
+    });
+
+    return true;
+  } catch (error) {
+    if ((error as Error).name === "AbortError") {
+      console.log("Share cancelled");
+      return false;
+    }
+    console.error("Share failed:", error);
+    throw error;
+  }
 }

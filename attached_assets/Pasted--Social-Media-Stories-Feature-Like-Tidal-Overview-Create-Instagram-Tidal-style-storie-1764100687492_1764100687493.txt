@@ -1,0 +1,870 @@
+# 📱 Social Media Stories Feature (Like Tidal)
+
+## Overview
+
+Create Instagram/Tidal-style stories where users can share:
+- Currently playing song
+- Lyrics with album art
+- Practice achievements
+- Song discoveries
+
+---
+
+## 🎯 Features to Implement
+
+### Core Features
+1. ✅ Share current song to Instagram Stories
+2. ✅ Share to Snapchat
+3. ✅ Share to Twitter/X
+4. ✅ Generate beautiful story cards
+5. ✅ Copy track link
+6. ✅ In-app stories feed (optional)
+
+---
+
+## 🏗️ Architecture
+
+### Components Needed
+
+```
+1. Story Generator - Creates visual card
+2. Share Sheet - Native sharing
+3. Story Preview - Before sharing
+4. Stories Feed - In-app timeline (optional)
+5. Deep Links - Handle incoming shares
+```
+
+---
+
+## ✅ Implementation
+
+### Step 1: Install Required Packages
+
+```bash
+# Capacitor plugins
+npm install @capacitor/share
+npm install @capacitor/filesystem
+npm install @capacitor/social-sharing  # For advanced sharing
+npm install html-to-image  # Generate images from components
+
+# Sync
+npx cap sync android
+npx cap sync ios
+```
+
+### Step 2: Create Story Card Component
+
+```tsx
+// client/src/components/StoryCard.tsx
+
+import { useRef } from 'react';
+import { toPng } from 'html-to-image';
+import { Share } from '@capacitor/share';
+import { Filesystem, Directory } from '@capacitor/filesystem';
+
+interface StoryCardProps {
+  songTitle: string;
+  artistName: string;
+  albumArtwork: string;
+  lyricText?: string;
+  userId: string;
+  userName: string;
+}
+
+export function StoryCard({
+  songTitle,
+  artistName,
+  albumArtwork,
+  lyricText,
+  userId,
+  userName
+}: StoryCardProps) {
+  const cardRef = useRef<HTMLDivElement>(null);
+
+  const generateStoryImage = async () => {
+    if (!cardRef.current) return null;
+
+    try {
+      // Convert component to PNG
+      const dataUrl = await toPng(cardRef.current, {
+        quality: 1.0,
+        pixelRatio: 2, // High resolution
+        width: 1080,   // Instagram Story size
+        height: 1920
+      });
+
+      // Convert to base64
+      const base64Data = dataUrl.split(',')[1];
+
+      // Save to filesystem
+      const fileName = `story-${Date.now()}.png`;
+      const savedFile = await Filesystem.writeFile({
+        path: fileName,
+        data: base64Data,
+        directory: Directory.Cache
+      });
+
+      return savedFile.uri;
+    } catch (error) {
+      console.error('Failed to generate story image:', error);
+      throw error;
+    }
+  };
+
+  return (
+    <div
+      ref={cardRef}
+      className="story-card"
+      style={{
+        width: '1080px',
+        height: '1920px',
+        position: 'relative',
+        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        fontFamily: 'system-ui, -apple-system, sans-serif'
+      }}
+    >
+      {/* Background with album art (blurred) */}
+      <div
+        style={{
+          position: 'absolute',
+          inset: 0,
+          backgroundImage: `url(${albumArtwork})`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          filter: 'blur(40px) brightness(0.4)',
+          opacity: 0.8
+        }}
+      />
+
+      {/* Content */}
+      <div
+        style={{
+          position: 'relative',
+          height: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'space-between',
+          padding: '80px 60px'
+        }}
+      >
+        {/* Top: App branding */}
+        <div style={{ textAlign: 'center' }}>
+          <div style={{
+            fontSize: '48px',
+            fontWeight: 'bold',
+            color: 'white',
+            letterSpacing: '2px'
+          }}>
+            LYRIC SENSEI
+          </div>
+          <div style={{
+            fontSize: '32px',
+            color: 'rgba(255,255,255,0.7)',
+            marginTop: '10px'
+          }}>
+            Learn lyrics in any language
+          </div>
+        </div>
+
+        {/* Middle: Album art + song info */}
+        <div style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: '40px'
+        }}>
+          {/* Album artwork */}
+          <img
+            src={albumArtwork}
+            alt={songTitle}
+            style={{
+              width: '600px',
+              height: '600px',
+              borderRadius: '24px',
+              objectFit: 'cover',
+              boxShadow: '0 30px 60px rgba(0,0,0,0.5)'
+            }}
+          />
+
+          {/* Song info */}
+          <div style={{
+            textAlign: 'center',
+            maxWidth: '900px'
+          }}>
+            <div style={{
+              fontSize: '72px',
+              fontWeight: 'bold',
+              color: 'white',
+              marginBottom: '20px',
+              lineHeight: 1.2
+            }}>
+              {songTitle}
+            </div>
+            <div style={{
+              fontSize: '48px',
+              color: 'rgba(255,255,255,0.8)'
+            }}>
+              {artistName}
+            </div>
+          </div>
+
+          {/* Lyric (if provided) */}
+          {lyricText && (
+            <div style={{
+              background: 'rgba(255,255,255,0.15)',
+              backdropFilter: 'blur(10px)',
+              padding: '40px',
+              borderRadius: '16px',
+              maxWidth: '900px',
+              textAlign: 'center'
+            }}>
+              <div style={{
+                fontSize: '44px',
+                color: 'white',
+                fontStyle: 'italic',
+                lineHeight: 1.5
+              }}>
+                "{lyricText}"
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Bottom: User info */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '20px'
+        }}>
+          <div style={{
+            fontSize: '36px',
+            color: 'rgba(255,255,255,0.9)'
+          }}>
+            Shared by @{userName}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+```
+
+### Step 3: Create Share Sheet Component
+
+```tsx
+// client/src/components/ShareSheet.tsx
+
+import { useState } from 'react';
+import { Share } from '@capacitor/share';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Instagram, MessageCircle, Twitter, Link2, MoreHorizontal } from 'lucide-react';
+import { StoryCard } from './StoryCard';
+
+interface ShareSheetProps {
+  open: boolean;
+  onClose: () => void;
+  songTitle: string;
+  artistName: string;
+  albumArtwork: string;
+  songUrl: string;
+  currentLyric?: string;
+}
+
+export function ShareSheet({
+  open,
+  onClose,
+  songTitle,
+  artistName,
+  albumArtwork,
+  songUrl,
+  currentLyric
+}: ShareSheetProps) {
+  const [isGenerating, setIsGenerating] = useState(false);
+  const cardRef = useRef<any>(null);
+
+  const shareToInstagram = async () => {
+    try {
+      setIsGenerating(true);
+
+      // Generate story image
+      const imageUri = await cardRef.current?.generateStoryImage();
+      
+      if (!imageUri) {
+        throw new Error('Failed to generate image');
+      }
+
+      // Instagram Stories deep link
+      const instagramUrl = `instagram-stories://share?source_application=${YOUR_FB_APP_ID}`;
+      
+      // Use Share API with image
+      await Share.share({
+        title: `${songTitle} - ${artistName}`,
+        text: `Listening to ${songTitle} by ${artistName} on Lyric Sensei`,
+        url: songUrl,
+        files: [imageUri],
+        dialogTitle: 'Share to Instagram Stories'
+      });
+
+      onClose();
+    } catch (error) {
+      console.error('Failed to share to Instagram:', error);
+      toast({
+        title: 'Share Failed',
+        description: 'Could not share to Instagram Stories',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const shareToSnapchat = async () => {
+    try {
+      setIsGenerating(true);
+
+      const imageUri = await cardRef.current?.generateStoryImage();
+
+      // Snapchat deep link
+      const snapchatUrl = `snapchat://share?text=${encodeURIComponent(`${songTitle} - ${artistName}`)}`;
+      
+      await Share.share({
+        files: [imageUri],
+        dialogTitle: 'Share to Snapchat'
+      });
+
+      onClose();
+    } catch (error) {
+      console.error('Failed to share to Snapchat:', error);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const shareToTwitter = async () => {
+    try {
+      const text = `🎵 Now listening to "${songTitle}" by ${artistName} on @LyricSensei\n\n${songUrl}`;
+      
+      const twitterUrl = `twitter://post?text=${encodeURIComponent(text)}`;
+      
+      // Try Twitter app, fallback to browser
+      window.location.href = twitterUrl;
+      
+      setTimeout(() => {
+        window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`, '_blank');
+      }, 500);
+
+      onClose();
+    } catch (error) {
+      console.error('Failed to share to Twitter:', error);
+    }
+  };
+
+  const copyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(songUrl);
+      
+      toast({
+        title: 'Link Copied!',
+        description: 'Song link copied to clipboard'
+      });
+
+      onClose();
+    } catch (error) {
+      console.error('Failed to copy link:', error);
+    }
+  };
+
+  const shareMore = async () => {
+    try {
+      await Share.share({
+        title: songTitle,
+        text: `Check out ${songTitle} by ${artistName}`,
+        url: songUrl,
+        dialogTitle: 'Share Song'
+      });
+
+      onClose();
+    } catch (error) {
+      console.error('Failed to share:', error);
+    }
+  };
+
+  return (
+    <>
+      {/* Hidden story card for image generation */}
+      <div style={{ position: 'absolute', left: '-9999px', top: '-9999px' }}>
+        <StoryCard
+          ref={cardRef}
+          songTitle={songTitle}
+          artistName={artistName}
+          albumArtwork={albumArtwork}
+          lyricText={currentLyric}
+          userId={user?.id || ''}
+          userName={user?.username || 'Guest'}
+        />
+      </div>
+
+      <Dialog open={open} onOpenChange={onClose}>
+        <DialogContent className="max-w-md">
+          <div className="space-y-2">
+            <h2 className="text-xl font-semibold mb-4">Share with anyone</h2>
+            <p className="text-sm text-muted-foreground mb-6">
+              Music shared from Lyric Sensei can be opened on other services
+            </p>
+
+            {/* Share options */}
+            <Button
+              variant="ghost"
+              className="w-full justify-start h-16 text-base"
+              onClick={shareToInstagram}
+              disabled={isGenerating}
+            >
+              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 via-pink-500 to-orange-500 flex items-center justify-center mr-3">
+                <Instagram className="h-5 w-5 text-white" />
+              </div>
+              Instagram Stories
+            </Button>
+
+            <Button
+              variant="ghost"
+              className="w-full justify-start h-16 text-base"
+              onClick={shareToSnapchat}
+              disabled={isGenerating}
+            >
+              <div className="w-10 h-10 rounded-full bg-yellow-400 flex items-center justify-center mr-3">
+                <MessageCircle className="h-5 w-5 text-white" />
+              </div>
+              Snapchat
+            </Button>
+
+            <Button
+              variant="ghost"
+              className="w-full justify-start h-16 text-base"
+              onClick={shareToTwitter}
+            >
+              <div className="w-10 h-10 rounded-full bg-blue-400 flex items-center justify-center mr-3">
+                <Twitter className="h-5 w-5 text-white" />
+              </div>
+              Twitter
+            </Button>
+
+            <Button
+              variant="ghost"
+              className="w-full justify-start h-16 text-base"
+              onClick={copyLink}
+            >
+              <div className="w-10 h-10 rounded-full bg-teal-500 flex items-center justify-center mr-3">
+                <Link2 className="h-5 w-5 text-white" />
+              </div>
+              Copy track link
+            </Button>
+
+            <Button
+              variant="ghost"
+              className="w-full justify-start h-16 text-base"
+              onClick={shareMore}
+            >
+              <div className="w-10 h-10 rounded-full bg-gray-600 flex items-center justify-center mr-3">
+                <MoreHorizontal className="h-5 w-5 text-white" />
+              </div>
+              More
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+```
+
+### Step 4: Add Share Button to UI
+
+```tsx
+// client/src/pages/home.tsx
+
+import { useState } from 'react';
+import { Share2 } from 'lucide-react';
+import { ShareSheet } from '@/components/ShareSheet';
+
+export default function Home() {
+  const [showShareSheet, setShowShareSheet] = useState(false);
+
+  return (
+    <div>
+      {/* Header with share button */}
+      <header className="flex items-center justify-between p-4">
+        <div className="flex items-center gap-3">
+          <img src={albumArtwork} className="w-16 h-16 rounded-lg" />
+          <div>
+            <h1 className="font-bold">{songTitle}</h1>
+            <p className="text-sm text-muted-foreground">{artistName}</p>
+          </div>
+        </div>
+
+        {/* Share button */}
+        <Button
+          size="icon"
+          variant="ghost"
+          onClick={() => setShowShareSheet(true)}
+        >
+          <Share2 className="h-5 w-5" />
+        </Button>
+      </header>
+
+      {/* Share Sheet */}
+      <ShareSheet
+        open={showShareSheet}
+        onClose={() => setShowShareSheet(false)}
+        songTitle={songTitle}
+        artistName={artistName}
+        albumArtwork={albumArtwork}
+        songUrl={`https://lyricsensei.com/song/${songId}`}
+        currentLyric={currentLyric}
+      />
+    </div>
+  );
+}
+```
+
+---
+
+## 🎨 Story Templates
+
+### Template 1: Now Playing
+
+```tsx
+<div style={{
+  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+  // ... album art + song info
+}}>
+```
+
+### Template 2: Lyric Highlight
+
+```tsx
+<div style={{
+  background: `url(${albumArtwork})`,
+  filter: 'blur(20px)',
+  // ... large lyric text overlay
+}}>
+```
+
+### Template 3: Practice Achievement
+
+```tsx
+<div style={{
+  background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+  // ... "I mastered 50 words!" + trophy icon
+}}>
+```
+
+### Template 4: Song Discovery
+
+```tsx
+<div style={{
+  background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
+  // ... "Just discovered this song!" + album art
+}}>
+```
+
+---
+
+## 📱 Platform-Specific Implementation
+
+### iOS Configuration
+
+```xml
+<!-- ios/App/App/Info.plist -->
+<key>LSApplicationQueriesSchemes</key>
+<array>
+    <string>instagram-stories</string>
+    <string>snapchat</string>
+    <string>twitter</string>
+</array>
+
+<key>NSPhotoLibraryAddUsageDescription</key>
+<string>Save your story to share on social media</string>
+```
+
+### Android Configuration
+
+```xml
+<!-- android/app/src/main/AndroidManifest.xml -->
+<queries>
+    <package android:name="com.instagram.android" />
+    <package android:name="com.snapchat.android" />
+    <package android:name="com.twitter.android" />
+</queries>
+
+<uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+```
+
+---
+
+## 🔗 Deep Links (Handle Incoming Shares)
+
+```typescript
+// server/routes.ts
+
+// Deep link route
+app.get('/song/:songId', async (req, res) => {
+  const { songId } = req.params;
+  
+  // Fetch song data
+  const song = await db.query.songs.findFirst({
+    where: eq(songs.id, songId)
+  });
+
+  if (!song) {
+    return res.status(404).send('Song not found');
+  }
+
+  // If mobile app installed, open in app
+  // Otherwise, show web page
+  res.send(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta property="og:title" content="${song.title}" />
+      <meta property="og:description" content="Listen to ${song.title} by ${song.artist}" />
+      <meta property="og:image" content="${song.albumArtwork}" />
+      <meta property="og:url" content="https://lyricsensei.com/song/${songId}" />
+      
+      <!-- App deep link -->
+      <script>
+        window.location = 'lyricsensei://song/${songId}';
+        setTimeout(() => {
+          window.location = '/song/${songId}'; // Fallback to web
+        }, 500);
+      </script>
+    </head>
+    <body>
+      <h1>${song.title}</h1>
+      <p>By ${song.artist}</p>
+      <img src="${song.albumArtwork}" />
+    </body>
+    </html>
+  `);
+});
+```
+
+### Register Deep Link Scheme
+
+```json
+// capacitor.config.json
+{
+  "appId": "com.lyricsensei.app",
+  "appName": "Lyric Sensei",
+  "plugins": {
+    "App": {
+      "schemes": ["lyricsensei"]
+    }
+  }
+}
+```
+
+---
+
+## 🎯 Optional: In-App Stories Feed
+
+Create your own stories feature (like Instagram):
+
+```tsx
+// client/src/components/StoriesFeed.tsx
+
+import { useState, useEffect } from 'react';
+import { Avatar } from '@/components/ui/avatar';
+
+interface Story {
+  id: string;
+  userId: string;
+  userName: string;
+  userAvatar: string;
+  songId: string;
+  songTitle: string;
+  imageUrl: string;
+  createdAt: Date;
+  viewed: boolean;
+}
+
+export function StoriesFeed() {
+  const [stories, setStories] = useState<Story[]>([]);
+
+  useEffect(() => {
+    fetchStories();
+  }, []);
+
+  const fetchStories = async () => {
+    const response = await fetch('/api/stories/feed');
+    const data = await response.json();
+    setStories(data);
+  };
+
+  return (
+    <div className="flex gap-4 p-4 overflow-x-auto">
+      {/* Your story */}
+      <button className="flex flex-col items-center gap-2">
+        <div className="relative">
+          <Avatar className="w-16 h-16 border-2 border-dashed border-primary">
+            <AvatarImage src={user?.avatar} />
+          </Avatar>
+          <div className="absolute bottom-0 right-0 bg-primary rounded-full p-1">
+            <Plus className="h-3 w-3 text-white" />
+          </div>
+        </div>
+        <span className="text-xs">Your story</span>
+      </button>
+
+      {/* Friends' stories */}
+      {stories.map((story) => (
+        <button
+          key={story.id}
+          className="flex flex-col items-center gap-2"
+          onClick={() => viewStory(story)}
+        >
+          <Avatar className={cn(
+            "w-16 h-16 border-2",
+            story.viewed 
+              ? "border-gray-400" 
+              : "border-primary border-3"
+          )}>
+            <AvatarImage src={story.userAvatar} />
+          </Avatar>
+          <span className="text-xs truncate w-16">
+            {story.userName}
+          </span>
+        </button>
+      ))}
+    </div>
+  );
+}
+```
+
+---
+
+## 💾 Backend: Store Stories
+
+```typescript
+// server/routes.ts
+
+// Create story
+app.post('/api/stories', async (req, res) => {
+  const { songId, imageUrl } = req.body;
+  const userId = req.user.id;
+
+  const story = await db.insert(stories).values({
+    userId,
+    songId,
+    imageUrl,
+    createdAt: new Date(),
+    expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000) // 24 hours
+  });
+
+  res.json(story);
+});
+
+// Get stories feed
+app.get('/api/stories/feed', async (req, res) => {
+  const userId = req.user.id;
+
+  // Get stories from friends (last 24 hours)
+  const stories = await db.query.stories.findMany({
+    where: and(
+      gt(stories.expiresAt, new Date()),
+      inArray(stories.userId, friendIds)
+    ),
+    orderBy: desc(stories.createdAt),
+    with: {
+      user: true,
+      song: true
+    }
+  });
+
+  res.json(stories);
+});
+```
+
+---
+
+## 🎨 Story Customization Options
+
+Allow users to customize their story:
+
+```tsx
+<div className="story-editor">
+  {/* Background style picker */}
+  <div className="flex gap-2">
+    <button onClick={() => setBg('gradient1')}>🌈</button>
+    <button onClick={() => setBg('gradient2')}>🎨</button>
+    <button onClick={() => setBg('blurred')}>📷</button>
+  </div>
+
+  {/* Text style */}
+  <div className="flex gap-2">
+    <button onClick={() => setTextStyle('bold')}>B</button>
+    <button onClick={() => setTextStyle('italic')}>I</button>
+  </div>
+
+  {/* Add stickers */}
+  <div className="flex gap-2">
+    <button onClick={() => addSticker('🎵')}>🎵</button>
+    <button onClick={() => addSticker('💫')}>💫</button>
+    <button onClick={() => addSticker('🔥')}>🔥</button>
+  </div>
+</div>
+```
+
+---
+
+## 📊 Analytics
+
+Track shares:
+
+```typescript
+// Track when user shares
+const trackShare = async (platform: string, songId: string) => {
+  await fetch('/api/analytics/share', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      platform,
+      songId,
+      userId: user?.id,
+      timestamp: Date.now()
+    })
+  });
+};
+```
+
+---
+
+## ✅ Implementation Checklist
+
+- [ ] Install Capacitor Share plugin
+- [ ] Create StoryCard component
+- [ ] Create ShareSheet component
+- [ ] Add share button to UI
+- [ ] Configure iOS/Android deep links
+- [ ] Test Instagram Stories sharing
+- [ ] Test Snapchat sharing
+- [ ] Test Twitter sharing
+- [ ] Add copy link functionality
+- [ ] Create deep link handler
+- [ ] Add OG meta tags for previews
+- [ ] (Optional) Build in-app stories feed
+- [ ] (Optional) Add story customization
+- [ ] Track analytics
+
+---
+
+## 🎯 Expected Results
+
+- ✅ Users can share to Instagram Stories with one tap
+- ✅ Beautiful, branded story cards
+- ✅ Deep links bring users back to app
+- ✅ Viral growth through social sharing
+- ✅ Track which songs are shared most
+
+**This will make your app go viral on social media!** 📱✨
