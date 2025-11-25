@@ -24,7 +24,7 @@ I prefer iterative development with clear communication on significant changes. 
 - **Monetization**: Stripe for subscriptions and a custom ad system for free users.
 - **Translation Service**: Azure Translator API with OpenAI (GPT-4o-mini) fallback for specific languages.
 - **Pronunciation Assessment**: Azure Speech Services for professional-grade scoring, utilizing a hybrid cost model (browser Web Speech API for free tier, hybrid browser/Azure for premium) and smart caching for cost optimization.
-- **Mobile Share**: Web Share API with Instagram integration.
+- **Social Media Sharing**: Native mobile share sheet for Instagram, Facebook, Twitter, WhatsApp, and Telegram integration via Web Share API. Desktop web share dialog opens social media share URLs. Implemented via `ShareMenu` component with platform detection and fallback mechanisms.
 - **Native App (Capacitor)**: Hybrid web/native app for Android and iOS using Capacitor for native speech APIs and app store distribution. Uses `@capacitor-community/text-to-speech` for TTS and `@capacitor-community/speech-recognition` for native speech recognition.
 - **Speech Recognition**: Dual-platform implementation with automatic detection - uses Web Speech API on web browsers and native Capacitor speech recognition on mobile (Android/iOS).
 - **Core Features**:
@@ -33,7 +33,7 @@ I prefer iterative development with clear communication on significant changes. 
     - **Search Functionality**: Multi-location search system.
     - **Real-Time Lyrics**: Synchronized, auto-scrolling, karaoke-style display with translations and phonetic guides, supporting scroll-based highlighting.
     - **Favorites System**: Users can mark and manage favorite songs.
-    - **Social Sharing**: Generates shareable Instagram/Facebook Story images.
+    - **Social Sharing**: One-click sharing to Instagram, Facebook, Twitter, WhatsApp, Telegram, and direct link copy. Uses native mobile share sheet on mobile devices and opens web share dialogs on desktop. ShareMenu component provides easy 7-option popover interface.
     - **Freemium Model**: Daily translation limits for free users, unlimited for premium.
     - **Recognition History**: Tracks previously recognized songs.
     - **Phonetic Guide System**: Rule-based converters and Azure transliteration for various languages, including mixed-language cleanup and syllable separation.
@@ -55,6 +55,10 @@ I prefer iterative development with clear communication on significant changes. 
 
 ### New Features & Implementations
 - **Capacitor Native Speech Recognition (Nov 25, 2025)**: Implemented `@capacitor-community/speech-recognition` plugin for mobile platforms. Added platform-aware architecture in `lyric-display.tsx` that automatically detects native (Android/iOS) vs web environments. Split speech handling into `handleWebSpeech` (Web Speech API for browsers) and `handleCapacitorSpeech` (native Capacitor API for mobile). Mobile implementation includes permission checking, 10-second listening window, partial results tracking, and identical accuracy scoring/auto-advance logic. Fixes mobile speech recognition glitches and enables native microphone access.
+
+- **Landscape Orientation Support (Nov 25, 2025)**: Added responsive mobile layout for landscape orientation. Portrait mode maintains 4-row vertical header; landscape mode switches to left sidebar icon navigation (w-20) with compact single-row header featuring language selector, song info, search, mic, share, and favorite buttons all in one row. Uses `orientationchange` and `resize` event listeners for automatic detection. Works seamlessly on both portrait and landscape iPhone/Android devices.
+
+- **Native Social Media Sharing (Nov 25, 2025)**: Implemented comprehensive social sharing system (`social-share.ts` utility + `ShareMenu.tsx` component). Supports Instagram, Facebook, Twitter, WhatsApp, and Telegram with platform-aware detection. Mobile devices use Web Share API's native share sheet; web browsers use direct share URLs. ShareMenu provides 7-option popover: Native Share, Instagram, Facebook, Twitter, WhatsApp, Telegram, and Copy Link. Generates shareable text with song title, artist, and link to share page.
 
 ## External Dependencies
 - **ACRCloud**: Music recognition service.

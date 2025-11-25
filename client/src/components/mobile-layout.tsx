@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Music2, Menu, Info, Music, Heart, Share2, Globe, Search, Mic } from "lucide-react";
+import { Music2, Menu, Info, Music, Heart, Globe, Search, Mic } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,6 +9,7 @@ import { SongMetadata } from "@/components/song-metadata";
 import { LyricDisplay } from "@/components/lyric-display";
 import { RecognitionHistory } from "@/components/recognition-history";
 import { SongSearch } from "@/components/song-search";
+import { ShareMenu } from "@/components/share-menu";
 import { useSwipeable } from "react-swipeable";
 import {
   Sheet,
@@ -91,38 +92,6 @@ export function MobileLayout({
     };
   }, []);
 
-  const handleShare = async () => {
-    if (!currentSong) return;
-    
-    const shareUrl = `${window.location.origin}/share/${currentSong.id}`;
-    const shareText = `Check out "${currentSong.title}" by ${currentSong.artist} on LyricSync!`;
-    
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: `${currentSong.title} - ${currentSong.artist}`,
-          text: shareText,
-          url: shareUrl,
-        });
-      } catch (error) {
-        console.log("Share cancelled");
-      }
-    } else {
-      try {
-        await navigator.clipboard.writeText(shareUrl);
-        toast({
-          title: "Link copied!",
-          description: "Share link copied to clipboard",
-        });
-      } catch (error) {
-        toast({
-          title: "Error",
-          description: "Failed to copy link",
-          variant: "destructive",
-        });
-      }
-    }
-  };
 
   const handleFavoriteToggle = () => {
     if (!currentSong || !onToggleFavorite) return;
@@ -421,15 +390,12 @@ export function MobileLayout({
                     size="sm"
                     data-testid="button-recognize-header"
                   />
-                  <Button
-                    size="icon"
+                  <ShareMenu
+                    song={currentSong}
                     variant="ghost"
-                    onClick={handleShare}
+                    size="sm"
                     className="h-8 w-8 flex-shrink-0"
-                    data-testid="button-share-mobile"
-                  >
-                    <Share2 className="h-4 w-4" />
-                  </Button>
+                  />
                   {onToggleFavorite && (
                     <Button
                       size="icon"
@@ -492,15 +458,12 @@ export function MobileLayout({
                   </p>
                 </div>
                 <div className="flex items-center gap-1 flex-shrink-0">
-                  <Button
-                    size="icon"
+                  <ShareMenu
+                    song={currentSong}
                     variant="ghost"
-                    onClick={handleShare}
+                    size="icon"
                     className="h-9 w-9"
-                    data-testid="button-share-mobile"
-                  >
-                    <Share2 className="h-4 w-4" />
-                  </Button>
+                  />
                   {onToggleFavorite && (
                     <Button
                       size="icon"
