@@ -62,21 +62,16 @@ export async function generateStoryCard(
         gap: 50px;
       ">
         <!-- Logo at top -->
-        <div style="
-          width: 80px;
-          height: 80px;
-          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-          border-radius: 50%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          box-shadow: 0 8px 24px rgba(102, 126, 234, 0.4);
-        ">
-          <svg width="50" height="50" viewBox="0 0 50 50" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <!-- Music note icon -->
-            <path d="M25 5C25 5 10 12 10 25C10 35 17 40 25 40C33 40 40 35 40 25C40 12 25 5 25 5M27 15V30C27 33 25 35 22 35C19 35 17 33 17 30C17 27 19 25 22 25V15H27Z" fill="white" stroke="white" stroke-width="2" stroke-linejoin="round"/>
-          </svg>
-        </div>
+        <img 
+          src="/lyric-sensei-logo.png" 
+          style="
+            width: 100px;
+            height: 100px;
+            object-fit: contain;
+            filter: drop-shadow(0 8px 24px rgba(102, 126, 234, 0.4));
+          "
+          crossorigin="anonymous"
+        />
 
         <!-- Album Art -->
         <div style="
@@ -244,95 +239,96 @@ export async function generateStoryCardCanvas(
 
         ctx.shadowColor = 'transparent';
 
-        // Draw logo circle at top (purple gradient circle with music note)
-        const logoCenterX = 540;
-        const logoCenterY = cardY + 100;
-        const logoRadius = 40;
+        // Load logo image and continue drawing
+        const logoImg = new Image();
+        logoImg.crossOrigin = 'anonymous';
+        
+        const drawLogo = () => {
+          try {
+            // Draw logo image at top
+            const logoCenterX = 540;
+            const logoCenterY = cardY + 100;
+            const logoSize = 100;
+            
+            ctx.drawImage(
+              logoImg,
+              logoCenterX - logoSize / 2,
+              logoCenterY - logoSize / 2,
+              logoSize,
+              logoSize
+            );
+          } catch (e) {
+            // Logo failed to load, continue without it
+          }
 
-        const logoGradient = ctx.createLinearGradient(
-          logoCenterX - logoRadius,
-          logoCenterY - logoRadius,
-          logoCenterX + logoRadius,
-          logoCenterY + logoRadius
-        );
-        logoGradient.addColorStop(0, '#667eea');
-        logoGradient.addColorStop(1, '#764ba2');
-        ctx.fillStyle = logoGradient;
+          // Draw album art
+          const artSize = 650;
+          const artX = (1080 - artSize) / 2;
+          const artY = cardY + 180;
 
-        ctx.beginPath();
-        ctx.arc(logoCenterX, logoCenterY, logoRadius, 0, Math.PI * 2);
-        ctx.fill();
+          ctx.save();
+          const artRadius = 30;
+          ctx.beginPath();
+          ctx.moveTo(artX + artRadius, artY);
+          ctx.lineTo(artX + artSize - artRadius, artY);
+          ctx.quadraticCurveTo(artX + artSize, artY, artX + artSize, artY + artRadius);
+          ctx.lineTo(artX + artSize, artY + artSize - artRadius);
+          ctx.quadraticCurveTo(artX + artSize, artY + artSize, artX + artSize - artRadius, artY + artSize);
+          ctx.lineTo(artX + artRadius, artY + artSize);
+          ctx.quadraticCurveTo(artX, artY + artSize, artX, artY + artSize - artRadius);
+          ctx.lineTo(artX, artY + artRadius);
+          ctx.quadraticCurveTo(artX, artY, artX + artRadius, artY);
+          ctx.closePath();
+          ctx.clip();
 
-        // Draw music note inside logo circle
-        ctx.fillStyle = 'white';
-        ctx.font = 'bold 50px system-ui';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText('♪', logoCenterX, logoCenterY);
+          ctx.drawImage(img, artX, artY, artSize, artSize);
+          ctx.restore();
 
-        // Draw album art
-        const artSize = 650;
-        const artX = (1080 - artSize) / 2;
-        const artY = cardY + 180;
+          // Text content
+          ctx.textAlign = 'center';
+          ctx.shadowColor = 'transparent';
 
-        ctx.save();
-        const artRadius = 30;
-        ctx.beginPath();
-        ctx.moveTo(artX + artRadius, artY);
-        ctx.lineTo(artX + artSize - artRadius, artY);
-        ctx.quadraticCurveTo(artX + artSize, artY, artX + artSize, artY + artRadius);
-        ctx.lineTo(artX + artSize, artY + artSize - artRadius);
-        ctx.quadraticCurveTo(artX + artSize, artY + artSize, artX + artSize - artRadius, artY + artSize);
-        ctx.lineTo(artX + artRadius, artY + artSize);
-        ctx.quadraticCurveTo(artX, artY + artSize, artX, artY + artSize - artRadius);
-        ctx.lineTo(artX, artY + artRadius);
-        ctx.quadraticCurveTo(artX, artY, artX + artRadius, artY);
-        ctx.closePath();
-        ctx.clip();
+          // Song title
+          ctx.fillStyle = '#1a1a1a';
+          ctx.font = 'bold 56px system-ui';
+          const titleY = artY + artSize + 80;
+          const lines = songTitle.length > 25 ? songTitle.match(/.{1,25}/g) || [] : [songTitle];
+          lines.slice(0, 2).forEach((line, i) => {
+            ctx.fillText(line, 540, titleY + i * 70);
+          });
 
-        ctx.drawImage(img, artX, artY, artSize, artSize);
-        ctx.restore();
+          // Artist name
+          ctx.fillStyle = '#666666';
+          ctx.font = '600 40px system-ui';
+          ctx.fillText(artistName, 540, titleY + (lines.length * 70) + 60);
 
-        // Text content
-        ctx.textAlign = 'center';
-        ctx.shadowColor = 'transparent';
+          // CTA text
+          ctx.fillStyle = '#667eea';
+          ctx.font = 'bold 36px system-ui';
+          ctx.fillText('Download Lyric Sensei', 540, cardY + cardHeight - 120);
 
-        // Song title
-        ctx.fillStyle = '#1a1a1a';
-        ctx.font = 'bold 56px system-ui';
-        const titleY = artY + artSize + 80;
-        const lines = songTitle.length > 25 ? songTitle.match(/.{1,25}/g) || [] : [songTitle];
-        lines.slice(0, 2).forEach((line, i) => {
-          ctx.fillText(line, 540, titleY + i * 70);
-        });
+          ctx.fillStyle = '#999999';
+          ctx.font = '500 28px system-ui';
+          ctx.fillText('lyricsensei.com', 540, cardY + cardHeight - 60);
 
-        // Artist name
-        ctx.fillStyle = '#666666';
-        ctx.font = '600 40px system-ui';
-        ctx.fillText(artistName, 540, titleY + (lines.length * 70) + 60);
+          // Convert to blob
+          canvas.toBlob(
+            (blob) => {
+              if (blob) {
+                console.log('[Share] Canvas blob created:', blob.size, 'bytes');
+                resolve(blob);
+              } else {
+                reject(new Error('Failed to create blob'));
+              }
+            },
+            'image/png',
+            1.0
+          );
+        };
 
-        // CTA text
-        ctx.fillStyle = '#667eea';
-        ctx.font = 'bold 36px system-ui';
-        ctx.fillText('Download Lyric Sensei', 540, cardY + cardHeight - 120);
-
-        ctx.fillStyle = '#999999';
-        ctx.font = '500 28px system-ui';
-        ctx.fillText('lyricsensei.com', 540, cardY + cardHeight - 60);
-
-        // Convert to blob
-        canvas.toBlob(
-          (blob) => {
-            if (blob) {
-              console.log('[Share] Canvas blob created:', blob.size, 'bytes');
-              resolve(blob);
-            } else {
-              reject(new Error('Failed to create blob'));
-            }
-          },
-          'image/png',
-          1.0
-        );
+        logoImg.onload = drawLogo;
+        logoImg.onerror = drawLogo;
+        logoImg.src = '/lyric-sensei-logo.png';
       } catch (error) {
         reject(error);
       }
