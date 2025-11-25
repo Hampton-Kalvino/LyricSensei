@@ -198,6 +198,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/auth/signup', async (req: any, res) => {
     try {
       const { email, password, username, firstName, lastName } = req.body;
+      console.log(`[SIGNUP] Attempt - Email: ${email}, Username: ${username}`);
 
       if (!email || !password || !username) {
         return res.status(400).json({ error: 'Email, password, and username are required' });
@@ -209,23 +210,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Check if email already exists
+      console.log(`[SIGNUP] Checking email: ${email}`);
       const existingUser = await storage.getUserByEmail(email);
       if (existingUser) {
+        console.log(`[SIGNUP] Email already exists: ${email}`);
         return res.status(409).json({ error: 'Email already registered' });
       }
 
       // Check if username already exists
+      console.log(`[SIGNUP] Checking username: ${username}`);
       const existingUsername = await storage.getUserByUsername(username);
       if (existingUsername) {
+        console.log(`[SIGNUP] Username already exists: ${username}`);
         return res.status(409).json({ error: 'Username already taken' });
       }
 
       // Hash password
+      console.log(`[SIGNUP] Hashing password...`);
       const passwordHash = await bcrypt.hash(password, 10);
 
       // Create user
+      console.log(`[SIGNUP] Creating user...`);
       const user = await storage.createUser({
-        id: randomBytes(16).toString('hex'),
         email,
         passwordHash,
         username,
@@ -234,6 +240,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         authProvider: 'password',
         isGuest: false,
       });
+      console.log(`[SIGNUP] User created successfully: ${user.id}`);
 
       // Log in the user
       req.logIn(user, (err: any) => {
@@ -241,12 +248,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
           console.error('Login error after signup:', err);
           return res.status(500).json({ error: 'Account created but login failed. Please try logging in.' });
         }
+        console.log(`[SIGNUP] User logged in successfully: ${user.id}`);
         res.json({ user });
       });
     } catch (error) {
-      console.error('Signup error:', error);
-      const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
-      res.status(500).json({ error: errorMessage });
+      console.error('[SIGNUP] Error:', error);
+      
+      // Handle database constraint errors
+      if (error instanceof Error) {
+        const message = error.message || '';
+        console.error('[SIGNUP] Error message:', message);
+        
+        // Drizzle ORM unique constraint error
+        if (message.includes('unique') || message.includes('duplicate key') || message.includes('UNIQUE')) {
+          if (message.includes('email')) {
+            return res.status(409).json({ error: 'Email already registered' });
+          }
+          if (message.includes('username')) {
+            return res.status(409).json({ error: 'Username already taken' });
+          }
+          return res.status(409).json({ error: 'This email or username is already in use' });
+        }
+        
+        return res.status(500).json({ error: message });
+      }
+      
+      res.status(500).json({ error: 'An unexpected error occurred during signup' });
     }
   });
 
