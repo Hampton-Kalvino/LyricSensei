@@ -1,13 +1,15 @@
-import { useState, useEffect, useRef, type TouchEvent } from "react";
-import { Music2, Menu, Info, Music, Heart, Share2, Globe } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Music2, Menu, Info, Music, Heart, Share2, Globe, Search, Mic } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { RecognitionButton } from "@/components/recognition-button";
 import { LanguageSelector } from "@/components/language-selector";
 import { SongMetadata } from "@/components/song-metadata";
 import { LyricDisplay } from "@/components/lyric-display";
 import { RecognitionHistory } from "@/components/recognition-history";
 import { SongSearch } from "@/components/song-search";
+import { useSwipeable } from "react-swipeable";
 import {
   Sheet,
   SheetContent,
@@ -69,11 +71,6 @@ export function MobileLayout({
   const { toast } = useToast();
   const [activePanel, setActivePanel] = useState<ActivePanel>('lyrics');
   const [showLanguageSheet, setShowLanguageSheet] = useState(false);
-  
-  // Swipe functionality state
-  const touchStartX = useRef<number>(0);
-  const touchEndX = useRef<number>(0);
-  const MIN_SWIPE_DISTANCE = 50; // Minimum distance for a swipe
 
   const handleShare = async () => {
     if (!currentSong) return;
@@ -118,34 +115,22 @@ export function MobileLayout({
     onToggleFavorite(currentSong.id, isFavorite);
   };
 
-  // Swipe handlers
-  const handleTouchStart = (e: TouchEvent<HTMLDivElement>) => {
-    touchStartX.current = e.touches[0].clientX;
+  // Swipe handlers with react-swipeable
+  const handleSwipeLeft = () => {
+    if (activePanel === 'menu') setActivePanel('lyrics');
+    else if (activePanel === 'lyrics') setActivePanel('info');
   };
 
-  const handleTouchEnd = (e: TouchEvent<HTMLDivElement>) => {
-    touchEndX.current = e.changedTouches[0].clientX;
-    handleSwipe();
+  const handleSwipeRight = () => {
+    if (activePanel === 'info') setActivePanel('lyrics');
+    else if (activePanel === 'lyrics') setActivePanel('menu');
   };
 
-  const handleSwipe = () => {
-    const swipeDistance = touchStartX.current - touchEndX.current;
-    const absDistance = Math.abs(swipeDistance);
-    
-    // Only process swipes that meet minimum distance
-    if (absDistance < MIN_SWIPE_DISTANCE) return;
-    
-    // Swipe left (next panel)
-    if (swipeDistance > 0) {
-      if (activePanel === 'menu') setActivePanel('lyrics');
-      else if (activePanel === 'lyrics') setActivePanel('info');
-    }
-    // Swipe right (previous panel)
-    else {
-      if (activePanel === 'info') setActivePanel('lyrics');
-      else if (activePanel === 'lyrics') setActivePanel('menu');
-    }
-  };
+  const swipeHandlers = useSwipeable({
+    onSwipedLeft: handleSwipeLeft,
+    onSwipedRight: handleSwipeRight,
+    trackMouse: true,
+  });
 
   // Reset to lyrics panel when song changes
   useEffect(() => {
@@ -298,43 +283,48 @@ export function MobileLayout({
   // Post-recognition view with navigation
   const historyItem = recognitionHistory.find(item => item.songId === currentSong.id);
   const isFavorite = historyItem?.isFavorite ?? false;
+  const activeTabIndex = {
+    'menu': 0,
+    'lyrics': 1,
+    'info': 2
+  }[activePanel];
 
   return (
-    <div className="min-h-screen bg-background flex flex-col overflow-x-hidden w-full">
-      {/* Two-Row Header - Fixed at top */}
-      <div className="bg-card border-b sticky top-0 z-10 w-full">
-        {/* Row 1: Song Metadata & Actions */}
-        <div className="p-3 flex items-center gap-2">
+    <div className="flex flex-col h-screen overflow-hidden bg-background w-full">
+      {/* FIXED HEADER - Sticky at top */}
+      <header className="flex-shrink-0 bg-card border-b sticky top-0 z-50 w-full">
+        {/* Song Info Row */}
+        <div className="p-3 flex items-center gap-3">
           {currentSong.albumArt && (
             <img
               src={currentSong.albumArt}
               alt={`${currentSong.album} cover`}
-              className="w-12 h-12 rounded object-cover flex-shrink-0"
+              className="w-16 h-16 rounded object-cover flex-shrink-0"
               data-testid="img-album-art-header"
             />
           )}
           <div className="flex-1 min-w-0">
-            <h1 className="font-bold text-base leading-tight truncate" data-testid="text-song-title-header">
+            <h2 className="text-lg font-semibold truncate" data-testid="text-song-title-header">
               {currentSong.title}
-            </h1>
-            <p className="text-xs text-muted-foreground truncate" data-testid="text-artist-header">
+            </h2>
+            <p className="text-sm text-muted-foreground truncate" data-testid="text-artist-header">
               {currentSong.artist}
             </p>
           </div>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-2">
             <Button
+              size="icon"
               variant="ghost"
               onClick={handleShare}
-              className="min-h-12 min-w-12 h-12 w-12 p-0 flex items-center justify-center shrink-0"
               data-testid="button-share-mobile"
             >
               <Share2 className="h-5 w-5" />
             </Button>
             {onToggleFavorite && (
               <Button
+                size="icon"
                 variant="ghost"
                 onClick={handleFavoriteToggle}
-                className="min-h-12 min-w-12 h-12 w-12 p-0 flex items-center justify-center shrink-0"
                 data-testid="button-favorite-mobile"
               >
                 <Heart 
@@ -345,28 +335,33 @@ export function MobileLayout({
                 />
               </Button>
             )}
-            <RecognitionButton
-              isListening={isListening}
-              onStart={onStartListening}
-              onStop={onStopListening}
-              size="sm"
-              data-testid="button-recognize-header"
-            />
           </div>
         </div>
 
-        {/* Row 2: Search Bar & Language Selector */}
-        <div className="px-3 pb-3 flex items-center gap-2">
-          <div className="flex-1">
-            <SongSearch onSelectSong={onSearchSelect} />
+        {/* Search & Recognize Row */}
+        <div className="px-3 pb-3 flex gap-2">
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+            <Input 
+              placeholder="Search songs..."
+              className="pl-9 h-10"
+              data-testid="input-search"
+            />
           </div>
+          <RecognitionButton
+            isListening={isListening}
+            onStart={onStartListening}
+            onStop={onStopListening}
+            size="sm"
+            data-testid="button-recognize-header"
+          />
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={() => setShowLanguageSheet(true)}
-                className="h-12 w-12 flex-shrink-0"
+                className="h-10"
                 data-testid="button-language-selector"
               >
                 <Globe className="h-5 w-5" />
@@ -377,73 +372,98 @@ export function MobileLayout({
             </TooltipContent>
           </Tooltip>
         </div>
-      </div>
 
-      {/* Horizontal Navigation Bar - 3 Buttons */}
-      <div className="flex items-center gap-1 px-2 py-2 bg-muted/30 border-b">
-        <Button
-          variant={activePanel === 'menu' ? "default" : "ghost"}
-          onClick={() => setActivePanel('menu')}
-          className="flex-1"
-          data-testid="button-panel-menu"
-        >
-          <Menu className="w-5 h-5 mr-2" />
-          {t('mobile.menu')}
-        </Button>
-        <Button
-          variant={activePanel === 'lyrics' ? "default" : "ghost"}
-          onClick={() => setActivePanel('lyrics')}
-          className="flex-1"
-          data-testid="button-panel-lyrics"
-        >
-          <Music className="w-5 h-5 mr-2" />
-          {t('mobile.lyrics')}
-        </Button>
-        <Button
-          variant={activePanel === 'info' ? "default" : "ghost"}
-          onClick={() => setActivePanel('info')}
-          className="flex-1"
-          data-testid="button-panel-info"
-        >
-          <Info className="w-5 h-5 mr-2" />
-          {t('mobile.albumInfo')}
-        </Button>
-      </div>
+        {/* Tab Bar - Sticky */}
+        <div className="flex border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+          <button
+            onClick={() => setActivePanel('menu')}
+            className={cn(
+              "flex-1 py-3 text-sm font-medium border-b-2 transition-colors",
+              activePanel === 'menu' 
+                ? "border-primary text-primary" 
+                : "border-transparent text-muted-foreground"
+            )}
+            data-testid="button-panel-menu"
+          >
+            <div className="flex items-center justify-center gap-1.5">
+              <Menu className="w-4 h-4" />
+              <span>{t('mobile.menu')}</span>
+            </div>
+          </button>
+          <button
+            onClick={() => setActivePanel('lyrics')}
+            className={cn(
+              "flex-1 py-3 text-sm font-medium border-b-2 transition-colors",
+              activePanel === 'lyrics' 
+                ? "border-primary text-primary" 
+                : "border-transparent text-muted-foreground"
+            )}
+            data-testid="button-panel-lyrics"
+          >
+            <div className="flex items-center justify-center gap-1.5">
+              <Music className="w-4 h-4" />
+              <span>{t('mobile.lyrics')}</span>
+            </div>
+          </button>
+          <button
+            onClick={() => setActivePanel('info')}
+            className={cn(
+              "flex-1 py-3 text-sm font-medium border-b-2 transition-colors",
+              activePanel === 'info' 
+                ? "border-primary text-primary" 
+                : "border-transparent text-muted-foreground"
+            )}
+            data-testid="button-panel-info"
+          >
+            <div className="flex items-center justify-center gap-1.5">
+              <Info className="w-4 h-4" />
+              <span>{t('mobile.albumInfo')}</span>
+            </div>
+          </button>
+        </div>
+      </header>
 
-      {/* Panel Content */}
-      <div 
-        className="flex-1 overflow-y-auto w-full"
-        onTouchStart={handleTouchStart}
-        onTouchEnd={handleTouchEnd}
+      {/* SWIPEABLE CONTENT AREA */}
+      <main 
+        {...swipeHandlers}
+        className="flex-1 overflow-hidden relative"
       >
-        {activePanel === 'menu' && (
-          <div className="p-4">
-            <h3 className="text-sm font-semibold mb-3">{t('history.recentSongs')}</h3>
-            <RecognitionHistory
-              history={recognitionHistory}
-              onSelectSong={onSelectSong}
-              currentSongId={currentSong?.id}
-              onToggleFavorite={onToggleFavorite}
+        <div 
+          className="flex h-full transition-transform duration-300 ease-out"
+          style={{ transform: `translateX(-${activeTabIndex * 100}%)` }}
+        >
+          {/* Menu Tab */}
+          <div className="w-full h-full flex-shrink-0 overflow-y-auto">
+            <div className="p-4">
+              <h3 className="text-sm font-semibold mb-3">{t('history.recentSongs')}</h3>
+              <RecognitionHistory
+                history={recognitionHistory}
+                onSelectSong={onSelectSong}
+                currentSongId={currentSong?.id}
+                onToggleFavorite={onToggleFavorite}
+              />
+            </div>
+          </div>
+
+          {/* Lyrics Tab */}
+          <div className="w-full h-full flex-shrink-0 overflow-y-auto">
+            <LyricDisplay
+              lyrics={lyrics}
+              translations={translations}
+              currentTime={currentTime}
+              onLineClick={onTimeSeek}
+              hasSyncedLyrics={currentSong.hasSyncedLyrics ?? false}
             />
           </div>
-        )}
 
-        {activePanel === 'lyrics' && (
-          <LyricDisplay
-            lyrics={lyrics}
-            translations={translations}
-            currentTime={currentTime}
-            onLineClick={onTimeSeek}
-            hasSyncedLyrics={currentSong.hasSyncedLyrics ?? false}
-          />
-        )}
-
-        {activePanel === 'info' && (
-          <div className="p-4">
-            <SongMetadata song={currentSong} />
+          {/* Album Info Tab */}
+          <div className="w-full h-full flex-shrink-0 overflow-y-auto">
+            <div className="p-4">
+              <SongMetadata song={currentSong} />
+            </div>
           </div>
-        )}
-      </div>
+        </div>
+      </main>
 
       {/* Language Selector Sheet */}
       <Sheet open={showLanguageSheet} onOpenChange={setShowLanguageSheet}>

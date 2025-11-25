@@ -89,6 +89,7 @@
     "react-i18next": "^16.2.4",
     "react-icons": "^5.4.0",
     "react-resizable-panels": "^2.1.7",
+    "react-swipeable": "^7.0.2",
     "recharts": "^2.15.2",
     "stripe": "^19.2.1",
     "tailwind-merge": "^2.6.0",

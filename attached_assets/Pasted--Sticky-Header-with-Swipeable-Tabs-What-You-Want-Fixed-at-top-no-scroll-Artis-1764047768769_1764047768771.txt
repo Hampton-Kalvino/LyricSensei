@@ -1,0 +1,385 @@
+# 📱 Sticky Header with Swipeable Tabs
+
+## What You Want
+
+**Fixed at top (no scroll):**
+- Artist name
+- Song title
+- Album artwork (thumbnail)
+- Share, Favorite buttons
+- Tap to Recognize button
+- Search bar
+- Menu icon
+
+**Swipeable content area:**
+- Menu ←→ Lyrics ←→ Album Info
+- User can swipe left/right to switch tabs
+- Content scrolls independently within each tab
+
+---
+
+## 🎯 Solution: Fixed Header + Swipeable Tabs
+
+### Architecture
+
+```
+┌─────────────────────────────┐
+│  Fixed Header (sticky)      │ ← Stays in place
+│  - Artist, Song, Artwork    │
+│  - Share, Favorite          │
+│  - Recognize, Search        │
+├─────────────────────────────┤
+│  Tab Bar (sticky)           │ ← Stays in place
+│  [Menu] [Lyrics] [Album]   │
+├─────────────────────────────┤
+│                             │
+│  Swipeable Content          │ ← Scrolls vertically,
+│  (current tab content)      │   swipes horizontally
+│                             │
+│  ↕ Scrollable               │
+│  ↔ Swipeable               │
+└─────────────────────────────┘
+```
+
+---
+
+## ✅ Implementation
+
+### Option 1: Pure CSS Solution (Simplest)
+
+Update your `home.tsx` layout:
+
+```tsx
+<div className="flex flex-col h-screen overflow-hidden">
+  {/* Fixed Header */}
+  <div className="flex-shrink-0 bg-background border-b sticky top-0 z-50">
+    {/* Song Info Section */}
+    <div className="p-4 flex items-center gap-3">
+      {/* Album Artwork Thumbnail */}
+      {albumArtwork && (
+        <img 
+          src={albumArtwork} 
+          alt={songTitle}
+          className="w-16 h-16 rounded object-cover"
+        />
+      )}
+      
+      {/* Artist & Title */}
+      <div className="flex-1 min-w-0">
+        <h2 className="text-lg font-semibold truncate">{songTitle}</h2>
+        <p className="text-sm text-muted-foreground truncate">{artistName}</p>
+      </div>
+      
+      {/* Action Buttons */}
+      <div className="flex items-center gap-2">
+        <Button size="icon" variant="ghost" onClick={handleShare}>
+          <Share2 className="h-5 w-5" />
+        </Button>
+        <Button size="icon" variant="ghost" onClick={handleFavorite}>
+          <Heart className={cn("h-5 w-5", isFavorite && "fill-red-500 text-red-500")} />
+        </Button>
+      </div>
+    </div>
+    
+    {/* Search & Recognize */}
+    <div className="px-4 pb-3 flex gap-2">
+      <div className="flex-1 relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input 
+          placeholder="Search for songs or artists..."
+          className="pl-9"
+        />
+      </div>
+      <Button size="icon" onClick={handleRecognize}>
+        <Mic className="h-5 w-5" />
+      </Button>
+    </div>
+    
+    {/* Tab Bar */}
+    <div className="flex border-t">
+      <button
+        onClick={() => setActiveTab('menu')}
+        className={cn(
+          "flex-1 py-3 text-sm font-medium border-b-2 transition-colors",
+          activeTab === 'menu' 
+            ? "border-primary text-primary" 
+            : "border-transparent text-muted-foreground"
+        )}
+      >
+        Menu
+      </button>
+      <button
+        onClick={() => setActiveTab('lyrics')}
+        className={cn(
+          "flex-1 py-3 text-sm font-medium border-b-2 transition-colors",
+          activeTab === 'lyrics' 
+            ? "border-primary text-primary" 
+            : "border-transparent text-muted-foreground"
+        )}
+      >
+        Lyrics
+      </button>
+      <button
+        onClick={() => setActiveTab('albumInfo')}
+        className={cn(
+          "flex-1 py-3 text-sm font-medium border-b-2 transition-colors",
+          activeTab === 'albumInfo' 
+            ? "border-primary text-primary" 
+            : "border-transparent text-muted-foreground"
+        )}
+      >
+        Album Info
+      </button>
+    </div>
+  </div>
+
+  {/* Swipeable Content Area */}
+  <div className="flex-1 overflow-hidden relative">
+    <div 
+      className="flex h-full transition-transform duration-300 ease-out"
+      style={{ transform: `translateX(-${activeTabIndex * 100}%)` }}
+    >
+      {/* Menu Tab */}
+      <div className="w-full h-full flex-shrink-0 overflow-y-auto">
+        <div className="p-4">
+          {/* Menu content */}
+        </div>
+      </div>
+      
+      {/* Lyrics Tab */}
+      <div className="w-full h-full flex-shrink-0 overflow-y-auto">
+        <div className="p-4">
+          {/* Lyrics content */}
+        </div>
+      </div>
+      
+      {/* Album Info Tab */}
+      <div className="w-full h-full flex-shrink-0 overflow-y-auto">
+        <div className="p-4">
+          {/* Album info content */}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+```
+
+### Add State Management:
+
+```typescript
+const [activeTab, setActiveTab] = useState<'menu' | 'lyrics' | 'albumInfo'>('lyrics');
+
+const activeTabIndex = {
+  'menu': 0,
+  'lyrics': 1,
+  'albumInfo': 2
+}[activeTab];
+```
+
+---
+
+### Option 2: With Touch Swipe Gestures (Better UX)
+
+Install gesture library:
+```bash
+npm install react-swipeable
+```
+
+Update component:
+
+```tsx
+import { useSwipeable } from 'react-swipeable';
+
+const handleSwipeLeft = () => {
+  if (activeTab === 'menu') setActiveTab('lyrics');
+  else if (activeTab === 'lyrics') setActiveTab('albumInfo');
+};
+
+const handleSwipeRight = () => {
+  if (activeTab === 'albumInfo') setActiveTab('lyrics');
+  else if (activeTab === 'lyrics') setActiveTab('menu');
+};
+
+const handlers = useSwipeable({
+  onSwipedLeft: handleSwipeLeft,
+  onSwipedRight: handleSwipeRight,
+  trackMouse: true // For testing on desktop
+});
+
+// In JSX:
+<div {...handlers} className="flex-1 overflow-hidden relative">
+  {/* Content tabs */}
+</div>
+```
+
+---
+
+### Option 3: Capacitor Gestures (Native Feel)
+
+For even better performance on mobile:
+
+```bash
+npm install @capacitor/gestures
+```
+
+```typescript
+import { Gesture, GestureController } from '@capacitor/gestures';
+
+useEffect(() => {
+  const gesture = GestureController.create({
+    el: contentRef.current,
+    gestureName: 'swipe',
+    onMove: (detail) => {
+      // Handle swipe animation
+      const translateX = detail.deltaX;
+      contentRef.current.style.transform = `translateX(${translateX}px)`;
+    },
+    onEnd: (detail) => {
+      // Determine if swipe threshold met
+      if (detail.deltaX < -100) {
+        handleSwipeLeft();
+      } else if (detail.deltaX > 100) {
+        handleSwipeRight();
+      } else {
+        // Snap back
+        contentRef.current.style.transform = `translateX(0)`;
+      }
+    }
+  });
+
+  return () => gesture.destroy();
+}, [activeTab]);
+```
+
+---
+
+## 🎨 CSS Key Points
+
+```css
+/* Parent container */
+.h-screen: Full screen height
+.overflow-hidden: Prevent body scroll
+.flex-col: Stack header and content vertically
+
+/* Fixed Header */
+.flex-shrink-0: Don't shrink when content overflows
+.sticky.top-0.z-50: Stay at top, above other content
+
+/* Swipeable Container */
+.flex-1: Take remaining space
+.overflow-hidden: Hide tabs that are off-screen
+
+/* Tab Content */
+.overflow-y-auto: Each tab scrolls independently
+.flex-shrink-0: Tabs don't compress
+.w-full: Each tab is full width
+```
+
+---
+
+## 📱 Mobile Optimization
+
+### Prevent Pull-to-Refresh Interference:
+
+```typescript
+useEffect(() => {
+  // Disable pull-to-refresh on this page
+  document.body.style.overscrollBehavior = 'none';
+  
+  return () => {
+    document.body.style.overscrollBehavior = 'auto';
+  };
+}, []);
+```
+
+### Prevent Horizontal Bounce:
+
+```css
+/* In your global CSS or component */
+.swipeable-container {
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+}
+```
+
+---
+
+## 🎯 Complete Example Structure
+
+```tsx
+export default function Home() {
+  const [activeTab, setActiveTab] = useState('lyrics');
+  
+  const handleSwipeLeft = () => { /* ... */ };
+  const handleSwipeRight = () => { /* ... */ };
+  
+  const handlers = useSwipeable({
+    onSwipedLeft: handleSwipeLeft,
+    onSwipedRight: handleSwipeRight,
+    preventDefaultTouchmoveEvent: true,
+    trackMouse: true
+  });
+
+  return (
+    <div className="flex flex-col h-screen overflow-hidden bg-background">
+      {/* FIXED HEADER */}
+      <header className="flex-shrink-0 bg-background border-b sticky top-0 z-50">
+        {/* Song info, buttons, search, tabs */}
+      </header>
+
+      {/* SWIPEABLE CONTENT */}
+      <main {...handlers} className="flex-1 overflow-hidden relative">
+        <div 
+          className="flex h-full transition-transform duration-300"
+          style={{ transform: `translateX(-${activeTabIndex * 100}%)` }}
+        >
+          <section className="w-full h-full flex-shrink-0 overflow-y-auto">
+            {/* Menu content */}
+          </section>
+          <section className="w-full h-full flex-shrink-0 overflow-y-auto">
+            {/* Lyrics content */}
+          </section>
+          <section className="w-full h-full flex-shrink-0 overflow-y-auto">
+            {/* Album info */}
+          </section>
+        </div>
+      </main>
+    </div>
+  );
+}
+```
+
+---
+
+## 🚀 Testing
+
+1. **Desktop:** Should see tabs, can click to switch
+2. **Mobile:** Can swipe left/right between tabs
+3. **Scroll:** Header stays fixed, content scrolls within tab
+4. **Performance:** Smooth transitions with `translate` (GPU accelerated)
+
+---
+
+## 💡 Pro Tips
+
+1. **Use `transform` instead of `left`** for smoother animations
+2. **Add momentum scrolling:** `-webkit-overflow-scrolling: touch`
+3. **Debounce swipe events** to prevent accidental double-swipes
+4. **Add visual indicator** (dots/progress bar) showing current tab
+5. **Preload adjacent tabs** for instant switching
+
+---
+
+## 📋 Checklist
+
+- [ ] Header is `position: sticky` or fixed at top
+- [ ] Tab bar included in sticky header
+- [ ] Content area uses `flex` with `translateX` for sliding
+- [ ] Each tab has `overflow-y-auto` for independent scrolling
+- [ ] Swipe gestures implemented (react-swipeable or Capacitor)
+- [ ] Prevent page bounce with `overscroll-behavior`
+- [ ] Add smooth transitions with CSS
+
+---
+
+**This gives you Instagram/TikTok-style navigation with a sticky header!** 🎉
