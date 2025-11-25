@@ -1,0 +1,408 @@
+# 🎨 Fix: Remove Scrollbar + Improve Layout
+
+## Problems to Fix
+
+1. ❌ Scrollbar visible on right side
+2. ❌ Content boxes not full width
+3. ❌ Header layout could be more user-friendly
+4. ❌ Wasted space on sides
+
+---
+
+## ✅ Solution
+
+### Issue 1: Remove Scrollbar
+
+The scrollbar appears because there's horizontal overflow. Fix this:
+
+```css
+/* Add to your main container or global CSS */
+.overflow-x-hidden {
+  overflow-x: hidden;
+}
+
+/* Or explicitly hide scrollbar */
+.hide-scrollbar {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;  /* Chrome, Safari, Opera */
+}
+```
+
+Apply to your main container:
+
+```tsx
+<div className="flex flex-col h-screen overflow-x-hidden">
+  {/* Your content */}
+</div>
+```
+
+---
+
+### Issue 2: Make Content Full Width
+
+Your lyric cards and content boxes should use `w-full`:
+
+**Before:**
+```tsx
+<div className="p-4 rounded-lg bg-card">  {/* Not full width */}
+  Que sepas lo mucho que te quiero
+</div>
+```
+
+**After:**
+```tsx
+<div className="w-full p-4 rounded-lg bg-card">  {/* Full width */}
+  Que sepas lo mucho que te quiero
+</div>
+```
+
+Also ensure parent containers don't have padding that creates the scrollbar:
+
+```tsx
+{/* Lyrics container */}
+<div className="w-full px-0">  {/* Remove horizontal padding */}
+  {/* Lyric cards */}
+</div>
+```
+
+---
+
+### Issue 3: Reorganize Header for Better UX
+
+**Current Layout Issues:**
+- Language selector taking too much space at top
+- Album art too small
+- Search bar could be wider
+- Icons cluttered
+
+**Improved Layout:**
+
+```tsx
+<header className="flex-shrink-0 bg-background border-b sticky top-0 z-50 w-full">
+  {/* Row 1: Language & Dark Mode (Compact) */}
+  <div className="flex items-center justify-between px-4 py-2 border-b border-border/50">
+    <Button variant="ghost" size="sm" className="h-8">
+      <Globe className="h-4 w-4 mr-2" />
+      <span className="text-xs">English</span>
+      <ChevronDown className="h-3 w-3 ml-1" />
+    </Button>
+    
+    <div className="flex items-center gap-2">
+      <Button variant="ghost" size="icon" className="h-8 w-8">
+        <Moon className="h-4 w-4" />
+      </Button>
+      <Button variant="ghost" size="icon" className="h-8 w-8">
+        <MoreVertical className="h-4 w-4" />
+      </Button>
+    </div>
+  </div>
+
+  {/* Row 2: Song Info (Prominent) */}
+  <div className="flex items-center gap-3 px-4 py-3">
+    {/* Larger Album Art */}
+    <img 
+      src={albumArtwork} 
+      alt={songTitle}
+      className="w-20 h-20 rounded-lg object-cover shadow-md"
+    />
+    
+    {/* Song Details */}
+    <div className="flex-1 min-w-0">
+      <h1 className="text-xl font-bold truncate">{songTitle}</h1>
+      <p className="text-sm text-muted-foreground truncate">{artistName}</p>
+    </div>
+    
+    {/* Primary Actions */}
+    <div className="flex items-center gap-2">
+      <Button size="icon" variant="ghost" className="h-10 w-10">
+        <Share2 className="h-5 w-5" />
+      </Button>
+      <Button size="icon" variant="ghost" className="h-10 w-10">
+        <Heart className={cn(
+          "h-5 w-5",
+          isFavorite && "fill-red-500 text-red-500"
+        )} />
+      </Button>
+    </div>
+  </div>
+
+  {/* Row 3: Search & Recognize */}
+  <div className="px-4 pb-3 flex gap-2">
+    <div className="flex-1 relative">
+      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+      <Input 
+        placeholder="Search for songs or artists..."
+        className="w-full pl-10 pr-4 h-10"
+      />
+    </div>
+    <Button className="h-10 w-10 flex-shrink-0" size="icon">
+      <Mic className="h-5 w-5" />
+    </Button>
+  </div>
+
+  {/* Row 4: Tabs */}
+  <div className="flex w-full border-t">
+    <button
+      onClick={() => setActiveTab('menu')}
+      className={cn(
+        "flex-1 py-3 text-sm font-medium border-b-2 transition-all",
+        activeTab === 'menu' 
+          ? "border-primary text-primary bg-primary/5" 
+          : "border-transparent text-muted-foreground hover:text-foreground"
+      )}
+    >
+      <Menu className="inline h-4 w-4 mr-1.5 -mt-0.5" />
+      Menu
+    </button>
+    <button
+      onClick={() => setActiveTab('lyrics')}
+      className={cn(
+        "flex-1 py-3 text-sm font-medium border-b-2 transition-all",
+        activeTab === 'lyrics' 
+          ? "border-primary text-primary bg-primary/5" 
+          : "border-transparent text-muted-foreground hover:text-foreground"
+      )}
+    >
+      <Music className="inline h-4 w-4 mr-1.5 -mt-0.5" />
+      Lyrics
+    </button>
+    <button
+      onClick={() => setActiveTab('albumInfo')}
+      className={cn(
+        "flex-1 py-3 text-sm font-medium border-b-2 transition-all",
+        activeTab === 'albumInfo' 
+          ? "border-primary text-primary bg-primary/5" 
+          : "border-transparent text-muted-foreground hover:text-foreground"
+      )}
+    >
+      <Info className="inline h-4 w-4 mr-1.5 -mt-0.5" />
+      Album Info
+    </button>
+  </div>
+</header>
+```
+
+---
+
+### Issue 4: Fix Content Area
+
+```tsx
+<main className="flex-1 overflow-hidden w-full">
+  <div 
+    className="flex h-full w-full transition-transform duration-300 ease-out"
+    style={{ transform: `translateX(-${activeTabIndex * 100}%)` }}
+  >
+    {/* Menu Tab */}
+    <section className="w-full h-full flex-shrink-0 overflow-y-auto">
+      <div className="w-full">  {/* Full width container */}
+        {/* Menu content - no horizontal padding on outer container */}
+        <div className="space-y-4">
+          {/* Menu items */}
+        </div>
+      </div>
+    </section>
+    
+    {/* Lyrics Tab */}
+    <section className="w-full h-full flex-shrink-0 overflow-y-auto">
+      <div className="w-full">  {/* Full width container */}
+        {/* Lyrics content */}
+        <div className="space-y-0">  {/* No gap between lyrics */}
+          {lyrics.map((lyric, index) => (
+            <div 
+              key={index}
+              className="w-full px-4 py-3 border-b"  {/* Padding inside, not outside */}
+            >
+              {/* Lyric content */}
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+    
+    {/* Album Info Tab */}
+    <section className="w-full h-full flex-shrink-0 overflow-y-auto">
+      <div className="w-full p-4">  {/* Full width container */}
+        {/* Album info content */}
+      </div>
+    </section>
+  </div>
+</main>
+```
+
+---
+
+## 🎨 Complete Layout Structure
+
+```tsx
+export default function Home() {
+  return (
+    <div className="flex flex-col h-screen overflow-hidden w-full">
+      {/* HEADER - Sticky at top */}
+      <header className="flex-shrink-0 bg-background border-b sticky top-0 z-50 w-full">
+        {/* 4 rows as shown above */}
+      </header>
+
+      {/* CONTENT - Swipeable full width */}
+      <main className="flex-1 overflow-hidden w-full">
+        <div className="flex h-full w-full">
+          {/* Tabs - each full width */}
+        </div>
+      </main>
+    </div>
+  );
+}
+```
+
+---
+
+## 🔧 CSS Fixes
+
+Add these to your global CSS or Tailwind config:
+
+```css
+/* Hide scrollbar globally if needed */
+* {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge */
+}
+
+*::-webkit-scrollbar {
+  display: none; /* Chrome/Safari */
+}
+
+/* Or target specific containers */
+.lyrics-container {
+  overflow-x: hidden;
+  width: 100%;
+}
+
+/* Prevent horizontal scroll */
+body {
+  overflow-x: hidden;
+  max-width: 100vw;
+}
+
+/* Ensure full width on mobile */
+@media (max-width: 768px) {
+  .container {
+    max-width: 100% !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+}
+```
+
+---
+
+## 📱 Responsive Header (Mobile-First)
+
+```tsx
+{/* Compact header for mobile */}
+<header className="flex-shrink-0 bg-background border-b sticky top-0 z-50 w-full">
+  {/* Language bar - minimal on mobile */}
+  <div className="flex items-center justify-between px-3 py-1.5 border-b border-border/30 bg-muted/20">
+    <div className="flex items-center gap-2">
+      <Button variant="ghost" size="sm" className="h-7 text-xs px-2">
+        🇺🇸 English
+      </Button>
+    </div>
+    <Button variant="ghost" size="icon" className="h-7 w-7">
+      <Moon className="h-3.5 w-3.5" />
+    </Button>
+  </div>
+
+  {/* Song info - larger touch targets */}
+  <div className="flex items-center gap-3 px-3 py-3">
+    <img 
+      src={albumArtwork} 
+      className="w-16 h-16 rounded-lg shadow-sm"
+    />
+    <div className="flex-1 min-w-0">
+      <h1 className="text-lg font-bold truncate leading-tight">{songTitle}</h1>
+      <p className="text-sm text-muted-foreground truncate">{artistName}</p>
+    </div>
+    <div className="flex gap-1">
+      <Button size="icon" variant="ghost" className="h-9 w-9">
+        <Share2 className="h-4 w-4" />
+      </Button>
+      <Button size="icon" variant="ghost" className="h-9 w-9">
+        <Heart className="h-4 w-4" />
+      </Button>
+    </div>
+  </div>
+
+  {/* Search + Recognize - full width */}
+  <div className="px-3 pb-3 flex gap-2 w-full">
+    <div className="flex-1">
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input 
+          placeholder="Search songs..."
+          className="w-full pl-9 h-9 text-sm"
+        />
+      </div>
+    </div>
+    <Button size="icon" className="h-9 w-9 flex-shrink-0">
+      <Mic className="h-4 w-4" />
+    </Button>
+  </div>
+
+  {/* Tabs - full width equal spacing */}
+  <div className="flex w-full border-t">
+    {tabs.map(tab => (
+      <button
+        key={tab.id}
+        onClick={() => setActiveTab(tab.id)}
+        className={cn(
+          "flex-1 py-2.5 text-sm font-medium border-b-2 transition-colors",
+          "flex items-center justify-center gap-1.5",
+          activeTab === tab.id
+            ? "border-primary text-primary" 
+            : "border-transparent text-muted-foreground"
+        )}
+      >
+        {tab.icon}
+        <span>{tab.label}</span>
+      </button>
+    ))}
+  </div>
+</header>
+```
+
+---
+
+## ✅ Checklist
+
+- [ ] Add `overflow-x-hidden` to main container
+- [ ] Add `w-full` to all content sections
+- [ ] Remove horizontal padding from content containers
+- [ ] Use `px-4` only for inner content, not outer containers
+- [ ] Reorganize header into 4 logical rows
+- [ ] Increase touch targets (min 44x44px for buttons)
+- [ ] Hide scrollbar with CSS
+- [ ] Test on actual device
+
+---
+
+## 🎯 Before vs After
+
+**Before:**
+- ❌ Scrollbar visible
+- ❌ Content not full width
+- ❌ Cluttered header
+- ❌ Small touch targets
+
+**After:**
+- ✅ No scrollbar
+- ✅ Full width content
+- ✅ Clean, organized header
+- ✅ Larger touch-friendly buttons
+- ✅ Better visual hierarchy
+
+---
+
+**This will give you a clean, professional mobile layout!** 📱✨

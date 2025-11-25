@@ -290,46 +290,69 @@ export function MobileLayout({
   }[activePanel];
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden bg-background w-full">
+    <div className="flex flex-col h-screen overflow-hidden bg-background w-full overflow-x-hidden">
       {/* FIXED HEADER - Sticky at top */}
-      <header className="flex-shrink-0 bg-card border-b sticky top-0 z-50 w-full">
-        {/* Song Info Row */}
-        <div className="p-3 flex items-center gap-3">
+      <header className="flex-shrink-0 bg-background border-b sticky top-0 z-50 w-full">
+        {/* ROW 1: Language Selector (Compact) */}
+        <div className="flex items-center justify-between px-3 py-1.5 border-b border-border/30 bg-muted/10">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowLanguageSheet(true)}
+                className="h-7 text-xs px-2"
+                data-testid="button-language-selector"
+              >
+                <Globe className="h-3.5 w-3.5 mr-1.5" />
+                <span className="truncate max-w-16">{selectedLanguage.toUpperCase()}</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>{t('settings.targetLanguage')}</p>
+            </TooltipContent>
+          </Tooltip>
+        </div>
+
+        {/* ROW 2: Song Info (Prominent) */}
+        <div className="flex items-center gap-3 px-3 py-3 border-b border-border/20">
           {currentSong.albumArt && (
             <img
               src={currentSong.albumArt}
               alt={`${currentSong.album} cover`}
-              className="w-16 h-16 rounded object-cover flex-shrink-0"
+              className="w-16 h-16 rounded-lg object-cover flex-shrink-0 shadow-sm"
               data-testid="img-album-art-header"
             />
           )}
           <div className="flex-1 min-w-0">
-            <h2 className="text-lg font-semibold truncate" data-testid="text-song-title-header">
+            <h2 className="text-lg font-semibold truncate leading-tight" data-testid="text-song-title-header">
               {currentSong.title}
             </h2>
             <p className="text-sm text-muted-foreground truncate" data-testid="text-artist-header">
               {currentSong.artist}
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 flex-shrink-0">
             <Button
               size="icon"
               variant="ghost"
               onClick={handleShare}
+              className="h-9 w-9"
               data-testid="button-share-mobile"
             >
-              <Share2 className="h-5 w-5" />
+              <Share2 className="h-4 w-4" />
             </Button>
             {onToggleFavorite && (
               <Button
                 size="icon"
                 variant="ghost"
                 onClick={handleFavoriteToggle}
+                className="h-9 w-9"
                 data-testid="button-favorite-mobile"
               >
                 <Heart 
                   className={cn(
-                    "h-5 w-5",
+                    "h-4 w-4",
                     isFavorite ? "fill-red-500 text-red-500" : ""
                   )}
                 />
@@ -338,13 +361,13 @@ export function MobileLayout({
           </div>
         </div>
 
-        {/* Search & Recognize Row */}
-        <div className="px-3 pb-3 flex gap-2">
+        {/* ROW 3: Search & Recognition */}
+        <div className="px-3 pb-3 pt-2 flex gap-2 w-full border-b border-border/20">
           <div className="flex-1 relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
             <Input 
               placeholder="Search songs..."
-              className="pl-9 h-10"
+              className="w-full pl-9 h-9 text-sm"
               data-testid="input-search"
             />
           </div>
@@ -355,75 +378,56 @@ export function MobileLayout({
             size="sm"
             data-testid="button-recognize-header"
           />
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setShowLanguageSheet(true)}
-                className="h-10"
-                data-testid="button-language-selector"
-              >
-                <Globe className="h-5 w-5" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>{t('settings.targetLanguage')}</p>
-            </TooltipContent>
-          </Tooltip>
         </div>
 
-        {/* Tab Bar - Sticky */}
-        <div className="flex border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        {/* ROW 4: Tab Bar */}
+        <div className="flex w-full border-t border-border/50">
           <button
             onClick={() => setActivePanel('menu')}
             className={cn(
-              "flex-1 py-3 text-sm font-medium border-b-2 transition-colors",
+              "flex-1 py-2.5 text-sm font-medium border-b-2 transition-colors",
+              "flex items-center justify-center gap-1.5",
               activePanel === 'menu' 
-                ? "border-primary text-primary" 
-                : "border-transparent text-muted-foreground"
+                ? "border-primary text-primary bg-primary/5" 
+                : "border-transparent text-muted-foreground hover:text-foreground"
             )}
             data-testid="button-panel-menu"
           >
-            <div className="flex items-center justify-center gap-1.5">
-              <Menu className="w-4 h-4" />
-              <span>{t('mobile.menu')}</span>
-            </div>
+            <Menu className="w-4 h-4" />
+            <span>{t('mobile.menu')}</span>
           </button>
           <button
             onClick={() => setActivePanel('lyrics')}
             className={cn(
-              "flex-1 py-3 text-sm font-medium border-b-2 transition-colors",
+              "flex-1 py-2.5 text-sm font-medium border-b-2 transition-colors",
+              "flex items-center justify-center gap-1.5",
               activePanel === 'lyrics' 
-                ? "border-primary text-primary" 
-                : "border-transparent text-muted-foreground"
+                ? "border-primary text-primary bg-primary/5" 
+                : "border-transparent text-muted-foreground hover:text-foreground"
             )}
             data-testid="button-panel-lyrics"
           >
-            <div className="flex items-center justify-center gap-1.5">
-              <Music className="w-4 h-4" />
-              <span>{t('mobile.lyrics')}</span>
-            </div>
+            <Music className="w-4 h-4" />
+            <span>{t('mobile.lyrics')}</span>
           </button>
           <button
             onClick={() => setActivePanel('info')}
             className={cn(
-              "flex-1 py-3 text-sm font-medium border-b-2 transition-colors",
+              "flex-1 py-2.5 text-sm font-medium border-b-2 transition-colors",
+              "flex items-center justify-center gap-1.5",
               activePanel === 'info' 
-                ? "border-primary text-primary" 
-                : "border-transparent text-muted-foreground"
+                ? "border-primary text-primary bg-primary/5" 
+                : "border-transparent text-muted-foreground hover:text-foreground"
             )}
             data-testid="button-panel-info"
           >
-            <div className="flex items-center justify-center gap-1.5">
-              <Info className="w-4 h-4" />
-              <span>{t('mobile.albumInfo')}</span>
-            </div>
+            <Info className="w-4 h-4" />
+            <span>{t('mobile.albumInfo')}</span>
           </button>
         </div>
       </header>
 
-      {/* SWIPEABLE CONTENT AREA */}
+      {/* SWIPEABLE CONTENT AREA - Full Width */}
       <main 
         {...swipeHandlers}
         className="flex-1 overflow-hidden relative w-full"
@@ -432,9 +436,9 @@ export function MobileLayout({
           className="flex h-full transition-transform duration-300 ease-out w-full"
           style={{ transform: `translateX(-${activeTabIndex * 100}%)` }}
         >
-          {/* Menu Tab */}
+          {/* Menu Tab - Full Width */}
           <div className="w-full h-full flex-shrink-0 overflow-y-auto scrollbar-hide">
-            <div className="p-4">
+            <div className="w-full p-4">
               <h3 className="text-sm font-semibold mb-3">{t('history.recentSongs')}</h3>
               <RecognitionHistory
                 history={recognitionHistory}
@@ -445,7 +449,7 @@ export function MobileLayout({
             </div>
           </div>
 
-          {/* Lyrics Tab */}
+          {/* Lyrics Tab - Full Width with Auto-Scroll Highlighting */}
           <div className="w-full h-full flex-shrink-0 overflow-y-auto scrollbar-hide">
             <LyricDisplay
               lyrics={lyrics}
@@ -456,9 +460,9 @@ export function MobileLayout({
             />
           </div>
 
-          {/* Album Info Tab */}
+          {/* Album Info Tab - Full Width */}
           <div className="w-full h-full flex-shrink-0 overflow-y-auto scrollbar-hide">
-            <div className="p-4">
+            <div className="w-full p-4">
               <SongMetadata song={currentSong} />
             </div>
           </div>
