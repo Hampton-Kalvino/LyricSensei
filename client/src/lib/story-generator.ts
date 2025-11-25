@@ -1,4 +1,7 @@
 import { toPng } from "html-to-image";
+import { Filesystem, Directory } from "@capacitor/filesystem";
+import { Share } from "@capacitor/share";
+import { Capacitor } from "@capacitor/core";
 import type { Song } from "@shared/schema";
 import logoImage from "@assets/ChatGPT Image Nov 5, 2025, 05_37_31 PM_1762887933822.png";
 
@@ -26,7 +29,7 @@ export async function generateStoryImage({
 
   const cardPadding = 80;
   const cardWidth = STORY_WIDTH - cardPadding * 2;
-  const cardTop = 600; // Move card down to make room for bigger logo
+  const cardTop = 600;
   
   const albumArtSize = cardWidth - 60;
   const albumArtX = (STORY_WIDTH - albumArtSize) / 2;
@@ -35,14 +38,12 @@ export async function generateStoryImage({
   ctx.fillStyle = "#18181B";
   ctx.fillRect(0, 0, STORY_WIDTH, STORY_HEIGHT);
 
-  // Logo: bigger, left-aligned within card area, closer to album card
   try {
     const logo = await loadImage(logoImage);
-    const logoHeight = 280; // Bigger logo
+    const logoHeight = 280;
     const logoWidth = (logo.width / logo.height) * logoHeight;
-    // Position logo at left edge of card area, just above the card
-    const logoX = cardPadding + 20; // Left-aligned with card, small padding
-    const logoY = cardTop - logoHeight - 40; // 40px above the card
+    const logoX = cardPadding + 20;
+    const logoY = cardTop - logoHeight - 40;
     ctx.drawImage(logo, logoX, logoY, logoWidth, logoHeight);
   } catch (error) {
     console.error("Failed to load logo:", error);
@@ -151,7 +152,7 @@ function wrapText(
 
 /**
  * Generate story image from React component using html-to-image
- * High quality output for Instagram/Snapchat stories
+ * Returns data URL (for web) or file URI (for native)
  */
 export async function generateStoryImageFromComponent(
   cardElement: HTMLDivElement,
@@ -165,6 +166,8 @@ export async function generateStoryImageFromComponent(
   }
 
   try {
+    console.log("[Share] Generating image from component...");
+
     const dataUrl = await toPng(cardElement, {
       quality: options?.quality ?? 0.95,
       pixelRatio: options?.pixelRatio ?? 2,
@@ -175,8 +178,45 @@ export async function generateStoryImageFromComponent(
 
     return dataUrl;
   } catch (error) {
-    console.error("Failed to generate story image:", error);
+    console.error("[Share] Failed to generate story image:", error);
     throw new Error("Failed to generate story image");
+  }
+}
+
+/**
+ * Save image to device filesystem (Capacitor)
+ * Returns file URI for native sharing
+ */
+export async function saveImageToFilesystem(
+  dataUrl: string
+): Promise<string> {
+  try {
+    if (!Capacitor.isNativePlatform()) {
+      console.log("[Share] Not on native platform, returning data URL");
+      return dataUrl;
+    }
+
+    console.log("[Share] Saving image to filesystem...");
+
+    // Extract base64 data (remove "data:image/png;base64," prefix)
+    const base64Data = dataUrl.split(",")[1];
+    if (!base64Data) {
+      throw new Error("Invalid data URL format");
+    }
+
+    const fileName = `story-${Date.now()}.png`;
+
+    const result = await Filesystem.writeFile({
+      path: fileName,
+      data: base64Data,
+      directory: Directory.Cache,
+    });
+
+    console.log("[Share] Image saved to:", result.uri);
+    return result.uri;
+  } catch (error) {
+    console.error("[Share] Failed to save image:", error);
+    throw error;
   }
 }
 
@@ -201,7 +241,7 @@ export function canShareStories(): boolean {
 }
 
 /**
- * Share story image to native apps using Web Share API
+ * Share story image to native apps
  */
 export async function shareStoryToNativeApps(
   imageDataUrl: string,
@@ -211,9 +251,11 @@ export async function shareStoryToNativeApps(
 ): Promise<boolean> {
   try {
     if (!navigator.share) {
-      console.log("Web Share API not available");
+      console.log("[Share] Web Share API not available");
       return false;
     }
+
+    console.log("[Share] Starting share to native apps...");
 
     // Convert data URL to blob
     const blob = await dataUrlToBlob(imageDataUrl);
@@ -229,13 +271,150 @@ export async function shareStoryToNativeApps(
       files: [file],
     });
 
+    console.log("[Share] Share successful");
     return true;
   } catch (error) {
     if ((error as Error).name === "AbortError") {
-      console.log("Share cancelled");
+      console.log("[Share] Share cancelled");
       return false;
     }
-    console.error("Share failed:", error);
+    console.error("[Share] Share failed:", error);
     throw error;
+  }
+}
+
+/**
+ * Share to Instagram using Capacitor Share API
+ * On native: Uses native Share Sheet
+ * On web: Opens Instagram web intent
+ */
+export async function shareToInstagramStory(
+  imageUri: string,
+  songTitle: string,
+  artist: string,
+  shareUrl: string
+): Promise<void> {
+  try {
+    console.log("[Instagram] Starting share...");
+
+    if (Capacitor.isNativePlatform()) {
+      // Native app: Use Capacitor Share API
+      await Share.share({
+        title: songTitle,
+        text: `${songTitle} by ${artist}`,
+        url: shareUrl,
+        files: [imageUri],
+      } as any);
+      console.log("[Instagram] Native share completed");
+    } else {
+      // Web: Open Instagram share intent
+      const instagramUrl = `https://www.instagram.com/`;
+      window.open(instagramUrl, "_blank");
+      console.log("[Instagram] Opened Instagram web");
+    }
+  } catch (error) {
+    console.error("[Instagram] Share failed:", error);
+    throw error;
+  }
+}
+
+/**
+ * Share to Snapchat using Capacitor Share API
+ */
+export async function shareToSnapchat(
+  imageUri: string,
+  songTitle: string,
+  artist: string
+): Promise<void> {
+  try {
+    console.log("[Snapchat] Starting share...");
+
+    if (Capacitor.isNativePlatform()) {
+      await Share.share({
+        title: songTitle,
+        text: `${songTitle} by ${artist}`,
+        files: [imageUri],
+      } as any);
+      console.log("[Snapchat] Share completed");
+    } else {
+      console.log("[Snapchat] Snapchat sharing only available on mobile");
+    }
+  } catch (error) {
+    console.error("[Snapchat] Share failed:", error);
+    throw error;
+  }
+}
+
+/**
+ * Share to Twitter
+ * Note: Twitter doesn't accept images via share API
+ */
+export async function shareToTwitter(
+  songTitle: string,
+  artist: string,
+  shareUrl: string
+): Promise<void> {
+  try {
+    console.log("[Twitter] Starting share...");
+
+    const text = `🎵 Listening to "${songTitle}" by ${artist} on Lyric Sensei\n\n${shareUrl}`;
+
+    if (Capacitor.isNativePlatform()) {
+      // Native: Try native Twitter app
+      await Share.share({
+        title: songTitle,
+        text: text,
+        url: shareUrl,
+      } as any);
+    } else {
+      // Web: Use Twitter web intent
+      const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`;
+      window.open(twitterUrl, "_blank");
+    }
+
+    console.log("[Twitter] Share completed");
+  } catch (error) {
+    console.error("[Twitter] Share failed:", error);
+    throw error;
+  }
+}
+
+/**
+ * Generic share using native share sheet
+ */
+export async function shareMore(
+  imageUri: string | null,
+  songTitle: string,
+  artist: string,
+  shareUrl: string
+): Promise<void> {
+  try {
+    console.log("[More] Starting share...");
+
+    const shareOptions: any = {
+      title: songTitle,
+      text: `Check out ${songTitle} by ${artist} on Lyric Sensei`,
+      url: shareUrl,
+    };
+
+    if (imageUri) {
+      shareOptions.files = [imageUri];
+    }
+
+    await Share.share(shareOptions);
+    console.log("[More] Share completed");
+  } catch (error) {
+    console.error("[More] Share failed:", error);
+    // Fallback: share without image
+    try {
+      await Share.share({
+        title: songTitle,
+        text: `Check out ${songTitle} by ${artist} on Lyric Sensei`,
+        url: shareUrl,
+      } as any);
+    } catch (fallbackError) {
+      console.error("[More] Fallback share also failed:", fallbackError);
+      throw fallbackError;
+    }
   }
 }

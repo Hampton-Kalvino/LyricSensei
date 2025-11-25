@@ -1,0 +1,777 @@
+# 🔧 Fix: Share Not Working - Content Not Passing
+
+## Problem
+
+The share sheet opens Instagram/Snapchat/Twitter but doesn't pass:
+- ❌ Story image
+- ❌ Song link
+- ❌ Text content
+
+---
+
+## Root Causes
+
+1. **Image not being saved to filesystem**
+2. **Wrong file URI format**
+3. **Missing platform-specific share APIs**
+4. **Permissions not granted**
+
+---
+
+## ✅ Complete Working Solution
+
+### Step 1: Fix Image Generation & Saving
+
+```typescript
+// client/src/components/ShareSheet.tsx
+
+import { Share } from '@capacitor/share';
+import { Filesystem, Directory } from '@capacitor/filesystem';
+import { toPng } from 'html-to-image';
+import { Capacitor } from '@capacitor/core';
+
+export function ShareSheet({ 
+  open, 
+  onClose, 
+  songTitle, 
+  artistName, 
+  albumArtwork,
+  songUrl 
+}) {
+  const [isGenerating, setIsGenerating] = useState(false);
+  const storyCardRef = useRef<HTMLDivElement>(null);
+
+  const generateAndSaveImage = async (): Promise<string> => {
+    if (!storyCardRef.current) {
+      throw new Error('Story card ref not ready');
+    }
+
+    try {
+      console.log('[Share] Generating image...');
+
+      // Generate PNG from component
+      const dataUrl = await toPng(storyCardRef.current, {
+        quality: 1.0,
+        pixelRatio: 2,
+        width: 1080,
+        height: 1920,
+        cacheBust: true
+      });
+
+      console.log('[Share] Image generated, data URL length:', dataUrl.length);
+
+      // Extract base64 data (remove "data:image/png;base64," prefix)
+      const base64Data = dataUrl.split(',')[1];
+
+      // Save to filesystem
+      const fileName = `story-${Date.now()}.png`;
+      
+      console.log('[Share] Saving to filesystem...');
+
+      const result = await Filesystem.writeFile({
+        path: fileName,
+        data: base64Data,
+        directory: Directory.Cache
+      });
+
+      console.log('[Share] Saved to:', result.uri);
+
+      // CRITICAL: Return the correct URI format
+      // On Android: file:///data/user/0/.../cache/story-xxx.png
+      // On iOS: file:///var/mobile/.../Library/Caches/story-xxx.png
+      return result.uri;
+
+    } catch (error) {
+      console.error('[Share] Image generation failed:', error);
+      throw error;
+    }
+  };
+
+  const shareToInstagram = async () => {
+    try {
+      setIsGenerating(true);
+      console.log('[Instagram] Starting share...');
+
+      // Generate and save image
+      const imageUri = await generateAndSaveImage();
+
+      console.log('[Instagram] Image URI:', imageUri);
+
+      // Check if Instagram is installed
+      const canShare = await Share.canShare();
+      console.log('[Instagram] Can share:', canShare);
+
+      if (!canShare) {
+        toast({
+          title: 'Instagram Not Found',
+          description: 'Please install Instagram to share stories',
+          variant: 'destructive'
+        });
+        return;
+      }
+
+      // Share to Instagram Stories
+      // IMPORTANT: Use the native Share API with correct parameters
+      await Share.share({
+        title: songTitle,
+        text: `${songTitle} by ${artistName}`,
+        url: songUrl,
+        files: [imageUri],
+        dialogTitle: 'Share to Instagram Stories'
+      });
+
+      console.log('[Instagram] Share completed');
+
+      toast({
+        title: 'Shared!',
+        description: 'Opening Instagram...'
+      });
+
+      onClose();
+
+    } catch (error) {
+      console.error('[Instagram] Share failed:', error);
+      
+      toast({
+        title: 'Share Failed',
+        description: error.message || 'Could not share to Instagram',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const shareToSnapchat = async () => {
+    try {
+      setIsGenerating(true);
+      console.log('[Snapchat] Starting share...');
+
+      const imageUri = await generateAndSaveImage();
+
+      await Share.share({
+        title: songTitle,
+        text: `${songTitle} by ${artistName}`,
+        files: [imageUri],
+        dialogTitle: 'Share to Snapchat'
+      });
+
+      toast({
+        title: 'Shared!',
+        description: 'Opening Snapchat...'
+      });
+
+      onClose();
+
+    } catch (error) {
+      console.error('[Snapchat] Share failed:', error);
+      
+      toast({
+        title: 'Share Failed',
+        description: 'Could not share to Snapchat',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const shareToTwitter = async () => {
+    try {
+      console.log('[Twitter] Starting share...');
+
+      const text = `🎵 Listening to "${songTitle}" by ${artistName} on Lyric Sensei\n\n${songUrl}`;
+      
+      // Twitter doesn't accept images via web intents
+      // Just share text + link
+      if (Capacitor.isNativePlatform()) {
+        // Try native Twitter app
+        await Share.share({
+          title: songTitle,
+          text: text,
+          dialogTitle: 'Share to Twitter'
+        });
+      } else {
+        // Web: Use Twitter web intent
+        const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`;
+        window.open(twitterUrl, '_blank');
+      }
+
+      toast({
+        title: 'Shared!',
+        description: 'Opening Twitter...'
+      });
+
+      onClose();
+
+    } catch (error) {
+      console.error('[Twitter] Share failed:', error);
+    }
+  };
+
+  const copyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(songUrl);
+      
+      toast({
+        title: 'Link Copied!',
+        description: 'Song link copied to clipboard'
+      });
+
+      onClose();
+    } catch (error) {
+      console.error('Failed to copy:', error);
+      
+      // Fallback for older browsers
+      const input = document.createElement('input');
+      input.value = songUrl;
+      document.body.appendChild(input);
+      input.select();
+      document.execCommand('copy');
+      document.body.removeChild(input);
+      
+      toast({
+        title: 'Link Copied!',
+        description: 'Song link copied to clipboard'
+      });
+
+      onClose();
+    }
+  };
+
+  const shareMore = async () => {
+    try {
+      console.log('[More] Starting generic share...');
+
+      const imageUri = await generateAndSaveImage();
+
+      await Share.share({
+        title: songTitle,
+        text: `Check out ${songTitle} by ${artistName} on Lyric Sensei`,
+        url: songUrl,
+        files: [imageUri],
+        dialogTitle: 'Share Song'
+      });
+
+      onClose();
+
+    } catch (error) {
+      console.error('[More] Share failed:', error);
+      
+      // Fallback: share without image
+      await Share.share({
+        title: songTitle,
+        text: `Check out ${songTitle} by ${artistName}`,
+        url: songUrl,
+        dialogTitle: 'Share Song'
+      });
+
+      onClose();
+    }
+  };
+
+  return (
+    <>
+      {/* Hidden story card for image generation */}
+      <div style={{ 
+        position: 'absolute', 
+        left: '-10000px', 
+        top: '-10000px',
+        width: '1080px',
+        height: '1920px'
+      }}>
+        <div
+          ref={storyCardRef}
+          style={{
+            width: '1080px',
+            height: '1920px',
+            position: 'relative',
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            fontFamily: 'system-ui, -apple-system, sans-serif'
+          }}
+        >
+          {/* Story card content - same as before */}
+          <StoryCardContent 
+            songTitle={songTitle}
+            artistName={artistName}
+            albumArtwork={albumArtwork}
+            userName={user?.username || 'Guest'}
+          />
+        </div>
+      </div>
+
+      {/* Share Sheet Dialog */}
+      <Dialog open={open} onOpenChange={onClose}>
+        <DialogContent className="max-w-md">
+          <div className="space-y-2">
+            <h2 className="text-xl font-semibold mb-2">Share with anyone</h2>
+            <p className="text-sm text-muted-foreground mb-4">
+              Music shared from Lyric Sensei can be opened on other services
+            </p>
+
+            {/* Instagram */}
+            <Button
+              variant="ghost"
+              className="w-full justify-start h-16"
+              onClick={shareToInstagram}
+              disabled={isGenerating}
+            >
+              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 via-pink-500 to-orange-500 flex items-center justify-center mr-3">
+                <Instagram className="h-5 w-5 text-white" />
+              </div>
+              <span className="text-base">Instagram Stories</span>
+              {isGenerating && <Loader2 className="ml-auto h-4 w-4 animate-spin" />}
+            </Button>
+
+            {/* Snapchat */}
+            <Button
+              variant="ghost"
+              className="w-full justify-start h-16"
+              onClick={shareToSnapchat}
+              disabled={isGenerating}
+            >
+              <div className="w-10 h-10 rounded-full bg-yellow-400 flex items-center justify-center mr-3">
+                <MessageCircle className="h-5 w-5 text-white" />
+              </div>
+              <span className="text-base">Snapchat</span>
+            </Button>
+
+            {/* Twitter */}
+            <Button
+              variant="ghost"
+              className="w-full justify-start h-16"
+              onClick={shareToTwitter}
+            >
+              <div className="w-10 h-10 rounded-full bg-blue-400 flex items-center justify-center mr-3">
+                <Twitter className="h-5 w-5 text-white" />
+              </div>
+              <span className="text-base">Twitter</span>
+            </Button>
+
+            {/* Copy Link */}
+            <Button
+              variant="ghost"
+              className="w-full justify-start h-16"
+              onClick={copyLink}
+            >
+              <div className="w-10 h-10 rounded-full bg-teal-500 flex items-center justify-center mr-3">
+                <Link2 className="h-5 w-5 text-white" />
+              </div>
+              <span className="text-base">Copy track link</span>
+            </Button>
+
+            {/* More Options */}
+            <Button
+              variant="ghost"
+              className="w-full justify-start h-16"
+              onClick={shareMore}
+            >
+              <div className="w-10 h-10 rounded-full bg-gray-600 flex items-center justify-center mr-3">
+                <MoreHorizontal className="h-5 w-5 text-white" />
+              </div>
+              <span className="text-base">More</span>
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+```
+
+---
+
+### Step 2: Create Story Card Content Component
+
+```typescript
+// client/src/components/StoryCardContent.tsx
+
+interface StoryCardContentProps {
+  songTitle: string;
+  artistName: string;
+  albumArtwork: string;
+  userName: string;
+  lyricText?: string;
+}
+
+export function StoryCardContent({
+  songTitle,
+  artistName,
+  albumArtwork,
+  userName,
+  lyricText
+}: StoryCardContentProps) {
+  return (
+    <>
+      {/* Blurred background */}
+      <div style={{
+        position: 'absolute',
+        inset: 0,
+        backgroundImage: `url(${albumArtwork})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        filter: 'blur(40px) brightness(0.4)',
+        opacity: 0.8
+      }} />
+
+      {/* Content */}
+      <div style={{
+        position: 'relative',
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'space-between',
+        padding: '80px 60px'
+      }}>
+        {/* Top: App branding */}
+        <div style={{ textAlign: 'center' }}>
+          <div style={{
+            fontSize: '48px',
+            fontWeight: 'bold',
+            color: 'white',
+            letterSpacing: '2px'
+          }}>
+            LYRIC SENSEI
+          </div>
+        </div>
+
+        {/* Middle: Album art + song info */}
+        <div style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: '40px'
+        }}>
+          {/* Album artwork */}
+          <img
+            src={albumArtwork}
+            alt={songTitle}
+            style={{
+              width: '600px',
+              height: '600px',
+              borderRadius: '24px',
+              objectFit: 'cover',
+              boxShadow: '0 30px 60px rgba(0,0,0,0.5)'
+            }}
+            crossOrigin="anonymous"
+          />
+
+          {/* Song info */}
+          <div style={{ textAlign: 'center', maxWidth: '900px' }}>
+            <div style={{
+              fontSize: '72px',
+              fontWeight: 'bold',
+              color: 'white',
+              marginBottom: '20px',
+              lineHeight: 1.2
+            }}>
+              {songTitle}
+            </div>
+            <div style={{
+              fontSize: '48px',
+              color: 'rgba(255,255,255,0.8)'
+            }}>
+              {artistName}
+            </div>
+          </div>
+
+          {/* Optional lyric */}
+          {lyricText && (
+            <div style={{
+              background: 'rgba(255,255,255,0.15)',
+              backdropFilter: 'blur(10px)',
+              padding: '40px',
+              borderRadius: '16px',
+              maxWidth: '900px'
+            }}>
+              <div style={{
+                fontSize: '44px',
+                color: 'white',
+                fontStyle: 'italic',
+                textAlign: 'center'
+              }}>
+                "{lyricText}"
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Bottom: User */}
+        <div style={{ textAlign: 'center' }}>
+          <div style={{
+            fontSize: '36px',
+            color: 'rgba(255,255,255,0.9)'
+          }}>
+            Shared by @{userName}
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+```
+
+---
+
+### Step 3: Check Permissions
+
+```typescript
+// Add permission checks before sharing
+
+import { Filesystem } from '@capacitor/filesystem';
+
+const checkPermissions = async () => {
+  try {
+    // Check/request storage permission
+    const permission = await Filesystem.checkPermissions();
+    
+    if (permission.publicStorage !== 'granted') {
+      const result = await Filesystem.requestPermissions();
+      
+      if (result.publicStorage !== 'granted') {
+        toast({
+          title: 'Permission Denied',
+          description: 'Storage access is required to share images',
+          variant: 'destructive'
+        });
+        return false;
+      }
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Permission check failed:', error);
+    return true; // Continue anyway
+  }
+};
+
+// Call before sharing
+const shareToInstagram = async () => {
+  const hasPermission = await checkPermissions();
+  if (!hasPermission) return;
+  
+  // ... rest of share code
+};
+```
+
+---
+
+### Step 4: Debug Logging
+
+Add comprehensive logging to see where it fails:
+
+```typescript
+const shareToInstagram = async () => {
+  try {
+    console.log('=== INSTAGRAM SHARE START ===');
+    console.log('Song:', songTitle, 'by', artistName);
+    console.log('Platform:', Capacitor.getPlatform());
+    
+    setIsGenerating(true);
+    
+    console.log('Step 1: Generating image...');
+    const imageUri = await generateAndSaveImage();
+    console.log('Step 2: Image saved to:', imageUri);
+    
+    console.log('Step 3: Checking if can share...');
+    const canShare = await Share.canShare();
+    console.log('Can share:', canShare);
+    
+    console.log('Step 4: Calling Share.share()...');
+    const result = await Share.share({
+      title: songTitle,
+      text: `${songTitle} by ${artistName}`,
+      url: songUrl,
+      files: [imageUri],
+      dialogTitle: 'Share to Instagram Stories'
+    });
+    
+    console.log('Step 5: Share result:', result);
+    console.log('=== INSTAGRAM SHARE SUCCESS ===');
+    
+  } catch (error) {
+    console.error('=== INSTAGRAM SHARE FAILED ===');
+    console.error('Error:', error);
+    console.error('Error message:', error.message);
+    console.error('Error stack:', error.stack);
+  }
+};
+```
+
+---
+
+### Step 5: Alternative - Native Instagram Share (If Above Doesn't Work)
+
+Use Instagram's native SDK for direct sharing:
+
+```typescript
+// Install plugin
+npm install cordova-plugin-instagram-stories
+npm install @awesome-cordova-plugins/instagram-stories
+
+// Use in code
+import { InstagramStories } from '@awesome-cordova-plugins/instagram-stories/ngx';
+
+const shareToInstagramDirect = async () => {
+  try {
+    const imageUri = await generateAndSaveImage();
+    
+    await InstagramStories.share({
+      backgroundImage: imageUri,
+      stickerImage: null, // Optional sticker
+      backgroundTopColor: '#667eea',
+      backgroundBottomColor: '#764ba2'
+    });
+    
+  } catch (error) {
+    console.error('Instagram direct share failed:', error);
+  }
+};
+```
+
+---
+
+### Step 6: Test Different Share Methods
+
+```typescript
+// Method 1: Capacitor Share (current)
+await Share.share({ files: [imageUri], ... });
+
+// Method 2: Native Intent (Android)
+if (Capacitor.getPlatform() === 'android') {
+  const intent = {
+    action: 'android.intent.action.SEND',
+    type: 'image/png',
+    extras: {
+      'android.intent.extra.STREAM': imageUri,
+      'android.intent.extra.TEXT': `${songTitle} by ${artistName}`
+    },
+    packageName: 'com.instagram.android' // Or null for chooser
+  };
+  
+  // Use intent plugin
+}
+
+// Method 3: Social Sharing Plugin
+npm install @awesome-cordova-plugins/social-sharing
+
+import { SocialSharing } from '@awesome-cordova-plugins/social-sharing/ngx';
+
+await SocialSharing.shareViaInstagram(
+  `${songTitle} by ${artistName}`,
+  imageUri,
+  songUrl
+);
+```
+
+---
+
+## 🔍 Debugging Checklist
+
+Run these checks in order:
+
+```typescript
+// 1. Check if image generates
+const testImageGeneration = async () => {
+  const dataUrl = await toPng(cardRef.current);
+  console.log('Image generated:', dataUrl.substring(0, 100));
+};
+
+// 2. Check if file saves
+const testFileSave = async () => {
+  const result = await Filesystem.writeFile({
+    path: 'test.png',
+    data: 'base64data...',
+    directory: Directory.Cache
+  });
+  console.log('File saved to:', result.uri);
+};
+
+// 3. Check if can share
+const testCanShare = async () => {
+  const can = await Share.canShare();
+  console.log('Can share:', can);
+};
+
+// 4. Test basic share (no image)
+const testBasicShare = async () => {
+  await Share.share({
+    title: 'Test',
+    text: 'Test share',
+    url: 'https://google.com'
+  });
+};
+
+// 5. Test share with image
+const testImageShare = async () => {
+  await Share.share({
+    files: [imageUri]
+  });
+};
+```
+
+---
+
+## 📱 Platform-Specific Issues
+
+### Android
+
+**Issue:** File URI not accessible
+**Fix:** Use content:// URI instead of file://
+
+```typescript
+// Convert file:// to content://
+const getContentUri = async (fileUri: string) => {
+  if (Capacitor.getPlatform() === 'android') {
+    // Use FileProvider
+    const result = await Filesystem.getUri({
+      path: fileName,
+      directory: Directory.Cache
+    });
+    return result.uri;
+  }
+  return fileUri;
+};
+```
+
+### iOS
+
+**Issue:** Image doesn't show in Instagram
+**Fix:** Ensure image size is exactly 1080x1920
+
+```typescript
+const generateImage = async () => {
+  return await toPng(cardRef.current, {
+    width: 1080,
+    height: 1920,
+    pixelRatio: 1 // Exactly 1080x1920 pixels
+  });
+};
+```
+
+---
+
+## 🎯 Quick Fix Summary
+
+1. **Add logging** - See where it fails
+2. **Check permissions** - Storage must be granted
+3. **Verify image URI** - Must be accessible file:// or content://
+4. **Test share without image** - See if Share API works at all
+5. **Try alternative methods** - Native plugins if Capacitor fails
+
+---
+
+## 🚀 Expected Behavior After Fix
+
+1. ✅ Click share button
+2. ✅ See "Generating..." loading state
+3. ✅ Image generates (check logs)
+4. ✅ File saves to cache (check logs)
+5. ✅ Share dialog opens
+6. ✅ Select Instagram
+7. ✅ Instagram opens with image loaded
+8. ✅ Post to story
+
+---
+
+**Run the debug logging first to see exactly where it's failing!**
