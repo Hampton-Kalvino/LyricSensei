@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
-import { Music, Languages, Volume2, AlertCircle, Speaker, Mic, Check, X, GraduationCap, SkipForward } from "lucide-react";
+import { Music, Languages, Volume2, AlertCircle, Speaker, Mic, Check, X, GraduationCap, SkipForward, Play, ChevronLeft, ChevronRight, RotateCcw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -88,6 +88,11 @@ export function LyricDisplay({
   const [showScoreBanner, setShowScoreBanner] = useState(false);
   const scoreBannerTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
+  // Timing offset and auto-scroll state
+  const [timingOffset, setTimingOffset] = useState<number>(0); // milliseconds
+  const [isAutoScroll, setIsAutoScroll] = useState(true); // Track if auto-scroll is enabled
+  const [showResyncButton, setShowResyncButton] = useState(false); // Show re-sync button when user manually scrolls
+  
   // Practice stats mutation
   const savePracticeStatsMutation = useMutation({
     mutationFn: async ({ songId, totalAttempts, successfulAttempts }: { songId: string; totalAttempts: number; successfulAttempts: number }) => {
@@ -95,10 +100,13 @@ export function LyricDisplay({
     },
   });
 
+  // Adjust current time with timing offset
+  const adjustedTime = currentTime + (timingOffset / 1000);
+
   // currentTime is already the absolute position in the song (set from previewOffsetSeconds on recognition)
-  // No need to add offset again - just use currentTime directly
+  // Now apply timing offset for precise sync
   const currentLineIndex = lyrics.findIndex(
-    (line) => currentTime >= line.startTime && currentTime < line.endTime
+    (line) => adjustedTime >= line.startTime && adjustedTime < line.endTime
   );
 
   // Determine which index to use for highlighting (priority order):
@@ -116,6 +124,12 @@ export function LyricDisplay({
     setIsUserScrolling(true);
     setClickedLineIndex(-1); // Clear clicked line when user scrolls
     
+    // Only show re-sync button during active playback
+    if (isActivePlayback && isAutoScroll) {
+      setShowResyncButton(true);
+      setIsAutoScroll(false); // Disable auto-scroll when user manually scrolls
+    }
+    
     // Clear existing timeout
     if (userScrollTimeoutRef.current) {
       clearTimeout(userScrollTimeoutRef.current);
@@ -125,7 +139,7 @@ export function LyricDisplay({
     userScrollTimeoutRef.current = setTimeout(() => {
       setIsUserScrolling(false);
     }, 300);
-  }, []);
+  }, [isActivePlayback, isAutoScroll]);
 
   // Setup scroll listeners for user interaction detection
   useEffect(() => {
@@ -231,10 +245,11 @@ export function LyricDisplay({
     // Auto-scroll ONLY when:
     // 1. Active playback is happening (time-based highlighting)
     // 2. User is not actively scrolling
+    // 3. Auto-scroll is enabled (not disabled by manual scroll)
     // 
     // During manual scroll: IntersectionObserver handles highlighting passively
     // NO auto-scroll should occur - user controls scroll position
-    const shouldAutoScroll = isActivePlayback && activeLineRef.current && containerRef.current && !isUserScrolling;
+    const shouldAutoScroll = isActivePlayback && activeLineRef.current && containerRef.current && !isUserScrolling && isAutoScroll;
     
     if (shouldAutoScroll) {
       // Use requestAnimationFrame to ensure DOM has updated before scrolling
@@ -259,7 +274,7 @@ export function LyricDisplay({
         }
       });
     }
-  }, [isActivePlayback, currentLineIndex, isUserScrolling]); // Only trigger on playback changes, NOT manual scroll
+  }, [isActivePlayback, currentLineIndex, isUserScrolling, isAutoScroll]); // Trigger on playback and auto-scroll changes
 
   // Text-to-Speech function - Hybrid: Capacitor for native, Web Speech for web
   const speakPhonetic = useCallback(async (phoneticText: string, index: number) => {
@@ -1525,6 +1540,70 @@ export function LyricDisplay({
         })}
         <div className="h-80" />
       </div>
+
+      {/* Re-sync Button - Appears when user manually scrolls during playback */}
+      {showResyncButton && isActivePlayback && (
+        <Button
+          onClick={() => {
+            setIsAutoScroll(true);
+            setShowResyncButton(false);
+          }}
+          className="fixed bottom-24 right-4 z-50 rounded-full h-14 w-14 shadow-lg hover-elevate active-elevate-2"
+          size="icon"
+          data-testid="button-resume-autoscroll"
+          title="Resume auto-scroll"
+        >
+          <Play className="h-5 w-5" />
+        </Button>
+      )}
+
+      {/* Timing Adjustment Controls */}
+      {isActivePlayback && (timingOffset !== 0 || showResyncButton) && (
+        <div className="flex items-center gap-2 px-4 py-3 border-t bg-card/50 backdrop-blur-sm">
+          <span className="text-xs text-muted-foreground font-medium">Sync:</span>
+          
+          {/* Earlier */}
+          <Button 
+            size="sm" 
+            variant="outline"
+            onClick={() => setTimingOffset(prev => Math.max(prev - 100, -5000))}
+            data-testid="button-timing-earlier"
+            title="Shift lyrics earlier by 100ms"
+          >
+            <ChevronLeft className="h-3 w-3" />
+            <span className="text-xs ml-1">-0.1s</span>
+          </Button>
+          
+          {/* Current offset display */}
+          <span className="text-xs font-mono min-w-[60px] text-center px-2 py-1 rounded bg-secondary/50">
+            {timingOffset > 0 ? '+' : ''}{(timingOffset / 1000).toFixed(1)}s
+          </span>
+          
+          {/* Later */}
+          <Button 
+            size="sm" 
+            variant="outline"
+            onClick={() => setTimingOffset(prev => Math.min(prev + 100, 5000))}
+            data-testid="button-timing-later"
+            title="Shift lyrics later by 100ms"
+          >
+            <span className="text-xs mr-1">+0.1s</span>
+            <ChevronRight className="h-3 w-3" />
+          </Button>
+          
+          {/* Reset */}
+          <Button 
+            size="sm" 
+            variant="ghost"
+            onClick={() => setTimingOffset(0)}
+            disabled={timingOffset === 0}
+            data-testid="button-timing-reset"
+            title="Reset timing to default"
+          >
+            <RotateCcw className="h-3 w-3" />
+          </Button>
+        </div>
+      )}
     </Card>
   );
 }
