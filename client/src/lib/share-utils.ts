@@ -19,7 +19,7 @@ export async function generateStoryCard(
   container.style.zIndex = '-1';
   container.style.pointerEvents = 'none';
 
-  // Create story card HTML
+  // Create story card HTML with Tidal-like design
   container.innerHTML = `
     <div style="
       width: 1080px;
@@ -28,6 +28,10 @@ export async function generateStoryCard(
       position: relative;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
       overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
     ">
       <!-- Blurred background -->
       <div style="
@@ -43,93 +47,90 @@ export async function generateStoryCard(
         opacity: 0.6;
       "></div>
 
-      <!-- Content -->
+      <!-- Content: White card (Tidal-style) -->
       <div style="
         position: relative;
-        height: 100%;
+        z-index: 1;
+        background: white;
+        border-radius: 40px;
+        padding: 60px 60px;
+        width: 900px;
+        box-shadow: 0 40px 100px rgba(0,0,0,0.5);
         display: flex;
         flex-direction: column;
-        justify-content: space-between;
-        padding: 100px 80px;
-        z-index: 1;
+        align-items: center;
+        gap: 50px;
       ">
-        <!-- Top: App Name -->
+        <!-- Logo at top -->
         <div style="
-          font-size: 56px;
-          font-weight: 900;
-          color: white;
-          text-align: center;
-          letter-spacing: 4px;
-          text-transform: uppercase;
-          text-shadow: 0 4px 20px rgba(0,0,0,0.3);
+          width: 80px;
+          height: 80px;
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          box-shadow: 0 8px 24px rgba(102, 126, 234, 0.4);
         ">
-          Lyric Sensei
+          <svg width="50" height="50" viewBox="0 0 50 50" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <!-- Music note icon -->
+            <path d="M25 5C25 5 10 12 10 25C10 35 17 40 25 40C33 40 40 35 40 25C40 12 25 5 25 5M27 15V30C27 33 25 35 22 35C19 35 17 33 17 30C17 27 19 25 22 25V15H27Z" fill="white" stroke="white" stroke-width="2" stroke-linejoin="round"/>
+          </svg>
         </div>
 
-        <!-- Middle: Album & Info -->
+        <!-- Album Art -->
         <div style="
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 60px;
+          width: 650px;
+          height: 650px;
+          border-radius: 30px;
+          overflow: hidden;
+          box-shadow: 0 20px 60px rgba(0,0,0,0.2);
         ">
-          <!-- Album Art -->
-          <div style="
-            width: 700px;
-            height: 700px;
-            border-radius: 40px;
-            overflow: hidden;
-            box-shadow: 0 40px 100px rgba(0,0,0,0.6);
-            border: 8px solid rgba(255,255,255,0.1);
-          ">
-            <img 
-              src="${albumArtwork}" 
-              style="
-                width: 100%;
-                height: 100%;
-                object-fit: cover;
-              "
-              crossorigin="anonymous"
-            />
-          </div>
+          <img 
+            src="${albumArtwork}" 
+            style="
+              width: 100%;
+              height: 100%;
+              object-fit: cover;
+            "
+            crossorigin="anonymous"
+          />
+        </div>
 
-          <!-- Song Info -->
-          <div style="text-align: center; max-width: 900px;">
-            <div style="
-              font-size: 80px;
-              font-weight: 900;
-              color: white;
-              line-height: 1.1;
-              margin-bottom: 24px;
-              text-shadow: 0 4px 20px rgba(0,0,0,0.3);
-            ">
-              ${songTitle}
-            </div>
-            <div style="
-              font-size: 52px;
-              color: rgba(255,255,255,0.85);
-              font-weight: 600;
-              text-shadow: 0 2px 10px rgba(0,0,0,0.3);
-            ">
-              ${artistName}
-            </div>
+        <!-- Song Info -->
+        <div style="text-align: center;">
+          <div style="
+            font-size: 56px;
+            font-weight: 900;
+            color: #1a1a1a;
+            line-height: 1.2;
+            margin-bottom: 16px;
+          ">
+            ${songTitle}
+          </div>
+          <div style="
+            font-size: 40px;
+            color: #666666;
+            font-weight: 600;
+            margin-bottom: 32px;
+          ">
+            ${artistName}
           </div>
         </div>
 
         <!-- Bottom: CTA -->
         <div style="text-align: center;">
           <div style="
-            font-size: 44px;
-            color: rgba(255,255,255,0.95);
+            font-size: 36px;
+            color: #667eea;
             font-weight: 700;
-            margin-bottom: 12px;
-            text-shadow: 0 2px 10px rgba(0,0,0,0.3);
+            margin-bottom: 8px;
           ">
             Download Lyric Sensei
           </div>
           <div style="
-            font-size: 36px;
-            color: rgba(255,255,255,0.75);
+            font-size: 28px;
+            color: #999999;
             font-weight: 500;
           ">
             lyricsensei.com
@@ -177,7 +178,7 @@ export async function generateStoryCard(
 
 /**
  * Alternative Canvas-based implementation if html-to-image fails
- * More compatible but lower quality
+ * Matches Tidal-like design with white card and logo
  */
 export async function generateStoryCardCanvas(
   songTitle: string,
@@ -195,11 +196,11 @@ export async function generateStoryCardCanvas(
       return;
     }
 
-    // Background gradient
-    const gradient = ctx.createLinearGradient(0, 0, 0, 1920);
-    gradient.addColorStop(0, '#667eea');
-    gradient.addColorStop(1, '#764ba2');
-    ctx.fillStyle = gradient;
+    // Background gradient (purple)
+    const bgGradient = ctx.createLinearGradient(0, 0, 0, 1920);
+    bgGradient.addColorStop(0, '#667eea');
+    bgGradient.addColorStop(1, '#764ba2');
+    ctx.fillStyle = bgGradient;
     ctx.fillRect(0, 0, 1080, 1920);
 
     // Load album artwork
@@ -208,83 +209,116 @@ export async function generateStoryCardCanvas(
 
     img.onload = () => {
       try {
-        // Draw blurred background
+        // Draw blurred background image
         ctx.filter = 'blur(40px) brightness(0.3)';
         ctx.globalAlpha = 0.6;
         ctx.drawImage(img, -50, -50, 1180, 2020);
         ctx.globalAlpha = 1.0;
         ctx.filter = 'none';
 
-        // Draw album art with rounded corners
-        ctx.save();
-        ctx.shadowColor = 'rgba(0,0,0,0.6)';
+        // Draw white card (Tidal-style)
+        const cardWidth = 900;
+        const cardHeight = 1400;
+        const cardX = (1080 - cardWidth) / 2;
+        const cardY = (1920 - cardHeight) / 2;
+        const cardRadius = 40;
+
+        // Card background with shadow
+        ctx.shadowColor = 'rgba(0,0,0,0.5)';
         ctx.shadowBlur = 40;
         ctx.shadowOffsetY = 20;
 
-        const artSize = 700;
-        const artX = (1080 - artSize) / 2;
-        const artY = 600;
-
-        // Rounded corners
-        const radius = 40;
+        ctx.fillStyle = 'white';
         ctx.beginPath();
-        ctx.moveTo(artX + radius, artY);
-        ctx.lineTo(artX + artSize - radius, artY);
-        ctx.quadraticCurveTo(
-          artX + artSize,
-          artY,
-          artX + artSize,
-          artY + radius
+        ctx.moveTo(cardX + cardRadius, cardY);
+        ctx.lineTo(cardX + cardWidth - cardRadius, cardY);
+        ctx.quadraticCurveTo(cardX + cardWidth, cardY, cardX + cardWidth, cardY + cardRadius);
+        ctx.lineTo(cardX + cardWidth, cardY + cardHeight - cardRadius);
+        ctx.quadraticCurveTo(cardX + cardWidth, cardY + cardHeight, cardX + cardWidth - cardRadius, cardY + cardHeight);
+        ctx.lineTo(cardX + cardRadius, cardY + cardHeight);
+        ctx.quadraticCurveTo(cardX, cardY + cardHeight, cardX, cardY + cardHeight - cardRadius);
+        ctx.lineTo(cardX, cardY + cardRadius);
+        ctx.quadraticCurveTo(cardX, cardY, cardX + cardRadius, cardY);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.shadowColor = 'transparent';
+
+        // Draw logo circle at top (purple gradient circle with music note)
+        const logoCenterX = 540;
+        const logoCenterY = cardY + 100;
+        const logoRadius = 40;
+
+        const logoGradient = ctx.createLinearGradient(
+          logoCenterX - logoRadius,
+          logoCenterY - logoRadius,
+          logoCenterX + logoRadius,
+          logoCenterY + logoRadius
         );
-        ctx.lineTo(artX + artSize, artY + artSize - radius);
-        ctx.quadraticCurveTo(
-          artX + artSize,
-          artY + artSize,
-          artX + artSize - radius,
-          artY + artSize
-        );
-        ctx.lineTo(artX + radius, artY + artSize);
-        ctx.quadraticCurveTo(
-          artX,
-          artY + artSize,
-          artX,
-          artY + artSize - radius
-        );
-        ctx.lineTo(artX, artY + radius);
-        ctx.quadraticCurveTo(artX, artY, artX + radius, artY);
+        logoGradient.addColorStop(0, '#667eea');
+        logoGradient.addColorStop(1, '#764ba2');
+        ctx.fillStyle = logoGradient;
+
+        ctx.beginPath();
+        ctx.arc(logoCenterX, logoCenterY, logoRadius, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Draw music note inside logo circle
+        ctx.fillStyle = 'white';
+        ctx.font = 'bold 50px system-ui';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('♪', logoCenterX, logoCenterY);
+
+        // Draw album art
+        const artSize = 650;
+        const artX = (1080 - artSize) / 2;
+        const artY = cardY + 180;
+
+        ctx.save();
+        const artRadius = 30;
+        ctx.beginPath();
+        ctx.moveTo(artX + artRadius, artY);
+        ctx.lineTo(artX + artSize - artRadius, artY);
+        ctx.quadraticCurveTo(artX + artSize, artY, artX + artSize, artY + artRadius);
+        ctx.lineTo(artX + artSize, artY + artSize - artRadius);
+        ctx.quadraticCurveTo(artX + artSize, artY + artSize, artX + artSize - artRadius, artY + artSize);
+        ctx.lineTo(artX + artRadius, artY + artSize);
+        ctx.quadraticCurveTo(artX, artY + artSize, artX, artY + artSize - artRadius);
+        ctx.lineTo(artX, artY + artRadius);
+        ctx.quadraticCurveTo(artX, artY, artX + artRadius, artY);
         ctx.closePath();
         ctx.clip();
 
         ctx.drawImage(img, artX, artY, artSize, artSize);
         ctx.restore();
 
-        // Text
-        ctx.fillStyle = 'white';
+        // Text content
         ctx.textAlign = 'center';
-        ctx.shadowColor = 'rgba(0,0,0,0.5)';
-        ctx.shadowBlur = 10;
-
-        // App name
-        ctx.font = 'bold 56px system-ui';
-        ctx.fillText('LYRIC SENSEI', 540, 150);
+        ctx.shadowColor = 'transparent';
 
         // Song title
-        ctx.font = '900 80px system-ui';
-        ctx.fillText(songTitle.substring(0, 30), 540, 1400);
-        ctx.fillText(songTitle.substring(30), 540, 1500);
+        ctx.fillStyle = '#1a1a1a';
+        ctx.font = 'bold 56px system-ui';
+        const titleY = artY + artSize + 80;
+        const lines = songTitle.length > 25 ? songTitle.match(/.{1,25}/g) || [] : [songTitle];
+        lines.slice(0, 2).forEach((line, i) => {
+          ctx.fillText(line, 540, titleY + i * 70);
+        });
 
-        // Artist
-        ctx.font = '600 52px system-ui';
-        ctx.fillStyle = 'rgba(255,255,255,0.85)';
-        ctx.fillText(artistName, 540, 1600);
+        // Artist name
+        ctx.fillStyle = '#666666';
+        ctx.font = '600 40px system-ui';
+        ctx.fillText(artistName, 540, titleY + (lines.length * 70) + 60);
 
-        // CTA
-        ctx.font = 'bold 44px system-ui';
-        ctx.fillStyle = 'white';
-        ctx.fillText('Download Lyric Sensei', 540, 1800);
-        ctx.font = '500 36px system-ui';
-        ctx.fillStyle = 'rgba(255,255,255,0.75)';
-        ctx.fillText('lyricsensei.com', 540, 1850);
+        // CTA text
+        ctx.fillStyle = '#667eea';
+        ctx.font = 'bold 36px system-ui';
+        ctx.fillText('Download Lyric Sensei', 540, cardY + cardHeight - 120);
+
+        ctx.fillStyle = '#999999';
+        ctx.font = '500 28px system-ui';
+        ctx.fillText('lyricsensei.com', 540, cardY + cardHeight - 60);
 
         // Convert to blob
         canvas.toBlob(
