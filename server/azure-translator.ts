@@ -937,11 +937,11 @@ function spanishToPhonetic(text: string): string {
   phonetic = phonetic.replace(/ü/g, 'OO');
   phonetic = phonetic.replace(/u/g, 'OO');
   
-  // Step 6: Restore digraph markers
-  phonetic = phonetic.replace(/§CH§/g, 'CH');
-  phonetic = phonetic.replace(/§Y§/g, 'Y');
-  phonetic = phonetic.replace(/§RR§/g, 'RR');
-  phonetic = phonetic.replace(/§NY§/g, 'NY');
+  // Step 6: Restore digraph markers to LOWERCASE (TTS-friendly, prevents spelling out)
+  phonetic = phonetic.replace(/§CH§/g, 'ch');
+  phonetic = phonetic.replace(/§Y§/g, 'y');
+  phonetic = phonetic.replace(/§RR§/g, 'rr');
+  phonetic = phonetic.replace(/§NY§/g, 'ny');
   
   // Step 7: Clean up and format
   // Convert to lowercase for readability (like Google Translate style)
@@ -949,7 +949,12 @@ function spanishToPhonetic(text: string): string {
   // Remove multiple spaces, trim
   phonetic = phonetic.replace(/\s+/g, ' ').trim();
   
-  // Step 8: Split into syllables for easier reading
+  // Step 8: Simplify problematic consonant clusters (TTS cleanup)
+  // These patterns can cause TTS to spell out letters instead of pronouncing words
+  phonetic = phonetic.replace(/rr([aeiou])/g, 'rr$1');  // Keep 'rr' in pronunciations like "rrah"
+  phonetic = phonetic.replace(/([aeiou])nch([aeiou])/g, '$1nch$3');  // Preserve 'nch' cluster
+  
+  // Step 9: Split into syllables for easier reading
   phonetic = splitIntoSyllables(phonetic);
   
   return phonetic;
@@ -1215,8 +1220,10 @@ function frenchToPhonetic(text: string): string {
   // These patterns can cause TTS to spell out letters instead of pronouncing words
   // Similar to German: avoid patterns that look like abbreviations
   phonetic = phonetic.replace(/ht\b/g, 't');    // "naht" instead of "nahht" (TTS stops spelling)
+  phonetic = phonetic.replace(/dt\b/g, 't');    // "shat" instead of "shahdt"
   phonetic = phonetic.replace(/nkt\b/g, 'nk');  // Remove extra consonants at word boundaries
   phonetic = phonetic.replace(/st(\s|$)/g, 's$1');  // Simplify st clusters
+  phonetic = phonetic.replace(/nch([aeiou])/g, 'nch$1');  // Preserve 'nch' but keep it natural
   
   // Split into syllables
   phonetic = splitIntoSyllables(phonetic);
