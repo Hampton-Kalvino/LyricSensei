@@ -677,32 +677,32 @@ function splitIntoSyllables(phonetic: string): string {
   const syllabifiedWords = words.map(word => {
     if (word.length <= 2) return word; // Don't split very short words
     
+    // Remove existing hyphens to process clean phonetic text
+    let cleanWord = word.toLowerCase().replace(/-/g, '');
+    if (cleanWord.length <= 2) return word; // Don't split very short words
+    
     // All recognized vowel sounds (including nasal vowels from French)
     // Order by length (longest first) to match correctly
     const vowelSounds = ['ahn', 'ohn', 'yan', 'wah', 'woh', 'weh', 'yeh', 'yah', 'yoh', 'ehn', 'uan',
                           'ah', 'eh', 'ee', 'oh', 'oo', 'ay', 'oy', 'ow', 'uh', 'an', 'on'];
     
+    // Digraphs to keep together
+    const digraphs = ['ch', 'sh', 'zh', 'rr', 'ny', 'ph', 'th', 'gh', 'nk', 'ks'];
+    
+    // Valid syllable codas (consonants that can end a syllable)
+    const validCodas = ['m', 'n', 't', 'd', 'r', 's', 'x', 'z', 'b', 'p', 'g', 'k', 'l', 'f', 'v', 'w', 'y'];
+    
     const syllables: string[] = [];
-    let currentSyllable = '';
     let i = 0;
     
-    while (i < word.length) {
+    while (i < cleanWord.length) {
+      let syllable = '';
+      
       // Try to match a vowel sound (longest first)
       let foundVowel = false;
       for (const vowelSound of vowelSounds) {
-        if (word.substring(i).toLowerCase().startsWith(vowelSound)) {
-          // If we already have consonants from the end of last vowel, start new syllable
-          if (currentSyllable && !currentSyllable.match(/[aeiouhs]$/i)) {
-            // Current syllable ends with consonants, need to split
-            syllables.push(currentSyllable);
-            currentSyllable = vowelSound;
-          } else if (currentSyllable) {
-            // Add to current syllable
-            currentSyllable += vowelSound;
-          } else {
-            // Start new syllable with vowel
-            currentSyllable = vowelSound;
-          }
+        if (cleanWord.substring(i).startsWith(vowelSound)) {
+          syllable += vowelSound;
           i += vowelSound.length;
           foundVowel = true;
           break;
@@ -710,31 +710,22 @@ function splitIntoSyllables(phonetic: string): string {
       }
       
       if (!foundVowel) {
-        // It's a consonant
-        // Check for digraphs
-        const digraphs = ['ch', 'sh', 'zh', 'rr', 'ny', 'ph', 'th', 'gh', 'nk', 'ks'];
+        // No vowel found at current position, skip this character to avoid infinite loop
+        // (malformed phonetic text)
+        syllable += cleanWord[i];
+        i += 1;
+        syllables.push(syllable);
+        continue;
+      }
+      
+      // Now collect consonants after the vowel
+      let consonantCluster = '';
+      while (i < cleanWord.length) {
+        // Try to match digraph first
         let foundDigraph = false;
-        
         for (const digraph of digraphs) {
-          if (word.substring(i).toLowerCase().startsWith(digraph)) {
-            // If syllable has vowel and consonants, might need to split
-            if (currentSyllable && currentSyllable.match(/[aeiouhs]$/i)) {
-              // Syllable ends with vowel, add digraph to current syllable
-              currentSyllable += digraph;
-            } else if (currentSyllable) {
-              // Syllable ends with consonants, might be coda or onset
-              // Check if it's likely a coda (m, n, ng at end)
-              if (currentSyllable.match(/(m|n|ng|t|d|r|s|x|z)$/i)) {
-                // Keep with current syllable
-                currentSyllable += digraph;
-              } else {
-                // Start new syllable
-                syllables.push(currentSyllable);
-                currentSyllable = digraph;
-              }
-            } else {
-              currentSyllable = digraph;
-            }
+          if (cleanWord.substring(i).startsWith(digraph)) {
+            consonantCluster += digraph;
             i += digraph.length;
             foundDigraph = true;
             break;
@@ -742,30 +733,56 @@ function splitIntoSyllables(phonetic: string): string {
         }
         
         if (!foundDigraph) {
-          // Single consonant
-          const consonant = word[i];
-          if (currentSyllable && currentSyllable.match(/[aeiouhs]$/i)) {
-            // Syllable ends with vowel, add consonant
-            currentSyllable += consonant;
-          } else if (currentSyllable) {
-            // Syllable ends with consonants - might need split
-            if (currentSyllable.match(/(m|n|ng|t|d|r|s|x|z)$/i)) {
-              currentSyllable += consonant;
-            } else {
-              syllables.push(currentSyllable);
-              currentSyllable = consonant;
-            }
+          // Check for single consonant
+          const char = cleanWord[i];
+          if (/[bcdfghjklmnpqrstvwxz]/.test(char)) {
+            consonantCluster += char;
+            i += 1;
           } else {
-            currentSyllable = consonant;
+            // Not a consonant (must be a vowel starting next syllable)
+            break;
           }
-          i += 1;
         }
       }
-    }
-    
-    // Add final syllable
-    if (currentSyllable) {
-      syllables.push(currentSyllable);
+      
+      // Decide how much of consonant cluster to attach to current syllable
+      if (consonantCluster.length === 0) {
+        // No consonants after vowel
+        syllables.push(syllable);
+      } else if (consonantCluster.length === 1) {
+        // Single consonant: check if it's likely a coda or onset
+        const consonant = consonantCluster[0];
+        
+        // Look ahead: is there another vowel after this consonant?
+        if (i < cleanWord.length) {
+          // There's more text, so this consonant is likely onset of next syllable
+          syllables.push(syllable);
+          i -= 1; // Back up so next iteration starts with this consonant
+        } else {
+          // No more text, this is a coda
+          syllable += consonant;
+          syllables.push(syllable);
+        }
+      } else {
+        // Multiple consonants: split before the last one (usual syllable structure CV-CVC)
+        // Exception: if it's a digraph, keep it together
+        const lastTwoChars = consonantCluster.slice(-2);
+        let isLastDigraph = digraphs.includes(lastTwoChars);
+        
+        if (isLastDigraph) {
+          // Last two chars are a digraph, keep with syllable
+          syllable += consonantCluster;
+          syllables.push(syllable);
+        } else {
+          // Split before last consonant
+          const codaLength = 1; // For simplicity, just take last consonant as potential coda
+          syllable += consonantCluster.slice(0, -codaLength);
+          syllables.push(syllable);
+          
+          // Back up so next iteration starts with the last consonant
+          i -= codaLength;
+        }
+      }
     }
     
     return syllables.join('-');
