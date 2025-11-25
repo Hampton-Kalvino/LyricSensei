@@ -1,0 +1,399 @@
+# 🎨 Fix: Share Visual Image Instead of Text
+
+## Problem
+Share dialog shows "Sharing text" with just song info, not a beautiful visual card.
+
+## Root Cause
+The share function is calling `navigator.share()` with only text, not generating an image first.
+
+---
+
+## ✅ Complete Fix
+
+### Step 1: Install Image Generator
+```bash
+npm install html-to-image
+```
+
+### Step 2: Update Share Implementation
+
+Replace your current share code with this:
+
+```typescript
+// client/src/lib/share-utils.ts
+
+import { toPng } from 'html-to-image';
+
+export async function generateStoryCard(
+  songTitle: string,
+  artistName: string,
+  albumArtwork: string
+): Promise<Blob> {
+  // Create hidden canvas
+  const container = document.createElement('div');
+  container.style.position = 'fixed';
+  container.style.left = '-10000px';
+  container.style.top = '0';
+  container.style.width = '1080px';
+  container.style.height = '1920px';
+  
+  // Create story card HTML
+  container.innerHTML = `
+    <div style="
+      width: 1080px;
+      height: 1920px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      position: relative;
+      font-family: -apple-system, system-ui, sans-serif;
+      overflow: hidden;
+    ">
+      <!-- Blurred background -->
+      <div style="
+        position: absolute;
+        inset: -50px;
+        background-image: url(${albumArtwork});
+        background-size: cover;
+        background-position: center;
+        filter: blur(60px) brightness(0.3);
+        opacity: 0.7;
+      "></div>
+
+      <!-- Content -->
+      <div style="
+        position: relative;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        padding: 100px 80px;
+        z-index: 1;
+      ">
+        <!-- Top: App Name -->
+        <div style="
+          font-size: 56px;
+          font-weight: 900;
+          color: white;
+          text-align: center;
+          letter-spacing: 4px;
+          text-transform: uppercase;
+          text-shadow: 0 4px 20px rgba(0,0,0,0.5);
+        ">
+          Lyric Sensei
+        </div>
+
+        <!-- Middle: Album & Info -->
+        <div style="
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 60px;
+        ">
+          <!-- Album Art -->
+          <div style="
+            width: 700px;
+            height: 700px;
+            border-radius: 40px;
+            overflow: hidden;
+            box-shadow: 0 40px 100px rgba(0,0,0,0.6);
+            border: 8px solid rgba(255,255,255,0.1);
+          ">
+            <img 
+              src="${albumArtwork}" 
+              style="
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
+              "
+              crossorigin="anonymous"
+            />
+          </div>
+
+          <!-- Song Info -->
+          <div style="text-align: center; max-width: 900px;">
+            <div style="
+              font-size: 80px;
+              font-weight: 900;
+              color: white;
+              line-height: 1.1;
+              margin-bottom: 24px;
+              text-shadow: 0 4px 20px rgba(0,0,0,0.5);
+            ">
+              ${songTitle}
+            </div>
+            <div style="
+              font-size: 52px;
+              color: rgba(255,255,255,0.85);
+              font-weight: 600;
+              text-shadow: 0 2px 10px rgba(0,0,0,0.5);
+            ">
+              ${artistName}
+            </div>
+          </div>
+        </div>
+
+        <!-- Bottom: CTA -->
+        <div style="text-align: center;">
+          <div style="
+            font-size: 44px;
+            color: white;
+            font-weight: 700;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.5);
+          ">
+            lyricsensei.com
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(container);
+
+  try {
+    // Generate PNG
+    const dataUrl = await toPng(container.firstChild as HTMLElement, {
+      quality: 1.0,
+      pixelRatio: 2,
+      width: 1080,
+      height: 1920,
+      cacheBust: true
+    });
+
+    // Convert to blob
+    const response = await fetch(dataUrl);
+    const blob = await response.blob();
+
+    return blob;
+  } finally {
+    // Clean up
+    document.body.removeChild(container);
+  }
+}
+```
+
+### Step 3: Update Share Function
+
+```typescript
+// client/src/components/ShareButton.tsx (or wherever your share is)
+
+import { generateStoryCard } from '@/lib/share-utils';
+import { Share2, Loader2 } from 'lucide-react';
+import { useState } from 'react';
+
+export function ShareButton({ songTitle, artistName, albumArtwork, songUrl }) {
+  const [isSharing, setIsSharing] = useState(false);
+
+  const handleShare = async () => {
+    try {
+      setIsSharing(true);
+      console.log('[Share] Generating story card...');
+
+      // Generate image
+      const imageBlob = await generateStoryCard(songTitle, artistName, albumArtwork);
+      console.log('[Share] Image generated:', imageBlob.size, 'bytes');
+
+      // Create file
+      const file = new File(
+        [imageBlob], 
+        `lyric-sensei-${songTitle.replace(/\s+/g, '-')}.png`,
+        { type: 'image/png' }
+      );
+
+      console.log('[Share] Starting share...');
+
+      // Share with image
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: songTitle,
+          text: `🎵 ${songTitle} by ${artistName}\n\nDiscover lyrics on Lyric Sensei!`,
+          url: songUrl
+        });
+        console.log('[Share] Share successful');
+      } else {
+        console.log('[Share] Web Share not supported, downloading instead');
+        // Fallback: Download
+        const url = URL.createObjectURL(imageBlob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = file.name;
+        link.click();
+        URL.revokeObjectURL(url);
+        alert('Image downloaded! Share it to Instagram from your gallery.');
+      }
+
+    } catch (error) {
+      console.error('[Share] Error:', error);
+      alert('Share failed. Please try again.');
+    } finally {
+      setIsSharing(false);
+    }
+  };
+
+  return (
+    <button
+      onClick={handleShare}
+      disabled={isSharing}
+      className="p-2"
+    >
+      {isSharing ? (
+        <Loader2 className="h-5 w-5 animate-spin" />
+      ) : (
+        <Share2 className="h-5 w-5" />
+      )}
+    </button>
+  );
+}
+```
+
+---
+
+## 🎯 Alternative: Simpler Approach
+
+If html-to-image has issues, use Canvas API directly:
+
+```typescript
+export async function generateStoryCardCanvas(
+  songTitle: string,
+  artistName: string,
+  albumArtwork: string
+): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 1080;
+    canvas.height = 1920;
+    const ctx = canvas.getContext('2d')!;
+
+    // Background gradient
+    const gradient = ctx.createLinearGradient(0, 0, 0, 1920);
+    gradient.addColorStop(0, '#667eea');
+    gradient.addColorStop(1, '#764ba2');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, 1080, 1920);
+
+    // Load album artwork
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      // Draw blurred background
+      ctx.filter = 'blur(40px) brightness(0.3)';
+      ctx.drawImage(img, -50, -50, 1180, 2020);
+      ctx.filter = 'none';
+
+      // Draw album art
+      ctx.save();
+      ctx.shadowColor = 'rgba(0,0,0,0.6)';
+      ctx.shadowBlur = 40;
+      ctx.shadowOffsetY = 20;
+      
+      const artSize = 700;
+      const artX = (1080 - artSize) / 2;
+      const artY = 600;
+      
+      // Rounded corners
+      const radius = 40;
+      ctx.beginPath();
+      ctx.moveTo(artX + radius, artY);
+      ctx.lineTo(artX + artSize - radius, artY);
+      ctx.quadraticCurveTo(artX + artSize, artY, artX + artSize, artY + radius);
+      ctx.lineTo(artX + artSize, artY + artSize - radius);
+      ctx.quadraticCurveTo(artX + artSize, artY + artSize, artX + artSize - radius, artY + artSize);
+      ctx.lineTo(artX + radius, artY + artSize);
+      ctx.quadraticCurveTo(artX, artY + artSize, artX, artY + artSize - radius);
+      ctx.lineTo(artX, artY + radius);
+      ctx.quadraticCurveTo(artX, artY, artX + radius, artY);
+      ctx.closePath();
+      ctx.clip();
+      
+      ctx.drawImage(img, artX, artY, artSize, artSize);
+      ctx.restore();
+
+      // Text
+      ctx.fillStyle = 'white';
+      ctx.textAlign = 'center';
+      ctx.shadowColor = 'rgba(0,0,0,0.5)';
+      ctx.shadowBlur = 10;
+
+      // App name
+      ctx.font = '900 56px system-ui';
+      ctx.fillText('LYRIC SENSEI', 540, 150);
+
+      // Song title
+      ctx.font = '900 80px system-ui';
+      ctx.fillText(songTitle, 540, 1450);
+
+      // Artist
+      ctx.font = '600 52px system-ui';
+      ctx.fillStyle = 'rgba(255,255,255,0.85)';
+      ctx.fillText(artistName, 540, 1550);
+
+      // CTA
+      ctx.font = '700 44px system-ui';
+      ctx.fillStyle = 'white';
+      ctx.fillText('lyricsensei.com', 540, 1800);
+
+      // Convert to blob
+      canvas.toBlob((blob) => {
+        if (blob) {
+          resolve(blob);
+        } else {
+          reject(new Error('Failed to create blob'));
+        }
+      }, 'image/png', 1.0);
+    };
+
+    img.onerror = reject;
+    img.src = albumArtwork;
+  });
+}
+```
+
+---
+
+## 🔧 Debugging
+
+Add these logs to see what's happening:
+
+```typescript
+console.log('[Share] 1. Starting...');
+const blob = await generateStoryCard(songTitle, artistName, albumArtwork);
+console.log('[Share] 2. Image generated:', blob.size, 'bytes');
+
+const file = new File([blob], 'story.png', { type: 'image/png' });
+console.log('[Share] 3. File created:', file.name, file.size);
+
+console.log('[Share] 4. Can share?', navigator.canShare?.({ files: [file] }));
+
+await navigator.share({ files: [file], title: songTitle });
+console.log('[Share] 5. Share completed!');
+```
+
+---
+
+## ✅ Expected Result
+
+**Before:**
+```
+Sharing text
+🎵 Now listening to "Gitana" by Willie Colón...
+```
+
+**After:**
+```
+Sharing: lyric-sensei-Gitana.png (1.2 MB)
+[Beautiful 1080x1920 visual card preview]
+```
+
+---
+
+## 🎯 Test
+
+1. Build: `npm run build`
+2. Sync: `npx cap sync android`
+3. Run app
+4. Click share
+5. Wait 2-3 seconds (see loading spinner)
+6. Share sheet shows **IMAGE PREVIEW**
+7. Select Instagram
+8. Visual card loads in Instagram!
+
+**The key is generating the image BEFORE calling navigator.share()!**
