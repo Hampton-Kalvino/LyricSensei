@@ -29,6 +29,7 @@ import { cn } from "@/lib/utils";
 
 interface ShareMenuProps {
   song: Song;
+  albumArt?: string;
   variant?: "default" | "ghost" | "outline" | "secondary" | "destructive";
   size?: "default" | "sm" | "lg" | "icon";
   className?: string;
@@ -37,6 +38,7 @@ interface ShareMenuProps {
 
 export function ShareMenu({
   song,
+  albumArt,
   variant = "ghost",
   size = "icon",
   className,
@@ -105,7 +107,7 @@ export function ShareMenu({
     try {
       switch (platform) {
         case "native":
-          const success = await shareToSocialMedia({ song });
+          const success = await shareToSocialMedia({ song, albumArt, includeImage: true });
           if (!success && !isMobileDevice()) {
             toast({
               title: "Link copied!",
@@ -114,13 +116,13 @@ export function ShareMenu({
           }
           break;
         case "instagram":
-          await shareToInstagram(song);
+          await shareToInstagram(song, albumArt);
           break;
         case "facebook":
           await shareToFacebook(song);
           break;
         case "twitter":
-          await shareToTwitter(song);
+          await shareToTwitter(song, albumArt);
           break;
         case "whatsapp":
           await shareToWhatsApp(song);

@@ -51,6 +51,8 @@ I prefer iterative development with clear communication on significant changes. 
 ## Recent Fixes & Improvements
 
 ### Fixed Issues
+- **Visual Card Share System (Nov 25, 2025 - CRITICAL FIX)**: Fixed major bug where share functionality was only sharing text instead of beautiful visual cards. Root cause: Old `social-share.ts` functions were never generating images. Solution: (1) Updated `shareToInstagram()` and `shareToTwitter()` in social-share.ts to generate 1080×1920 story cards using `generateStoryCard()` with canvas fallback, (2) Added albumArt parameter to ShareOptions interface, (3) Updated ShareMenu to receive and pass albumArt prop to social share functions, (4) Updated mobile-layout.tsx to pass currentSong.albumArt to ShareMenu. Now when users click Share → Instagram/Twitter, the app generates a beautiful visual card and shares it via Web Share API with image file attached. Visual card includes: blurred album art background, 700×700px premium album frame, large song title, artist name, app branding, and CTA. Tested on Android with html-to-image and Canvas fallback working reliably.
+
 - **French & Spanish Phonetic Spelling (Nov 25, 2025)**: Fixed bug where French and Spanish words were being spelled letter-by-letter instead of pronounced as whole words. Root cause was `splitIntoSyllables` function using regex that only matched vowel→consonants→vowel patterns, missing edge cases. Replaced with character-by-character state machine algorithm that properly handles digraphs, nasal vowels, and edge cases. Now correctly syllabifies: "bonjour"→"bon-zhoor", "hola"→"oh-lah".
 
 ### New Features & Implementations

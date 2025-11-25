@@ -1,9 +1,11 @@
 import type { Song } from "@shared/schema";
+import { generateStoryCard, generateStoryCardCanvas } from "@/lib/share-utils";
 
 export interface ShareOptions {
   song: Song;
   language?: string;
   includeImage?: boolean;
+  albumArt?: string;
 }
 
 /**
@@ -43,18 +45,58 @@ export const isMobileDevice = (): boolean => {
  * This is the PRIMARY method for mobile sharing to Instagram, Facebook, Twitter, etc.
  */
 export const shareToSocialMedia = async (options: ShareOptions): Promise<boolean> => {
-  const { song } = options;
+  const { song, albumArt } = options;
   const shareText = generateShareText(song);
   const shareUrl = generateShareUrl(song.id);
 
   try {
     // Modern Web Share API - supported on most mobile browsers
     if (navigator.share) {
-      await navigator.share({
-        title: `${song.title} - ${song.artist}`,
-        text: shareText,
-        url: shareUrl,
-      });
+      if (options.includeImage && albumArt) {
+        try {
+          console.log("[Share] Generating visual card...");
+          
+          // Generate visual card
+          let imageBlob: Blob;
+          try {
+            imageBlob = await generateStoryCard(song.title, song.artist, albumArt);
+            console.log("[Share] Card generated:", imageBlob.size, "bytes");
+          } catch (error) {
+            console.warn("[Share] html-to-image failed, using canvas:", error);
+            imageBlob = await generateStoryCardCanvas(song.title, song.artist, albumArt);
+          }
+          
+          // Create file
+          const file = new File(
+            [imageBlob],
+            `lyric-sensei-${song.title.replace(/\s+/g, "-")}.png`,
+            { type: "image/png" }
+          );
+          
+          console.log("[Share] Sharing with image...");
+          
+          await navigator.share({
+            files: [file],
+            title: `${song.title} - ${song.artist}`,
+            text: shareText,
+            url: shareUrl,
+          });
+        } catch (error) {
+          console.error("[Share] Share with image failed:", error);
+          // Fallback to text-only share
+          await navigator.share({
+            title: `${song.title} - ${song.artist}`,
+            text: shareText,
+            url: shareUrl,
+          });
+        }
+      } else {
+        await navigator.share({
+          title: `${song.title} - ${song.artist}`,
+          text: shareText,
+          url: shareUrl,
+        });
+      }
       return true;
     } else {
       // Fallback: Copy to clipboard on unsupported browsers
@@ -96,16 +138,50 @@ const generateAndroidIntent = (platform: "instagram" | "facebook" | "twitter", u
 };
 
 /**
- * Share to Instagram (primary method: native share sheet)
- * On mobile: opens native share sheet where user can select Instagram
+ * Share to Instagram with visual card
+ * On mobile: generates story card and shares via Web Share API
  * On web: opens Instagram website
  */
-export const shareToInstagram = async (song: Song): Promise<void> => {
+export const shareToInstagram = async (song: Song, albumArt?: string): Promise<void> => {
   const shareUrl = generateShareUrl(song.id);
   
   if (isMobileDevice() && typeof navigator.share === "function") {
-    // On mobile with Web Share API, let the user pick Instagram from share sheet
-    await shareToSocialMedia({ song, includeImage: true });
+    try {
+      console.log("[Instagram Share] Generating visual card...");
+      
+      // Generate visual card
+      let imageBlob: Blob;
+      try {
+        imageBlob = await generateStoryCard(song.title, song.artist, albumArt || "");
+        console.log("[Instagram Share] Card generated:", imageBlob.size, "bytes");
+      } catch (error) {
+        console.warn("[Instagram Share] html-to-image failed, using canvas:", error);
+        imageBlob = await generateStoryCardCanvas(song.title, song.artist, albumArt || "");
+      }
+      
+      // Create file
+      const file = new File(
+        [imageBlob],
+        `lyric-sensei-${song.title.replace(/\s+/g, "-")}.png`,
+        { type: "image/png" }
+      );
+      
+      console.log("[Instagram Share] Sharing via Web Share API...");
+      
+      // Share with image
+      await navigator.share({
+        files: [file],
+        title: song.title,
+        text: `Check out "${song.title}" by ${song.artist} on Lyric Sensei!`,
+        url: shareUrl,
+      });
+      
+      console.log("[Instagram Share] Success!");
+    } catch (error: any) {
+      if (error.name !== "AbortError") {
+        console.error("[Instagram Share] Error:", error);
+      }
+    }
   } else {
     // Web fallback: open Instagram profile
     window.open("https://www.instagram.com/", "_blank");
@@ -127,17 +203,60 @@ export const shareToFacebook = async (song: Song): Promise<void> => {
 };
 
 /**
- * Share to Twitter/X
+ * Share to Twitter/X with visual card
  */
-export const shareToTwitter = async (song: Song): Promise<void> => {
+export const shareToTwitter = async (song: Song, albumArt?: string): Promise<void> => {
   const shareUrl = generateShareUrl(song.id);
   const shareText = generateShareText(song);
 
-  const twitterShareUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(
-    shareText
-  )}&url=${encodeURIComponent(shareUrl)}`;
+  if (isMobileDevice() && typeof navigator.share === "function") {
+    try {
+      console.log("[Twitter Share] Generating visual card...");
+      
+      // Generate visual card
+      let imageBlob: Blob;
+      try {
+        imageBlob = await generateStoryCard(song.title, song.artist, albumArt || "");
+        console.log("[Twitter Share] Card generated:", imageBlob.size, "bytes");
+      } catch (error) {
+        console.warn("[Twitter Share] html-to-image failed, using canvas:", error);
+        imageBlob = await generateStoryCardCanvas(song.title, song.artist, albumArt || "");
+      }
+      
+      // Create file
+      const file = new File(
+        [imageBlob],
+        `lyric-sensei-${song.title.replace(/\s+/g, "-")}.png`,
+        { type: "image/png" }
+      );
+      
+      console.log("[Twitter Share] Sharing via Web Share API...");
+      
+      // Share with image
+      await navigator.share({
+        files: [file],
+        title: song.title,
+        text: `Listening to "${song.title}" by ${song.artist} on Lyric Sensei!\n\n${shareUrl}`,
+      });
+      
+      console.log("[Twitter Share] Success!");
+    } catch (error: any) {
+      if (error.name !== "AbortError") {
+        console.error("[Twitter Share] Error:", error);
+        // Fallback to web share
+        const twitterShareUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(
+          shareText
+        )}&url=${encodeURIComponent(shareUrl)}`;
+        window.open(twitterShareUrl, "twitter-share", "width=550,height=420");
+      }
+    }
+  } else {
+    const twitterShareUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(
+      shareText
+    )}&url=${encodeURIComponent(shareUrl)}`;
 
-  window.open(twitterShareUrl, "twitter-share", "width=550,height=420");
+    window.open(twitterShareUrl, "twitter-share", "width=550,height=420");
+  }
 };
 
 /**

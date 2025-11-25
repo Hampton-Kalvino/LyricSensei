@@ -392,6 +392,7 @@ export function MobileLayout({
                   />
                   <ShareMenu
                     song={currentSong}
+                    albumArt={currentSong.albumArt || undefined}
                     variant="ghost"
                     size="sm"
                     className="h-8 w-8 flex-shrink-0"
@@ -460,6 +461,7 @@ export function MobileLayout({
                 <div className="flex items-center gap-1 flex-shrink-0">
                   <ShareMenu
                     song={currentSong}
+                    albumArt={currentSong.albumArt || undefined}
                     variant="ghost"
                     size="icon"
                     className="h-9 w-9"
