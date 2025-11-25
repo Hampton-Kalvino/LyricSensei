@@ -332,6 +332,8 @@ export function ShareSheet({
           top: "-10000px",
           width: "1080px",
           height: "1920px",
+          pointerEvents: "none",
+          zIndex: -1,
         }}
       >
         <div
@@ -341,21 +343,28 @@ export function ShareSheet({
             height: "1920px",
             position: "relative",
             background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-            fontFamily: "system-ui, -apple-system, sans-serif",
+            fontFamily:
+              "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+            overflow: "hidden",
           }}
         >
+          {/* Blurred Background with album art */}
           <div
             style={{
               position: "absolute",
-              inset: 0,
+              top: "-50px",
+              left: "-50px",
+              right: "-50px",
+              bottom: "-50px",
               backgroundImage: `url(${albumArtUrl})`,
               backgroundSize: "cover",
               backgroundPosition: "center",
-              filter: "blur(40px) brightness(0.4)",
-              opacity: 0.8,
+              filter: "blur(80px) brightness(0.3)",
+              opacity: 0.6,
             }}
           />
 
+          {/* Content Container */}
           <div
             style={{
               position: "relative",
@@ -363,59 +372,93 @@ export function ShareSheet({
               display: "flex",
               flexDirection: "column",
               justifyContent: "space-between",
-              padding: "80px 60px",
+              padding: "100px 80px",
+              zIndex: 1,
             }}
           >
+            {/* Top: App Logo and Tagline */}
             <div style={{ textAlign: "center" }}>
               <div
                 style={{
-                  fontSize: "48px",
-                  fontWeight: "bold",
+                  fontSize: "56px",
+                  fontWeight: "900",
                   color: "white",
-                  letterSpacing: "2px",
+                  letterSpacing: "4px",
+                  textTransform: "uppercase",
+                  textShadow: "0 4px 20px rgba(0,0,0,0.3)",
                 }}
               >
-                LYRIC SENSEI
+                Lyric Sensei
+              </div>
+              <div
+                style={{
+                  fontSize: "28px",
+                  color: "rgba(255,255,255,0.8)",
+                  marginTop: "16px",
+                  fontWeight: "500",
+                }}
+              >
+                Learn Lyrics in Any Language
               </div>
             </div>
 
+            {/* Middle: Album Art & Info */}
             <div
               style={{
                 display: "flex",
                 flexDirection: "column",
                 alignItems: "center",
-                gap: "40px",
+                gap: "60px",
               }}
             >
-              <img
-                src={albumArtUrl}
-                alt={song.title}
+              {/* Album Artwork with Premium Frame */}
+              <div
                 style={{
-                  width: "600px",
-                  height: "600px",
-                  borderRadius: "24px",
-                  objectFit: "cover",
-                  boxShadow: "0 30px 60px rgba(0,0,0,0.5)",
+                  width: "700px",
+                  height: "700px",
+                  borderRadius: "40px",
+                  overflow: "hidden",
+                  boxShadow: "0 40px 100px rgba(0,0,0,0.6)",
+                  border: "8px solid rgba(255,255,255,0.1)",
                 }}
-                crossOrigin="anonymous"
-              />
+              >
+                <img
+                  src={albumArtUrl}
+                  alt={song.title}
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "cover",
+                  }}
+                  crossOrigin="anonymous"
+                />
+              </div>
 
-              <div style={{ textAlign: "center", maxWidth: "900px" }}>
+              {/* Song Info */}
+              <div
+                style={{
+                  textAlign: "center",
+                  maxWidth: "900px",
+                }}
+              >
                 <div
                   style={{
-                    fontSize: "72px",
-                    fontWeight: "bold",
+                    fontSize: "80px",
+                    fontWeight: "900",
                     color: "white",
-                    marginBottom: "20px",
-                    lineHeight: 1.2,
+                    lineHeight: 1.1,
+                    marginBottom: "24px",
+                    textShadow: "0 4px 20px rgba(0,0,0,0.3)",
                   }}
                 >
                   {song.title}
                 </div>
                 <div
                   style={{
-                    fontSize: "48px",
-                    color: "rgba(255,255,255,0.8)",
+                    fontSize: "52px",
+                    color: "rgba(255,255,255,0.85)",
+                    fontWeight: "600",
+                    textShadow: "0 2px 10px rgba(0,0,0,0.3)",
                   }}
                 >
                   {song.artist}
@@ -423,11 +466,24 @@ export function ShareSheet({
               </div>
             </div>
 
+            {/* Bottom: Call to Action */}
             <div style={{ textAlign: "center" }}>
               <div
                 style={{
+                  fontSize: "44px",
+                  color: "rgba(255,255,255,0.95)",
+                  fontWeight: "700",
+                  marginBottom: "12px",
+                  textShadow: "0 2px 10px rgba(0,0,0,0.3)",
+                }}
+              >
+                Download Lyric Sensei
+              </div>
+              <div
+                style={{
                   fontSize: "36px",
-                  color: "rgba(255,255,255,0.9)",
+                  color: "rgba(255,255,255,0.75)",
+                  fontWeight: "500",
                 }}
               >
                 lyricsensei.com
