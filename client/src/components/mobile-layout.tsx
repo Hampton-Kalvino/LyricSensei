@@ -332,7 +332,7 @@ export function MobileLayout({
             // LANDSCAPE HEADER: Compact horizontal layout
             <>
               {/* Landscape Row 1: Language, Song Info, Search, Mic in one row */}
-              <div className="flex items-center gap-2 px-3 py-2 border-b border-border/30">
+              <div className="flex items-center gap-1.5 px-3 py-1 border-b border-border/30">
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button
@@ -352,17 +352,17 @@ export function MobileLayout({
                 </Tooltip>
 
                 {/* Song Info - Compact */}
-                <div className="flex items-center gap-2 flex-1 min-w-0 pl-2">
+                <div className="flex items-center gap-1.5 flex-1 min-w-0 pl-1">
                   {currentSong.albumArt && (
                     <img
                       src={currentSong.albumArt}
                       alt={`${currentSong.album} cover`}
-                      className="w-12 h-12 rounded object-cover flex-shrink-0"
+                      className="w-10 h-10 rounded object-cover flex-shrink-0"
                       data-testid="img-album-art-header"
                     />
                   )}
                   <div className="flex-1 min-w-0">
-                    <h2 className="text-sm font-semibold truncate leading-tight" data-testid="text-song-title-header">
+                    <h2 className="text-xs font-semibold truncate leading-tight" data-testid="text-song-title-header">
                       {currentSong.title}
                     </h2>
                     <p className="text-xs text-muted-foreground truncate" data-testid="text-artist-header">
@@ -372,9 +372,9 @@ export function MobileLayout({
                 </div>
 
                 {/* Search & Mic - Compact */}
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <div className="relative w-32 flex-shrink-0">
-                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+                <div className="flex items-center gap-1.5 flex-shrink-0">
+                  <div className="relative w-28 flex-shrink-0">
+                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground pointer-events-none" />
                     <Input 
                       placeholder="Search..."
                       className="w-full pl-7 h-8 text-xs"
