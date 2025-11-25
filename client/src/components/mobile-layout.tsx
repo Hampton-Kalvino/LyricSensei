@@ -37,6 +37,8 @@ interface MobileLayoutProps {
   currentTime: number;
   onTimeSeek: (time: number) => void;
   isListening: boolean;
+  isProcessing?: boolean;
+  recognitionProgress?: number;
   onStartListening: () => void;
   onStopListening: () => void;
   recognitionHistory: RecognitionResult[];
@@ -58,6 +60,8 @@ export function MobileLayout({
   currentTime,
   onTimeSeek,
   isListening,
+  isProcessing = false,
+  recognitionProgress = 0,
   onStartListening,
   onStopListening,
   recognitionHistory,
@@ -373,6 +377,8 @@ export function MobileLayout({
           </div>
           <RecognitionButton
             isListening={isListening}
+            isProcessing={isProcessing}
+            progress={recognitionProgress}
             onStart={onStartListening}
             onStop={onStopListening}
             size="sm"

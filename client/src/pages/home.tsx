@@ -25,6 +25,8 @@ export default function Home() {
   const songIdFromUrl = new URLSearchParams(searchParams).get('song');
   const isPremium = (user as any)?.isPremium ?? false;
   const [isListening, setIsListening] = useState(false);
+  const [recognitionProgress, setRecognitionProgress] = useState(0);
+  const [isProcessing, setIsProcessing] = useState(false);
   const [selectedLanguage, setSelectedLanguage] = useState<LanguageCode>("en");
   const [currentSongId, setCurrentSongId] = useState<string | null>(songIdFromUrl);
   const [currentTime, setCurrentTime] = useState(0);
@@ -39,6 +41,8 @@ export default function Home() {
   const playbackTimerRef = useRef<NodeJS.Timeout | null>(null);
   const justRecognizedRef = useRef<boolean>(false);
   const hasShownLoginPWAPrompt = useRef<boolean>(false);
+  const progressIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const recognitionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   // Set current song from URL parameter
   useEffect(() => {
@@ -194,6 +198,11 @@ export default function Home() {
       return apiRequest<RecognitionResult>("POST", "/api/recognize", audioData);
     },
     onSuccess: (result) => {
+      // Clear timeout on success
+      if (recognitionTimeoutRef.current) clearTimeout(recognitionTimeoutRef.current);
+      
+      setRecognitionProgress(100);
+      setIsProcessing(false);
       justRecognizedRef.current = true;
       setCurrentSongId(result.songId);
       setIsPlayingRecognizedSong(true); // Start auto-scroll for recognized songs
@@ -209,15 +218,26 @@ export default function Home() {
       // Show PWA install prompt after song recognition
       setPwaPromptTrigger('recognition');
       
+      // Reset after 1 second
+      setTimeout(() => {
+        setRecognitionProgress(0);
+      }, 1000);
+      
       toast({
         title: "Song Recognized!",
         description: `${result.title} by ${result.artist}`,
       });
     },
     onError: (error: Error) => {
+      // Clear timeout on error
+      if (recognitionTimeoutRef.current) clearTimeout(recognitionTimeoutRef.current);
+      
+      setIsProcessing(false);
+      setRecognitionProgress(0);
+      
       toast({
         title: "Recognition Failed",
-        description: error.message || "Could not identify the song",
+        description: error.message || "Could not identify the song. Try again with clearer audio.",
         variant: "destructive",
       });
     },
@@ -291,193 +311,182 @@ export default function Home() {
   }, [currentSongId]);
 
   const handleStartListening = async () => {
-    console.log('[Recognition] handleStartListening called');
-    console.log('[Recognition] User logged in:', !!user);
-    console.log('[Recognition] Navigator.mediaDevices available:', !!navigator.mediaDevices);
-    console.log('[Recognition] MediaRecorder available:', !!window.MediaRecorder);
-    
-    // Show a toast to confirm the button was clicked
-    toast({
-      title: "Starting Recognition",
-      description: "Requesting microphone access...",
-    });
+    console.log('[Recognition] Shazam-style quick recognition starting (3-5 seconds)');
     
     try {
-      // Check if mediaDevices is supported
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        console.error('[Recognition] MediaDevices not supported');
-        toast({
-          title: "Microphone Not Supported",
-          description: "Your browser doesn't support microphone access. Please use Chrome, Safari, or Firefox.",
-          variant: "destructive",
-        });
-        return;
+      if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
+        throw new Error('Browser does not support microphone recording');
       }
 
-      // Check if MediaRecorder is supported
-      if (!window.MediaRecorder) {
-        console.error('[Recognition] MediaRecorder not supported');
-        toast({
-          title: "Recording Not Supported",
-          description: "Your browser doesn't support audio recording. Please update your browser.",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      console.log('[Recognition] All checks passed, requesting microphone access...');
+      setRecognitionProgress(0);
+      setIsListening(true);
       
-      // Request microphone access
+      // Show helpful message
+      toast({
+        title: "Listening...",
+        description: "Keep music playing for best results",
+      });
+      
+      // Improved audio constraints to avoid Bluetooth disconnect
       const stream = await navigator.mediaDevices.getUserMedia({ 
         audio: {
           channelCount: 1,
           sampleRate: 44100,
+          echoCancellation: false,  // Disable to preserve audio quality for recognition
+          noiseSuppression: false,  // Disable to preserve original audio
+          autoGainControl: false,   // Disable to prevent audio routing changes
         } 
       });
       
-      console.log('[Recognition] Microphone access granted!');
-      console.log('[Recognition] Stream tracks:', stream.getTracks().length);
-      
-      // Now set listening state after permission granted
-      setIsListening(true);
-      
+      console.log('[Recognition] Microphone accessed, recording 5 seconds of audio');
       audioChunksRef.current = [];
       
-      // Determine supported MIME type
+      // Determine MIME type
       let mimeType = 'audio/webm;codecs=opus';
       if (!MediaRecorder.isTypeSupported(mimeType)) {
         mimeType = 'audio/webm';
         if (!MediaRecorder.isTypeSupported(mimeType)) {
-          mimeType = 'audio/mp4';
-          if (!MediaRecorder.isTypeSupported(mimeType)) {
-            mimeType = ''; // Use default
-          }
+          mimeType = '';
         }
       }
       
-      console.log('[Recognition] Using MIME type:', mimeType || 'default');
-      
-      // Create MediaRecorder
       const mediaRecorder = mimeType 
         ? new MediaRecorder(stream, { mimeType })
         : new MediaRecorder(stream);
       
       mediaRecorderRef.current = mediaRecorder;
       
-      // Collect audio data
+      // Collect audio chunks
       mediaRecorder.ondataavailable = (event) => {
         if (event.data.size > 0) {
           audioChunksRef.current.push(event.data);
         }
       };
       
-      // Handle recording stop
+      // Handle stop - convert and send
       mediaRecorder.onstop = async () => {
-        console.log('[Recognition] Recording stopped');
-        console.log('[Recognition] Audio chunks collected:', audioChunksRef.current.length);
-        
-        // Stop all audio tracks
         stream.getTracks().forEach(track => track.stop());
         
-        // Check if we have any audio data
+        // Clear any pending timeouts
+        if (recognitionTimeoutRef.current) clearTimeout(recognitionTimeoutRef.current);
+        if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
+        
+        setRecognitionProgress(30);
+        
         if (audioChunksRef.current.length === 0) {
-          console.error('[Recognition] No audio data collected!');
+          setIsListening(false);
+          setRecognitionProgress(0);
+          setIsProcessing(false);
           toast({
             title: "No Audio Recorded",
-            description: "No audio data was captured. Please try again and make sure to allow microphone access.",
+            description: "Please try again with microphone enabled",
             variant: "destructive",
           });
-          setIsListening(false);
           return;
         }
         
         try {
-          // Use the actual MIME type from MediaRecorder (important for mobile Safari/iOS)
-          const actualMimeType = mediaRecorderRef.current?.mimeType || audioChunksRef.current[0]?.type || 'audio/webm';
-          const audioBlob = new Blob(audioChunksRef.current, { type: actualMimeType });
-          console.log('[Recognition] Audio blob size:', audioBlob.size, 'bytes');
-          console.log('[Recognition] Audio MIME type:', actualMimeType);
+          setRecognitionProgress(50);
+          const audioBlob = new Blob(audioChunksRef.current, { 
+            type: mediaRecorder.mimeType || 'audio/webm' 
+          });
           
-          // Check blob size
-          if (audioBlob.size < 1000) {
-            console.error('[Recognition] Audio blob too small:', audioBlob.size);
-            toast({
-              title: "Recording Too Short",
-              description: "Not enough audio was recorded. Please try again and record for at least 5 seconds.",
-              variant: "destructive",
-            });
-            setIsListening(false);
-            return;
+          if (audioBlob.size < 500) {
+            throw new Error('Audio too short');
           }
           
-          // Convert to WAV format for ACRCloud
-          console.log('[Recognition] Converting to WAV format...');
+          setRecognitionProgress(70);
           const wavBlob = await convertToWav(audioBlob);
-          console.log('[Recognition] WAV blob size:', wavBlob.size, 'bytes');
           
-          // Convert to base64
+          setRecognitionProgress(85);
           const reader = new FileReader();
           reader.readAsDataURL(wavBlob);
           reader.onloadend = () => {
             const base64Audio = (reader.result as string).split(',')[1];
-            console.log('[Recognition] Base64 audio length:', base64Audio.length, 'characters');
+            setRecognitionProgress(95);
+            setIsProcessing(true);
             
-            // Send to recognition API
+            // Send with 15 second timeout
+            const timeoutId = setTimeout(() => {
+              setIsProcessing(false);
+              setRecognitionProgress(0);
+              setIsListening(false);
+              toast({
+                title: "Recognition Timed Out",
+                description: "The service took too long. Please try again.",
+                variant: "destructive",
+              });
+            }, 15000);
+            
+            recognitionTimeoutRef.current = timeoutId;
+            
             recognizeMutation.mutate({
               audioData: base64Audio,
-              duration: 10,
+              duration: 5,
             });
           };
-        } catch (conversionError) {
-          console.error('Audio conversion error:', conversionError);
+        } catch (error) {
+          setIsListening(false);
+          setRecognitionProgress(0);
+          setIsProcessing(false);
+          console.error('[Recognition] Conversion error:', error);
           toast({
-            title: "Audio Processing Error",
-            description: "Failed to process audio. Please try again.",
+            title: "Audio Processing Failed",
+            description: "Please try again",
             variant: "destructive",
           });
-          setIsListening(false);
         }
       };
       
       // Start recording
-      setIsListening(true);
       mediaRecorder.start();
+      setRecognitionProgress(10);
       
-      // Auto-stop after 10 seconds
-      setTimeout(() => {
-        if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+      // Progress feedback every 500ms
+      progressIntervalRef.current = setInterval(() => {
+        setRecognitionProgress(prev => Math.min(prev + 3, 25));
+      }, 500);
+      
+      // Auto-stop after 5 seconds (instead of 10) to minimize music interruption
+      recognitionTimeoutRef.current = setTimeout(() => {
+        if (mediaRecorderRef.current?.state === 'recording') {
           mediaRecorderRef.current.stop();
           setIsListening(false);
         }
-      }, 10000);
+      }, 5000);
       
     } catch (error: any) {
-      console.error('Microphone access error:', error);
+      setIsListening(false);
+      setRecognitionProgress(0);
+      setIsProcessing(false);
+      if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
       
-      let errorMessage = "Please allow microphone access to recognize songs.";
-      
-      if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
-        errorMessage = "Microphone access was denied. Please check your browser settings and allow microphone access.";
+      let message = "Microphone access required to recognize songs";
+      if (error.name === 'NotAllowedError') {
+        message = "Please allow microphone access in browser settings";
       } else if (error.name === 'NotFoundError') {
-        errorMessage = "No microphone found. Please connect a microphone and try again.";
-      } else if (error.name === 'NotSupportedError') {
-        errorMessage = "Your browser doesn't support audio recording. Please use a different browser.";
+        message = "No microphone detected. Please connect one.";
       }
       
       toast({
-        title: "Microphone Access Failed",
-        description: errorMessage,
+        title: "Recognition Failed",
+        description: message,
         variant: "destructive",
       });
-      setIsListening(false);
     }
   };
 
   const handleStopListening = () => {
+    // Clean up all timeouts and intervals
+    if (recognitionTimeoutRef.current) clearTimeout(recognitionTimeoutRef.current);
+    if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
+    
     if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
       mediaRecorderRef.current.stop();
     }
     setIsListening(false);
+    setRecognitionProgress(0);
+    setIsProcessing(false);
   };
 
   const handleSelectSong = (songId: string) => {
@@ -577,6 +586,8 @@ export default function Home() {
           currentTime={currentTime}
           onTimeSeek={handleLineClick}
           isListening={isListening}
+          isProcessing={isProcessing}
+          recognitionProgress={recognitionProgress}
           onStartListening={handleStartListening}
           onStopListening={handleStopListening}
           recognitionHistory={recognitionHistory}
@@ -619,7 +630,8 @@ export default function Home() {
         <div className="flex flex-col items-center p-6 bg-card rounded-lg border">
           <RecognitionButton
             isListening={isListening}
-            isProcessing={recognizeMutation.isPending}
+            isProcessing={isProcessing}
+            progress={recognitionProgress}
             onStartListening={handleStartListening}
             onStopListening={handleStopListening}
           />
