@@ -170,7 +170,7 @@ export function ShareMenu({
         </Button>
       </PopoverTrigger>
 
-      <PopoverContent className="w-auto p-2" align="end">
+      <PopoverContent className="w-72 p-0" align="end">
         {/* Hidden story card for image generation */}
         <div style={{ position: "absolute", left: "-9999px", top: "-9999px" }}>
           <StoryCard
@@ -180,122 +180,136 @@ export function ShareMenu({
           />
         </div>
 
-        <div className="grid grid-cols-3 gap-2">
-          {/* Share Story (mobile only) */}
-          {canShareStories() && (
+        <div className="space-y-0">
+          {/* Header */}
+          <div className="px-4 pt-4 pb-3 border-b border-border/50">
+            <div className="flex items-center gap-2">
+              <Share2 className="h-5 w-5 text-muted-foreground" />
+              <div>
+                <p className="font-semibold text-sm">Share Song</p>
+                <p className="text-xs text-muted-foreground">with your friends</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Share Options */}
+          <div className="p-3 space-y-2">
+            {/* Share Story (mobile only) */}
+            {canShareStories() && (
+              <Button
+                variant="ghost"
+                className="w-full justify-start gap-3 h-auto py-2.5 px-3 rounded-lg hover-elevate"
+                onClick={() => handleShare("story")}
+                disabled={isLoading !== null}
+                data-testid="button-share-story"
+              >
+                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-purple-400 to-pink-500 flex items-center justify-center">
+                  <Sparkles className="h-4 w-4 text-white" />
+                </div>
+                <span className="text-sm font-medium">Story</span>
+              </Button>
+            )}
+
+            {/* Instagram */}
             <Button
               variant="ghost"
-              size="sm"
-              className="flex flex-col items-center gap-1 h-auto py-2 px-2"
-              onClick={() => handleShare("story")}
+              className="w-full justify-start gap-3 h-auto py-2.5 px-3 rounded-lg hover-elevate"
+              onClick={() => handleShare("instagram")}
               disabled={isLoading !== null}
-              data-testid="button-share-story"
-              title="Share as story"
+              data-testid="button-share-instagram"
             >
-              <Sparkles className="h-4 w-4" />
-              <span className="text-xs">Story</span>
+              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 via-red-500 to-yellow-500 flex items-center justify-center">
+                <Instagram className="h-4 w-4 text-white" />
+              </div>
+              <span className="text-sm font-medium">Instagram</span>
             </Button>
-          )}
 
-          {/* Native Share (uses device's native share sheet) */}
-          <Button
-            variant="ghost"
-            size="sm"
-            className="flex flex-col items-center gap-1 h-auto py-2 px-2"
-            onClick={() => handleShare("native")}
-            disabled={isLoading !== null}
-            data-testid="button-share-native"
-            title={isMobileDevice() ? "Share to any app" : "Copy link"}
-          >
-            <Share2 className="h-4 w-4" />
-            <span className="text-xs">
-              {isMobileDevice() ? "Share" : "Copy"}
-            </span>
-          </Button>
+            {/* Facebook */}
+            <Button
+              variant="ghost"
+              className="w-full justify-start gap-3 h-auto py-2.5 px-3 rounded-lg hover-elevate"
+              onClick={() => handleShare("facebook")}
+              disabled={isLoading !== null}
+              data-testid="button-share-facebook"
+            >
+              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center">
+                <Facebook className="h-4 w-4 text-white" />
+              </div>
+              <span className="text-sm font-medium">Facebook</span>
+            </Button>
 
-          {/* Instagram */}
-          <Button
-            variant="ghost"
-            size="sm"
-            className="flex flex-col items-center gap-1 h-auto py-2 px-2"
-            onClick={() => handleShare("instagram")}
-            disabled={isLoading !== null}
-            data-testid="button-share-instagram"
-            title="Share to Instagram"
-          >
-            <Instagram className="h-4 w-4" />
-            <span className="text-xs">Instagram</span>
-          </Button>
+            {/* Twitter */}
+            <Button
+              variant="ghost"
+              className="w-full justify-start gap-3 h-auto py-2.5 px-3 rounded-lg hover-elevate"
+              onClick={() => handleShare("twitter")}
+              disabled={isLoading !== null}
+              data-testid="button-share-twitter"
+            >
+              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-sky-500 flex items-center justify-center">
+                <Twitter className="h-4 w-4 text-white" />
+              </div>
+              <span className="text-sm font-medium">Twitter</span>
+            </Button>
 
-          {/* Facebook */}
-          <Button
-            variant="ghost"
-            size="sm"
-            className="flex flex-col items-center gap-1 h-auto py-2 px-2"
-            onClick={() => handleShare("facebook")}
-            disabled={isLoading !== null}
-            data-testid="button-share-facebook"
-            title="Share to Facebook"
-          >
-            <Facebook className="h-4 w-4" />
-            <span className="text-xs">Facebook</span>
-          </Button>
+            {/* WhatsApp */}
+            <Button
+              variant="ghost"
+              className="w-full justify-start gap-3 h-auto py-2.5 px-3 rounded-lg hover-elevate"
+              onClick={() => handleShare("whatsapp")}
+              disabled={isLoading !== null}
+              data-testid="button-share-whatsapp"
+            >
+              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-green-500 flex items-center justify-center">
+                <MessageCircle className="h-4 w-4 text-white" />
+              </div>
+              <span className="text-sm font-medium">WhatsApp</span>
+            </Button>
 
-          {/* Twitter */}
-          <Button
-            variant="ghost"
-            size="sm"
-            className="flex flex-col items-center gap-1 h-auto py-2 px-2"
-            onClick={() => handleShare("twitter")}
-            disabled={isLoading !== null}
-            data-testid="button-share-twitter"
-            title="Share to Twitter"
-          >
-            <Twitter className="h-4 w-4" />
-            <span className="text-xs">Twitter</span>
-          </Button>
+            {/* Telegram */}
+            <Button
+              variant="ghost"
+              className="w-full justify-start gap-3 h-auto py-2.5 px-3 rounded-lg hover-elevate"
+              onClick={() => handleShare("telegram")}
+              disabled={isLoading !== null}
+              data-testid="button-share-telegram"
+            >
+              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-sky-600 flex items-center justify-center">
+                <Send className="h-4 w-4 text-white" />
+              </div>
+              <span className="text-sm font-medium">Telegram</span>
+            </Button>
 
-          {/* WhatsApp */}
-          <Button
-            variant="ghost"
-            size="sm"
-            className="flex flex-col items-center gap-1 h-auto py-2 px-2"
-            onClick={() => handleShare("whatsapp")}
-            disabled={isLoading !== null}
-            data-testid="button-share-whatsapp"
-            title="Share to WhatsApp"
-          >
-            <MessageCircle className="h-4 w-4" />
-            <span className="text-xs">WhatsApp</span>
-          </Button>
+            {/* Copy Link */}
+            <Button
+              variant="ghost"
+              className="w-full justify-start gap-3 h-auto py-2.5 px-3 rounded-lg hover-elevate"
+              onClick={() => handleShare("copy")}
+              disabled={isLoading !== null}
+              data-testid="button-copy-link"
+            >
+              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-muted flex items-center justify-center">
+                <Copy className="h-4 w-4 text-muted-foreground" />
+              </div>
+              <span className="text-sm font-medium">Copy Link</span>
+            </Button>
 
-          {/* Telegram */}
-          <Button
-            variant="ghost"
-            size="sm"
-            className="flex flex-col items-center gap-1 h-auto py-2 px-2"
-            onClick={() => handleShare("telegram")}
-            disabled={isLoading !== null}
-            data-testid="button-share-telegram"
-            title="Share to Telegram"
-          >
-            <Send className="h-4 w-4" />
-            <span className="text-xs">Telegram</span>
-          </Button>
-
-          {/* Copy Link */}
-          <Button
-            variant="ghost"
-            size="sm"
-            className="flex flex-col items-center gap-1 h-auto py-2 px-2"
-            onClick={() => handleShare("copy")}
-            disabled={isLoading !== null}
-            data-testid="button-copy-link"
-            title="Copy share link"
-          >
-            <Copy className="h-4 w-4" />
-            <span className="text-xs">Copy</span>
-          </Button>
+            {/* Native Share (general share option) */}
+            <Button
+              variant="ghost"
+              className="w-full justify-start gap-3 h-auto py-2.5 px-3 rounded-lg hover-elevate"
+              onClick={() => handleShare("native")}
+              disabled={isLoading !== null}
+              data-testid="button-share-native"
+            >
+              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-muted flex items-center justify-center">
+                <Share2 className="h-4 w-4 text-muted-foreground" />
+              </div>
+              <span className="text-sm font-medium">
+                {isMobileDevice() ? "Share" : "More"}
+              </span>
+            </Button>
+          </div>
         </div>
       </PopoverContent>
     </Popover>
