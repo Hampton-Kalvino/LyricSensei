@@ -618,6 +618,7 @@ export function LyricDisplay({
         console.log('[Practice Word] isPracticeListening state update called');
 
         const bannerStartTime = Date.now();
+        let speechDetected = false;  // ===== NEW: Track if speech was detected ====
 
         // Check for browser support
         const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -659,6 +660,7 @@ export function LyricDisplay({
 
         recognition.onspeechstart = () => {
           console.log('[Practice Word] 🎤 User started speaking');
+          speechDetected = true;  // ===== NEW: Mark that speech was detected ====
         };
 
         recognition.onspeechend = () => {
@@ -794,21 +796,51 @@ export function LyricDisplay({
         };
 
         recognition.onend = () => {
-          console.log('[Practice Word] ⚠️ Recognition.onend fired!');
+          console.log('[Practice Word] ⚠️ Recognition.onend fired! Session match:', sessionId === practiceSessionRef.current);
+          
           if (sessionId !== practiceSessionRef.current) {
+            console.log('[Practice Word] Session mismatch, ignoring onend');
             return;
           }
 
-          // ===== FIX #6: Always reset ref on end =====
-          practiceListeningRef.current = false;
+          // ===== IMPROVED FIX: Give onresult time to fire if speech was detected =====
+          if (speechDetected) {
+            console.log('[Practice Word] Speech was detected, giving onresult 500ms grace period to fire');
+            
+            // Wait 500ms for onresult to fire
+            setTimeout(() => {
+              if (sessionId !== practiceSessionRef.current) {
+                console.log('[Practice Word] Session ended during grace period');
+                return;
+              }
+              
+              if (!recognitionHandledRef.current) {
+                console.log('[Practice Word] Grace period expired, onresult never fired - treating as no result');
+                handleNoResult();
+              } else {
+                console.log('[Practice Word] onresult fired during grace period, cleanup already done');
+              }
+            }, 500);
+            
+            return; // Don't immediately cleanup
+          }
 
+          // No speech detected at all
+          console.log('[Practice Word] No speech detected, processing immediately');
+          practiceListeningRef.current = false;
+          
           if (recognitionHandledRef.current) {
             console.log('[Practice Word] Already handled by onresult/onerror');
             return;
           }
+          
+          handleNoResult();
+        };
 
+        // Helper function for no-result cleanup
+        const handleNoResult = () => {
           console.log('[Practice Word] Recognition ended without result');
-
+          
           const elapsed = Date.now() - bannerStartTime;
           const remainingTime = Math.max(0, 2000 - elapsed);
 
@@ -818,6 +850,8 @@ export function LyricDisplay({
 
           listeningResetTimeoutRef.current = setTimeout(() => {
             if (sessionId === practiceSessionRef.current && !recognitionHandledRef.current) {
+              console.log('[Practice Word] Fallback timeout: resetting listening state');
+              practiceListeningRef.current = false;
               setIsPracticeListening(false);
               listeningResetTimeoutRef.current = null;
 

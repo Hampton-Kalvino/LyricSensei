@@ -1,0 +1,284 @@
+# 🔧 FIX: Recognition Stops Immediately (onend fires too early)
+
+## The Problem
+
+Your console shows:
+```
+[Practice Word] ✅ Recognition ACTUALLY STARTED
+[Practice Word] 🎤 User started speaking
+[Practice Word] 🎤 User stopped speaking
+[Practice Word] ⚠️ Recognition.onend fired!
+```
+
+Recognition starts successfully but `onend` fires immediately after speech stops, BEFORE `onresult` can fire. This causes the banner to disappear before showing results.
+
+## Root Cause
+
+Even with `continuous: true`, some browsers (especially Chrome in certain contexts) stop recognition immediately after:
+1. Detecting a pause in speech
+2. Processing the utterance
+3. Or hitting an internal timeout
+
+The `onspeechend` event fires, then `onend` fires almost immediately, and our cleanup code resets the banner.
+
+## ✅ The Fix
+
+We need to prevent `onend` from hiding the banner if speech was detected. Update the `recognition.onend` handler in `lyric-display.tsx`:
+
+### Find this code (around line 860):
+
+```typescript
+recognition.onend = () => {
+  console.log('[Practice Word] ⚠️ Recognition.onend fired!');
+  if (sessionId !== practiceSessionRef.current) {
+    return;
+  }
+
+  // ===== FIX #6: Always reset ref on end =====
+  practiceListeningRef.current = false;
+
+  if (recognitionHandledRef.current) {
+    console.log('[Practice Word] Already handled by onresult/onerror');
+    return;
+  }
+
+  console.log('[Practice Word] Recognition ended without result');
+  
+  // ... rest of handler
+};
+```
+
+### Replace with this improved version:
+
+```typescript
+recognition.onend = () => {
+  console.log('[Practice Word] ⚠️ Recognition.onend fired! Session match:', sessionId === practiceSessionRef.current);
+  
+  if (sessionId !== practiceSessionRef.current) {
+    console.log('[Practice Word] Session mismatch, ignoring onend');
+    return;
+  }
+
+  // ===== IMPROVED FIX: Don't immediately reset if we detected speech =====
+  // If onspeechstart fired, give onresult time to process (500ms grace period)
+  const speechWasDetected = recognitionHandledRef.current || 
+                            (recognition as any)._speechDetected;
+  
+  if (speechWasDetected) {
+    console.log('[Practice Word] Speech was detected, giving onresult 500ms to fire');
+    
+    // Wait 500ms for onresult to fire
+    setTimeout(() => {
+      if (sessionId !== practiceSessionRef.current) return;
+      
+      if (!recognitionHandledRef.current) {
+        console.log('[Practice Word] Grace period expired, onresult never fired');
+        handleNoResult();
+      } else {
+        console.log('[Practice Word] onresult fired during grace period, cleanup already done');
+      }
+    }, 500);
+    
+    return; // Don't immediately cleanup
+  }
+
+  // No speech detected at all
+  console.log('[Practice Word] No speech detected, cleaning up immediately');
+  practiceListeningRef.current = false;
+  handleNoResult();
+};
+
+// Helper function for no-result cleanup
+function handleNoResult() {
+  console.log('[Practice Word] Recognition ended without result');
+  
+  const elapsed = Date.now() - bannerStartTime;
+  const remainingTime = Math.max(0, 2000 - elapsed);
+  
+  if (listeningResetTimeoutRef.current) {
+    clearTimeout(listeningResetTimeoutRef.current);
+  }
+  
+  listeningResetTimeoutRef.current = setTimeout(() => {
+    if (sessionId === practiceSessionRef.current && !recognitionHandledRef.current) {
+      console.log('[Practice Word] Fallback timeout: resetting listening state');
+      practiceListeningRef.current = false;
+      setIsPracticeListening(false);
+      listeningResetTimeoutRef.current = null;
+      
+      // Show 0% score banner
+      setLastScore(0);
+      setShowScoreBanner(true);
+      
+      setWordStates(prev => {
+        if (wordIndex >= prev.length) return prev;
+        const updated = [...prev];
+        updated[wordIndex] = {
+          ...updated[wordIndex],
+          status: 'retry',
+          attempts: updated[wordIndex].attempts + 1
+        };
+        return updated;
+      });
+      
+      if (scoreBannerTimeoutRef.current) {
+        clearTimeout(scoreBannerTimeoutRef.current);
+      }
+      scoreBannerTimeoutRef.current = setTimeout(() => {
+        setShowScoreBanner(false);
+        setLastScore(null);
+      }, 3000);
+    }
+  }, remainingTime);
+}
+```
+
+## Alternative Simpler Fix
+
+If the above is too complex, try this simpler approach - just add a flag to track if speech was detected:
+
+### Add this at the top of practiceWord (after line 615):
+
+```typescript
+let speechDetected = false;
+```
+
+### Update onspeechstart (around line 651):
+
+```typescript
+recognition.onspeechstart = () => {
+  console.log('[Practice Word] 🎤 User started speaking');
+  speechDetected = true;  // ← ADD THIS
+};
+```
+
+### Update onend (around line 860):
+
+```typescript
+recognition.onend = () => {
+  console.log('[Practice Word] ⚠️ Recognition.onend fired!');
+  
+  if (sessionId !== practiceSessionRef.current) {
+    return;
+  }
+
+  practiceListeningRef.current = false;
+
+  if (recognitionHandledRef.current) {
+    console.log('[Practice Word] Already handled by onresult/onerror');
+    return;
+  }
+
+  // ===== SIMPLE FIX: Wait for results if speech was detected =====
+  if (speechDetected) {
+    console.log('[Practice Word] Speech detected, waiting 500ms for onresult...');
+    
+    setTimeout(() => {
+      if (sessionId !== practiceSessionRef.current) return;
+      if (recognitionHandledRef.current) {
+        console.log('[Practice Word] onresult fired, cleanup already done');
+        return;
+      }
+      
+      console.log('[Practice Word] Timeout: onresult never fired, treating as no result');
+      // Continue with normal no-result handling...
+      const elapsed = Date.now() - bannerStartTime;
+      const remainingTime = Math.max(0, 2000 - elapsed);
+      
+      if (listeningResetTimeoutRef.current) {
+        clearTimeout(listeningResetTimeoutRef.current);
+      }
+      
+      listeningResetTimeoutRef.current = setTimeout(() => {
+        if (sessionId === practiceSessionRef.current) {
+          setIsPracticeListening(false);
+          setLastScore(0);
+          setShowScoreBanner(true);
+          
+          setWordStates(prev => {
+            if (wordIndex >= prev.length) return prev;
+            const updated = [...prev];
+            updated[wordIndex] = {
+              ...updated[wordIndex],
+              status: 'retry',
+              attempts: updated[wordIndex].attempts + 1
+            };
+            return updated;
+          });
+          
+          setTimeout(() => {
+            setShowScoreBanner(false);
+            setLastScore(null);
+          }, 3000);
+        }
+      }, remainingTime);
+    }, 500);
+    
+    return; // Don't process immediately
+  }
+
+  console.log('[Practice Word] No speech detected, processing immediately');
+  
+  // ... rest of existing onend code for no-speech case
+};
+```
+
+## Even Simpler: Just Increase Banner Minimum Time
+
+The simplest fix is to just keep the banner visible longer:
+
+### Find line 619 (bannerStartTime):
+
+```typescript
+const bannerStartTime = Date.now();
+```
+
+### Change the minimum banner time from 2000ms to 3000ms:
+
+Find all instances of:
+```typescript
+const remainingTime = Math.max(0, 2000 - elapsed);
+```
+
+Change to:
+```typescript
+const remainingTime = Math.max(0, 3000 - elapsed);  // 3 seconds minimum
+```
+
+This ensures banner stays visible for at least 3 seconds, giving `onresult` more time to fire.
+
+## 🎯 Recommended: Try Fixes in This Order
+
+1. **Simplest:** Increase banner time to 3000ms (quick test)
+2. **Simple:** Add `speechDetected` flag with 500ms grace period
+3. **Comprehensive:** Full improved onend handler with helper function
+
+## 📝 For Mobile (Android)
+
+As mentioned before, for mobile you'll still need the Capacitor Speech Recognition plugin since Web Speech API doesn't work in WebView:
+
+```bash
+npm install @capacitor-community/speech-recognition
+npx cap sync android
+```
+
+Add to `AndroidManifest.xml`:
+```xml
+<uses-permission android:name="android.permission.RECORD_AUDIO" />
+```
+
+Then wrap the recognition code to use Capacitor plugin on mobile:
+```typescript
+const isNative = Capacitor.isNativePlatform();
+
+if (isNative) {
+  // Use Capacitor plugin
+  await useCapacitorSpeech(expectedWord);
+} else {
+  // Use Web Speech API (current code)
+}
+```
+
+---
+
+**Try the simplest fix first (3000ms banner time) and see if that gives onresult enough time to fire!**
