@@ -951,6 +951,12 @@ function spanishToPhonetic(text: string): string {
   
   // Step 8: Simplify problematic consonant clusters (TTS cleanup)
   // These patterns can cause TTS to spell out letters instead of pronouncing words
+  
+  // Fix consonant clusters by inserting schwa (uh) between consonants
+  phonetic = phonetic.replace(/ch([bdfgjklmnpqrstvwxyz])/g, 'chuh$1');  // ch + consonant
+  
+  // Handle consonant + consonant patterns that TTS spells
+  phonetic = phonetic.replace(/([stnrm])ch([aeiou])/g, '$1uh-ch$2');  // consonant-ch-vowel
   phonetic = phonetic.replace(/rr([aeiou])/g, 'rr$1');  // Keep 'rr' in pronunciations like "rrah"
   phonetic = phonetic.replace(/([aeiou])nch([aeiou])/g, '$1nch$3');  // Preserve 'nch' cluster
   
@@ -1218,7 +1224,18 @@ function frenchToPhonetic(text: string): string {
   
   // Step 7: Simplify problematic consonant clusters (TTS cleanup)
   // These patterns can cause TTS to spell out letters instead of pronouncing words
-  // Similar to German: avoid patterns that look like abbreviations
+  // Critical: Handle consonant + consonant patterns that TTS spells out
+  
+  // Fix consonant clusters by inserting schwa (uh) between consonants
+  // This prevents TTS from spelling out individual letters
+  phonetic = phonetic.replace(/zh([bdfghjklmnpqrstvwxyz])/g, 'zhuh$1');  // zh + consonant → zhuh-consonant
+  phonetic = phonetic.replace(/sh([bdfgjklmnpqrstvwxyz])/g, 'shuh$1');  // sh + consonant → shuh-consonant
+  phonetic = phonetic.replace(/ch([bdfgjklmnpqrstvwxyz])/g, 'chuh$1');  // ch + consonant → chuh-consonant
+  
+  // Handle "v" after other consonants (very common issue: zhv, shv, etc.)
+  phonetic = phonetic.replace(/([stnrm])v([aeiou])/g, '$1uh-v$2');  // consonant-v-vowel → consonant-uh-v-vowel
+  
+  // Clean up other problematic clusters
   phonetic = phonetic.replace(/ht\b/g, 't');    // "naht" instead of "nahht" (TTS stops spelling)
   phonetic = phonetic.replace(/dt\b/g, 't');    // "shat" instead of "shahdt"
   phonetic = phonetic.replace(/nkt\b/g, 'nk');  // Remove extra consonants at word boundaries
@@ -1482,6 +1499,11 @@ function germanToPhonetic(text: string): string {
   
   // Step 8: Simplify problematic consonant clusters (TTS cleanup)
   // These patterns still look like abbreviations after vowel replacement
+  
+  // Fix consonant clusters by inserting schwa (uh) between consonants
+  phonetic = phonetic.replace(/sh([bdfgjklmnpqrstvwxyz])/g, 'shuh$1');  // sh + consonant
+  
+  // Clean up at word boundaries
   phonetic = phonetic.replace(/ht\b/g, 't');    // "naht" instead of "nahht"
   phonetic = phonetic.replace(/dt\b/g, 't');    // "stat" instead of "stahdt"
   
