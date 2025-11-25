@@ -1131,6 +1131,13 @@ function frenchToPhonetic(text: string): string {
   // Clean up multiple spaces
   phonetic = phonetic.replace(/\s+/g, ' ').trim();
   
+  // Step 7: Simplify problematic consonant clusters (TTS cleanup)
+  // These patterns can cause TTS to spell out letters instead of pronouncing words
+  // Similar to German: avoid patterns that look like abbreviations
+  phonetic = phonetic.replace(/ht\b/g, 't');    // "naht" instead of "nahht" (TTS stops spelling)
+  phonetic = phonetic.replace(/nkt\b/g, 'nk');  // Remove extra consonants at word boundaries
+  phonetic = phonetic.replace(/st(\s|$)/g, 's$1');  // Simplify st clusters
+  
   // Split into syllables
   phonetic = splitIntoSyllables(phonetic);
   
