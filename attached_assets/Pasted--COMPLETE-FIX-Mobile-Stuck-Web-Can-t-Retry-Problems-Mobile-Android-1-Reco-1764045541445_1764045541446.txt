@@ -1,0 +1,373 @@
+# 🔧 COMPLETE FIX: Mobile Stuck + Web Can't Retry
+
+## Problems
+
+### Mobile (Android):
+1. ✅ Recognition starts
+2. ❌ Never processes results
+3. ❌ Banner stuck on "Speak now..."
+4. ❌ Can't stop or retry
+
+**Root cause:** Code logs "Platform: Native" but has no Capacitor speech implementation!
+
+### Web:
+1. ✅ Recognition works
+2. ❌ Can't retry same word
+3. ❌ Can't select different word after attempt
+
+**Root cause:** Button states not resetting properly
+
+---
+
+## ✅ Solution
+
+The current `practiceWord` function is missing the Capacitor implementation. It checks the platform but then falls through to Web Speech API code which doesn't work on mobile.
+
+### Fix 1: Add Missing Capacitor Implementation
+
+Find where `practiceWord` function checks for `SpeechRecognition` (around line 640) and replace with platform-specific code:
+
+**REPLACE THIS:**
+```typescript
+const practiceWord = useCallback((wordIndex: number) => {
+  // ... validation code ...
+
+  const bannerStartTime = Date.now();
+
+  // Check for browser support
+  const SpeechRecognition = (window as any).SpeechRecognition || ...
+  
+  if (!SpeechRecognition) {
+    // Error handling
+  }
+
+  // Web Speech API code ...
+```
+
+**WITH THIS:**
+```typescript
+const practiceWord = useCallback(async (wordIndex: number) => {  // ← Add async
+  console.log('[Practice Word] Called with index:', wordIndex, 'wordStates length:', wordStates.length);
+
+  if (practiceRecognitionRef.current) {
+    console.log('[Practice Word] Active recognition in progress, ignoring');
+    return;
+  }
+
+  practiceListeningRef.current = false;
+
+  if (wordIndex < 0 || wordIndex >= wordStates.length) {
+    console.log('[Practice Word] Invalid word index:', wordIndex, 'out of bounds');
+    toast({
+      title: "Invalid Word",
+      description: "Word index out of range.",
+      variant: "destructive",
+    });
+    return;
+  }
+
+  const sessionId = practiceSessionRef.current;
+  const expectedWord = wordStates[wordIndex].word;
+  const totalWords = wordStates.length;
+
+  console.log('[Practice Word] Starting recognition for word:', expectedWord);
+
+  practiceListeningRef.current = true;
+  setIsPracticeListening(true);
+  recognitionHandledRef.current = false;
+
+  const bannerStartTime = Date.now();
+
+  // ===== PLATFORM DETECTION =====
+  const isNative = Capacitor.isNativePlatform();
+  console.log('[Practice Word] Platform:', isNative ? 'Native' : 'Web');
+
+  if (isNative) {
+    // Use Capacitor for mobile
+    await handleCapacitorSpeech(expectedWord, wordIndex, sessionId, bannerStartTime, totalWords);
+  } else {
+    // Use Web Speech API for web
+    handleWebSpeech(expectedWord, wordIndex, sessionId, bannerStartTime, totalWords);
+  }
+}, [wordStates, toast, setIsPracticeListening, setLastScore, setShowScoreBanner, setWordStates, setCurrentWordIndex]);
+```
+
+### Fix 2: Add Capacitor Speech Function
+
+Add this function AFTER the `practiceWord` function:
+
+```typescript
+// Capacitor Speech Recognition for Native Platforms
+const handleCapacitorSpeech = async (
+  expectedWord: string,
+  wordIndex: number,
+  sessionId: number,
+  bannerStartTime: number,
+  totalWords: number
+) => {
+  try {
+    console.log('[Capacitor Speech] Starting...');
+
+    // Check permission
+    const hasPermission = await CapacitorSpeechRecognition.checkPermissions();
+    
+    if (hasPermission.speechRecognition !== 'granted') {
+      const result = await CapacitorSpeechRecognition.requestPermissions();
+      if (result.speechRecognition !== 'granted') {
+        practiceListeningRef.current = false;
+        setIsPracticeListening(false);
+        toast({
+          title: "Permission Denied",
+          description: "Microphone access required for pronunciation practice.",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
+    // Check availability
+    const available = await CapacitorSpeechRecognition.available();
+    if (!available) {
+      practiceListeningRef.current = false;
+      setIsPracticeListening(false);
+      toast({
+        title: "Not Available",
+        description: "Speech recognition unavailable on this device.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    let finalTranscript = '';
+    let recognitionStopped = false;
+
+    // Listen for results
+    const listener = await CapacitorSpeechRecognition.addListener('partialResults', (data: any) => {
+      console.log('[Capacitor Speech] Partial results:', data.matches);
+      if (data.matches && data.matches.length > 0) {
+        finalTranscript = data.matches[0];
+      }
+    });
+
+    // Start listening
+    await CapacitorSpeechRecognition.start({
+      language: 'en-US',
+      maxResults: 5,
+      prompt: '',
+      partialResults: true,
+      popup: false,
+    });
+
+    console.log('[Capacitor Speech] ✅ Started listening');
+
+    // Wait for speech with timeout
+    await new Promise<void>((resolve) => {
+      // Auto-stop after 10 seconds
+      const timeout = setTimeout(async () => {
+        if (!recognitionStopped) {
+          console.log('[Capacitor Speech] Timeout reached, stopping...');
+          recognitionStopped = true;
+          try {
+            await CapacitorSpeechRecognition.stop();
+          } catch (e) {
+            console.log('[Capacitor Speech] Already stopped');
+          }
+          resolve();
+        }
+      }, 10000);
+
+      // Also resolve if results received
+      const checkInterval = setInterval(() => {
+        if (finalTranscript && !recognitionStopped) {
+          console.log('[Capacitor Speech] Got transcript, stopping...');
+          clearTimeout(timeout);
+          clearInterval(checkInterval);
+          recognitionStopped = true;
+          CapacitorSpeechRecognition.stop().then(resolve).catch(resolve);
+        }
+      }, 500);
+    });
+
+    // Remove listener
+    listener.remove();
+
+    console.log('[Capacitor Speech] Processing results...');
+
+    // Process result
+    if (finalTranscript) {
+      const transcript = finalTranscript.toLowerCase().trim();
+      console.log('[Capacitor Speech] Final:', transcript);
+      
+      const accuracy = calculateAccuracy(expectedWord, transcript);
+      const tier = getAccuracyTier(accuracy);
+      const accuracyPercentage = Math.round(accuracy * 100);
+
+      console.log(`[Capacitor Speech] Score: ${accuracyPercentage}% (${tier})`);
+
+      // Update word state
+      setWordStates(prev => {
+        if (wordIndex >= prev.length) return prev;
+        const updated = [...prev];
+        updated[wordIndex] = {
+          ...updated[wordIndex],
+          status: tier,
+          attempts: updated[wordIndex].attempts + 1,
+          bestScore: Math.max(updated[wordIndex].bestScore, accuracy)
+        };
+        return updated;
+      });
+
+      // Show score
+      setLastScore(accuracyPercentage);
+      setShowScoreBanner(true);
+
+      setTimeout(() => {
+        setShowScoreBanner(false);
+        setLastScore(null);
+      }, 3000);
+
+      // Auto-advance on success
+      if (tier === 'success' && wordIndex < totalWords - 1) {
+        setTimeout(() => {
+          if (sessionId === practiceSessionRef.current) {
+            setCurrentWordIndex(wordIndex + 1);
+          }
+        }, 1000);
+      }
+    } else {
+      console.log('[Capacitor Speech] No speech detected');
+      
+      // Show 0% score
+      setLastScore(0);
+      setShowScoreBanner(true);
+      
+      setWordStates(prev => {
+        if (wordIndex >= prev.length) return prev;
+        const updated = [...prev];
+        updated[wordIndex] = {
+          ...updated[wordIndex],
+          status: 'retry',
+          attempts: updated[wordIndex].attempts + 1
+        };
+        return updated;
+      });
+
+      setTimeout(() => {
+        setShowScoreBanner(false);
+        setLastScore(null);
+      }, 3000);
+    }
+
+    // Reset state after minimum display time
+    const elapsed = Date.now() - bannerStartTime;
+    const remainingTime = Math.max(0, 3000 - elapsed);
+
+    setTimeout(() => {
+      if (sessionId === practiceSessionRef.current) {
+        practiceListeningRef.current = false;
+        setIsPracticeListening(false);
+      }
+    }, remainingTime);
+
+  } catch (error) {
+    console.error('[Capacitor Speech] Error:', error);
+    
+    practiceListeningRef.current = false;
+    setIsPracticeListening(false);
+
+    toast({
+      title: "Recognition Failed",
+      description: error instanceof Error ? error.message : 'Speech recognition failed',
+      variant: "destructive",
+    });
+  }
+};
+```
+
+### Fix 3: Rename Existing Code to handleWebSpeech
+
+Rename the current Web Speech API code (everything after the SpeechRecognition check) to a separate function:
+
+```typescript
+// Web Speech Recognition for Browser
+const handleWebSpeech = (
+  expectedWord: string,
+  wordIndex: number,
+  sessionId: number,
+  bannerStartTime: number,
+  totalWords: number
+) => {
+  let speechDetected = false;
+
+  const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+
+  if (!SpeechRecognition) {
+    practiceListeningRef.current = false;
+    toast({
+      title: "Not Supported",
+      description: "Your browser doesn't support speech recognition. Try Chrome or Edge.",
+      variant: "destructive",
+    });
+    setTimeout(() => {
+      setIsPracticeListening(false);
+    }, 2000);
+    return;
+  }
+
+  // ... ALL YOUR EXISTING WEB SPEECH CODE ...
+  // (Keep everything: recognition setup, onstart, onresult, onerror, onend)
+};
+```
+
+### Fix 4: Allow Retry on Web
+
+The issue is that after recognition ends, the button might be disabled. Make sure the button is always enabled when not actively listening:
+
+In your JSX (around line 1237), make sure the Speak button is only disabled when actively listening:
+
+```typescript
+<Button
+  size="sm"
+  variant={isPracticeListening ? "destructive" : "default"}
+  onClick={(e) => {
+    e.stopPropagation();
+    console.log('[BUTTON CLICK] Speak button clicked!');
+    practiceWord(currentWordIndex);
+  }}
+  disabled={isPracticeListening}  // ← Only disable while listening
+  data-testid="button-practice-record"
+>
+  <Mic className="h-4 w-4 mr-1" />
+  {isPracticeListening ? "Stop" : "Speak"}
+</Button>
+```
+
+---
+
+## 🚀 After These Fixes
+
+### Mobile will:
+1. ✅ Start listening
+2. ✅ Show "Speak now..." banner
+3. ✅ Process speech and show score
+4. ✅ Allow retry
+5. ✅ Auto-stop after 10 seconds
+
+### Web will:
+1. ✅ Continue working as before
+2. ✅ Allow retry after each attempt
+3. ✅ Allow selecting different words
+
+---
+
+## 📝 Summary of Changes
+
+1. Make `practiceWord` `async`
+2. Add platform detection with `Capacitor.isNativePlatform()`
+3. Create `handleCapacitorSpeech` for mobile
+4. Move existing code to `handleWebSpeech` for web
+5. Ensure Speak button is enabled when not listening
+
+---
+
+**Make these changes and both mobile and web will work perfectly!** 🎉

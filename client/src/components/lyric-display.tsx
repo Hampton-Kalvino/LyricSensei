@@ -1466,6 +1466,7 @@ export function LyricDisplay({
                                 console.log('[BUTTON CLICK] practiceWord function:', practiceWord);
                                 practiceWord(currentWordIndex);
                               }}
+                              disabled={isPracticeListening}
                               data-testid="button-practice-record"
                               aria-label={`Record pronunciation of ${wordStates[currentWordIndex].word}`}
                               className={cn(isPracticeListening && "animate-pulse")}
