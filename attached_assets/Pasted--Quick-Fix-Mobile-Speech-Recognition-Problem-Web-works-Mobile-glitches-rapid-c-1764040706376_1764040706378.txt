@@ -1,0 +1,217 @@
+# 🚀 Quick Fix: Mobile Speech Recognition
+
+## Problem
+- ✅ Web works
+- ❌ Mobile glitches (rapid cleanup calls, no banner)
+
+## Root Cause
+Web Speech API doesn't exist in Android WebView → Recognition fails immediately → Cleanup runs repeatedly
+
+## ✅ Solution (3 Steps)
+
+### 1. Install Plugin
+```bash
+npm install @capacitor-community/speech-recognition
+```
+
+### 2. Add Permission
+Edit `android/app/src/main/AndroidManifest.xml`:
+```xml
+<uses-permission android:name="android.permission.RECORD_AUDIO" />
+```
+
+### 3. Update Code
+In `client/src/components/lyric-display.tsx`:
+
+**Add import (line ~22):**
+```typescript
+import { SpeechRecognition as CapacitorSpeechRecognition } from '@capacitor-community/speech-recognition';
+```
+
+**Update practiceWord function (line ~581) - add platform detection:**
+```typescript
+const practiceWord = useCallback(async (wordIndex: number) => {  // ← Add async
+  // ... existing validation code ...
+
+  const bannerStartTime = Date.now();
+
+  // ===== ADD THIS: Platform detection =====
+  const isNative = Capacitor.isNativePlatform();
+  console.log('[Practice Word] Platform:', isNative ? 'Native' : 'Web');
+
+  if (isNative) {
+    // Use Capacitor for mobile
+    await handleCapacitorSpeech(expectedWord, wordIndex, sessionId, bannerStartTime, totalWords);
+  } else {
+    // Use Web Speech API for web
+    handleWebSpeech(expectedWord, wordIndex, sessionId, bannerStartTime, totalWords);
+  }
+}, [/* deps */]);
+```
+
+**Add new function for Capacitor (after practiceWord):**
+```typescript
+const handleCapacitorSpeech = async (
+  expectedWord: string,
+  wordIndex: number,
+  sessionId: number,
+  bannerStartTime: number,
+  totalWords: number
+) => {
+  try {
+    // Check permission
+    const hasPermission = await CapacitorSpeechRecognition.checkPermissions();
+    
+    if (hasPermission.speechRecognition !== 'granted') {
+      const result = await CapacitorSpeechRecognition.requestPermissions();
+      if (result.speechRecognition !== 'granted') {
+        practiceListeningRef.current = false;
+        setIsPracticeListening(false);
+        toast({ title: "Permission Denied", description: "Microphone access required" });
+        return;
+      }
+    }
+
+    // Check availability
+    const available = await CapacitorSpeechRecognition.available();
+    if (!available) {
+      practiceListeningRef.current = false;
+      setIsPracticeListening(false);
+      toast({ title: "Not Available", description: "Speech recognition unavailable" });
+      return;
+    }
+
+    let finalTranscript = '';
+    
+    // Listen for results
+    const listener = await CapacitorSpeechRecognition.addListener('partialResults', (data: any) => {
+      if (data.matches && data.matches.length > 0) {
+        finalTranscript = data.matches[0];
+      }
+    });
+
+    // Start listening
+    await CapacitorSpeechRecognition.start({
+      language: 'en-US',
+      maxResults: 5,
+      prompt: '',
+      partialResults: true,
+      popup: false,
+    });
+
+    console.log('[Capacitor Speech] ✅ Started');
+
+    // Wait 10 seconds for speech
+    await new Promise(resolve => setTimeout(resolve, 10000));
+
+    // Stop and cleanup
+    await CapacitorSpeechRecognition.stop();
+    listener.remove();
+
+    // Process result
+    if (finalTranscript) {
+      const transcript = finalTranscript.toLowerCase().trim();
+      const accuracy = calculateAccuracy(expectedWord, transcript);
+      const accuracyPercentage = Math.round(accuracy * 100);
+      const tier = getAccuracyTier(accuracy);
+
+      // Update state
+      setWordStates(prev => {
+        if (wordIndex >= prev.length) return prev;
+        const updated = [...prev];
+        updated[wordIndex] = {
+          ...updated[wordIndex],
+          status: tier,
+          attempts: updated[wordIndex].attempts + 1,
+          bestScore: Math.max(updated[wordIndex].bestScore, accuracy)
+        };
+        return updated;
+      });
+
+      setLastScore(accuracyPercentage);
+      setShowScoreBanner(true);
+
+      setTimeout(() => {
+        setShowScoreBanner(false);
+        setLastScore(null);
+      }, 3000);
+
+      // Auto-advance on success
+      if (tier === 'success' && wordIndex < totalWords - 1) {
+        setTimeout(() => setCurrentWordIndex(wordIndex + 1), 1000);
+      }
+    } else {
+      // No speech detected
+      setLastScore(0);
+      setShowScoreBanner(true);
+      setWordStates(prev => {
+        if (wordIndex >= prev.length) return prev;
+        const updated = [...prev];
+        updated[wordIndex] = {
+          ...updated[wordIndex],
+          status: 'retry',
+          attempts: updated[wordIndex].attempts + 1
+        };
+        return updated;
+      });
+      setTimeout(() => {
+        setShowScoreBanner(false);
+        setLastScore(null);
+      }, 3000);
+    }
+
+    // Reset state
+    const elapsed = Date.now() - bannerStartTime;
+    const remainingTime = Math.max(0, 3000 - elapsed);
+    setTimeout(() => {
+      practiceListeningRef.current = false;
+      setIsPracticeListening(false);
+    }, remainingTime);
+
+  } catch (error) {
+    console.error('[Capacitor Speech] Error:', error);
+    practiceListeningRef.current = false;
+    setIsPracticeListening(false);
+    toast({ title: "Recognition Failed", description: error.message });
+  }
+};
+```
+
+**Move existing speech code to handleWebSpeech function:**
+```typescript
+const handleWebSpeech = (
+  expectedWord: string,
+  wordIndex: number,
+  sessionId: number,
+  bannerStartTime: number,
+  totalWords: number
+) => {
+  // ... all your existing Web Speech API code ...
+};
+```
+
+### 4. Rebuild
+```bash
+npm run build
+npx cap sync android
+```
+
+### 5. Test
+- Open app on Android
+- Click "Practice" on a line
+- Click "Speak" button
+- **Expected:** 
+  - Permission dialog appears (first time)
+  - Banner shows "Speak now..."
+  - After speaking, score appears
+  - Word turns green if successful
+
+---
+
+## Complete Implementation
+
+See [CAPACITOR_SPEECH_COMPLETE.md](computer:///mnt/user-data/outputs/CAPACITOR_SPEECH_COMPLETE.md) for the full code.
+
+---
+
+**This will fix the mobile glitching and make practice mode work on Android!** 🎉

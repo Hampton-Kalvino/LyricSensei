@@ -20,6 +20,7 @@ import {
 } from "@/lib/pronunciation-utils";
 import { Capacitor } from '@capacitor/core';
 import { TextToSpeech } from '@capacitor-community/text-to-speech';
+import { SpeechRecognition as CapacitorSpeechRecognition } from '@capacitor-community/speech-recognition';
 
 type EmphasisMode = 'original' | 'translation' | 'phonetic';
 
@@ -578,7 +579,7 @@ export function LyricDisplay({
   }, [isPracticeMode, practiceLineIndex, toast, cleanupPracticeMode, savePracticeStats]);
 
   // Word-level speech recognition for practice mode
-      const practiceWord = useCallback((wordIndex: number) => {
+      const practiceWord = useCallback(async (wordIndex: number) => {
         console.log('[Practice Word] Called with index:', wordIndex, 'wordStates length:', wordStates.length);
 
         // ===== FIX #1: Better Guard - Check if ACTUALLY listening, not just ref =====
@@ -618,10 +619,32 @@ export function LyricDisplay({
         console.log('[Practice Word] isPracticeListening state update called');
 
         const bannerStartTime = Date.now();
-        let speechDetected = false;  // ===== NEW: Track if speech was detected ====
 
-        // Check for browser support
-        const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+        // Platform detection: native (Android/iOS) vs web
+        const isNative = Capacitor.isNativePlatform();
+        console.log('[Practice Word] Platform:', isNative ? 'Native' : 'Web');
+
+        if (isNative) {
+          // Use Capacitor for mobile
+          await handleCapacitorSpeech(expectedWord, wordIndex, sessionId, bannerStartTime, totalWords);
+        } else {
+          // Use Web Speech API for web
+          handleWebSpeech(expectedWord, wordIndex, sessionId, bannerStartTime, totalWords);
+        }
+      }, [wordStates, toast]);
+
+  // Web Speech API handler for web browsers
+  const handleWebSpeech = useCallback((
+    expectedWord: string,
+    wordIndex: number,
+    sessionId: number,
+    bannerStartTime: number,
+    totalWords: number
+  ) => {
+    let speechDetected = false;
+
+    // Check for browser support
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
         if (!SpeechRecognition) {
           console.log('[Practice Word] Browser does not support speech recognition');
@@ -913,7 +936,157 @@ export function LyricDisplay({
             variant: "destructive",
           });
         }
-      }, [wordStates, toast, calculateAccuracy, getAccuracyTier]);
+      }, [wordStates, toast, calculateAccuracy, getAccuracyTier, setWordStates, setLastScore, setShowScoreBanner, setCurrentWordIndex, setIsPracticeListening]);
+
+  // Capacitor speech recognition handler for mobile platforms
+  const handleCapacitorSpeech = useCallback(async (
+    expectedWord: string,
+    wordIndex: number,
+    sessionId: number,
+    bannerStartTime: number,
+    totalWords: number
+  ) => {
+    try {
+      // Check permission
+      const hasPermission = await CapacitorSpeechRecognition.checkPermissions();
+      
+      if (hasPermission.speechRecognition !== 'granted') {
+        const result = await CapacitorSpeechRecognition.requestPermissions();
+        if (result.speechRecognition !== 'granted') {
+          practiceListeningRef.current = false;
+          setIsPracticeListening(false);
+          toast({ title: "Permission Denied", description: "Microphone access required", variant: "destructive" });
+          return;
+        }
+      }
+
+      // Check availability
+      const available = await CapacitorSpeechRecognition.available();
+      if (!available) {
+        practiceListeningRef.current = false;
+        setIsPracticeListening(false);
+        toast({ title: "Not Available", description: "Speech recognition unavailable", variant: "destructive" });
+        return;
+      }
+
+      let finalTranscript = '';
+      
+      // Listen for results
+      const listener = await CapacitorSpeechRecognition.addListener('partialResults', (data: any) => {
+        if (data.matches && data.matches.length > 0) {
+          finalTranscript = data.matches[0];
+          console.log('[Capacitor Speech] Partial result:', finalTranscript);
+        }
+      });
+
+      // Start listening
+      await CapacitorSpeechRecognition.start({
+        language: 'en-US',
+        maxResults: 5,
+        prompt: '',
+        partialResults: true,
+        popup: false,
+      });
+
+      console.log('[Capacitor Speech] ✅ Started listening');
+
+      // Wait 10 seconds for speech
+      await new Promise(resolve => setTimeout(resolve, 10000));
+
+      // Stop and cleanup
+      await CapacitorSpeechRecognition.stop();
+      listener.remove();
+      console.log('[Capacitor Speech] Final transcript:', finalTranscript);
+
+      // Process result
+      if (finalTranscript) {
+        const transcript = finalTranscript.toLowerCase().trim();
+        const accuracy = calculateAccuracy(expectedWord, transcript);
+        const accuracyPercentage = Math.round(accuracy * 100);
+        const tier = getAccuracyTier(accuracy);
+
+        console.log(`[Capacitor Speech] 🎯 Accuracy: ${accuracyPercentage}% (${tier})`);
+
+        // Update state
+        setWordStates(prev => {
+          if (wordIndex >= prev.length) return prev;
+          const updated = [...prev];
+          updated[wordIndex] = {
+            ...updated[wordIndex],
+            status: tier,
+            attempts: updated[wordIndex].attempts + 1,
+            bestScore: Math.max(updated[wordIndex].bestScore, accuracy)
+          };
+          return updated;
+        });
+
+        setLastScore(accuracyPercentage);
+        setShowScoreBanner(true);
+
+        if (scoreBannerTimeoutRef.current) {
+          clearTimeout(scoreBannerTimeoutRef.current);
+        }
+        scoreBannerTimeoutRef.current = setTimeout(() => {
+          setShowScoreBanner(false);
+          setLastScore(null);
+        }, 3000);
+
+        // Auto-advance on success
+        if (tier === 'success' && wordIndex < totalWords - 1) {
+          setTimeout(() => {
+            if (sessionId === practiceSessionRef.current) {
+              setCurrentWordIndex(wordIndex + 1);
+            }
+          }, 1000);
+        }
+      } else {
+        // No speech detected
+        console.log('[Capacitor Speech] No speech detected');
+        setLastScore(0);
+        setShowScoreBanner(true);
+        setWordStates(prev => {
+          if (wordIndex >= prev.length) return prev;
+          const updated = [...prev];
+          updated[wordIndex] = {
+            ...updated[wordIndex],
+            status: 'retry',
+            attempts: updated[wordIndex].attempts + 1
+          };
+          return updated;
+        });
+        
+        if (scoreBannerTimeoutRef.current) {
+          clearTimeout(scoreBannerTimeoutRef.current);
+        }
+        scoreBannerTimeoutRef.current = setTimeout(() => {
+          setShowScoreBanner(false);
+          setLastScore(null);
+        }, 3000);
+      }
+
+      // Reset state
+      const elapsed = Date.now() - bannerStartTime;
+      const remainingTime = Math.max(0, 3000 - elapsed);
+      
+      if (listeningResetTimeoutRef.current) {
+        clearTimeout(listeningResetTimeoutRef.current);
+      }
+      
+      listeningResetTimeoutRef.current = setTimeout(() => {
+        if (sessionId === practiceSessionRef.current) {
+          practiceListeningRef.current = false;
+          setIsPracticeListening(false);
+          listeningResetTimeoutRef.current = null;
+        }
+      }, remainingTime);
+
+    } catch (error: any) {
+      console.error('[Capacitor Speech] Error:', error);
+      practiceListeningRef.current = false;
+      setIsPracticeListening(false);
+      toast({ title: "Recognition Failed", description: error?.message || "Unknown error", variant: "destructive" });
+    }
+  }, [calculateAccuracy, getAccuracyTier, setWordStates, setLastScore, setShowScoreBanner, setCurrentWordIndex, setIsPracticeListening, toast]);
   
   // Cleanup speech on unmount
   useEffect(() => {

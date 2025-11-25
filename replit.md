@@ -25,7 +25,8 @@ I prefer iterative development with clear communication on significant changes. 
 - **Translation Service**: Azure Translator API with OpenAI (GPT-4o-mini) fallback for specific languages.
 - **Pronunciation Assessment**: Azure Speech Services for professional-grade scoring, utilizing a hybrid cost model (browser Web Speech API for free tier, hybrid browser/Azure for premium) and smart caching for cost optimization.
 - **Mobile Share**: Web Share API with Instagram integration.
-- **Native App (Capacitor)**: Hybrid web/native app for Android and iOS using Capacitor for native speech APIs and app store distribution. Uses `@capacitor-community/text-to-speech` for TTS.
+- **Native App (Capacitor)**: Hybrid web/native app for Android and iOS using Capacitor for native speech APIs and app store distribution. Uses `@capacitor-community/text-to-speech` for TTS and `@capacitor-community/speech-recognition` for native speech recognition.
+- **Speech Recognition**: Dual-platform implementation with automatic detection - uses Web Speech API on web browsers and native Capacitor speech recognition on mobile (Android/iOS).
 - **Core Features**:
     - **Song Recognition**: Real-time ACRCloud integration with history tracking.
     - **Song Metadata**: Displays artwork, title, artist, album, duration, and language with streaming links.
@@ -51,6 +52,9 @@ I prefer iterative development with clear communication on significant changes. 
 
 ### Fixed Issues
 - **French & Spanish Phonetic Spelling (Nov 25, 2025)**: Fixed bug where French and Spanish words were being spelled letter-by-letter instead of pronounced as whole words. Root cause was `splitIntoSyllables` function using regex that only matched vowel→consonants→vowel patterns, missing edge cases. Replaced with character-by-character state machine algorithm that properly handles digraphs, nasal vowels, and edge cases. Now correctly syllabifies: "bonjour"→"bon-zhoor", "hola"→"oh-lah".
+
+### New Features & Implementations
+- **Capacitor Native Speech Recognition (Nov 25, 2025)**: Implemented `@capacitor-community/speech-recognition` plugin for mobile platforms. Added platform-aware architecture in `lyric-display.tsx` that automatically detects native (Android/iOS) vs web environments. Split speech handling into `handleWebSpeech` (Web Speech API for browsers) and `handleCapacitorSpeech` (native Capacitor API for mobile). Mobile implementation includes permission checking, 10-second listening window, partial results tracking, and identical accuracy scoring/auto-advance logic. Fixes mobile speech recognition glitches and enables native microphone access.
 
 ## External Dependencies
 - **ACRCloud**: Music recognition service.
