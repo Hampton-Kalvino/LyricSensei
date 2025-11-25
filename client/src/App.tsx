@@ -55,7 +55,7 @@ function Router() {
   // For unauthenticated users, show only public routes
   if (!isAuthenticated) {
     return (
-      <div className="flex flex-col min-h-screen">
+      <div className="flex flex-col min-h-screen" style={{ paddingTop: 'var(--safe-area-inset-top)', paddingBottom: 'var(--safe-area-inset-bottom)', paddingLeft: 'var(--safe-area-inset-left)', paddingRight: 'var(--safe-area-inset-right)' }}>
         <div className="flex-1">
           <Switch>
             <Route path="/pricing" component={Pricing} />
@@ -119,10 +119,10 @@ function AuthenticatedApp({ style }: { style: Record<string, string> }) {
 
   return (
     <SidebarProvider style={style as React.CSSProperties}>
-      <div className="flex h-screen w-full">
+      <div className="flex h-screen w-full" style={{ paddingTop: 'var(--safe-area-inset-top)', paddingBottom: 'var(--safe-area-inset-bottom)', paddingLeft: 'var(--safe-area-inset-left)', paddingRight: 'var(--safe-area-inset-right)' }}>
         <AppSidebar />
         <div className="flex flex-col flex-1 overflow-hidden">
-          <header className="flex items-center justify-between px-4 py-3 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+          <header className="flex items-center justify-between px-4 py-3 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60" style={{ paddingTop: `calc(0.75rem + var(--safe-area-inset-top))`, paddingLeft: `calc(1rem + var(--safe-area-inset-left))`, paddingRight: `calc(1rem + var(--safe-area-inset-right))` }}>
             <div className="flex items-center gap-2">
               <SidebarTrigger data-testid="button-sidebar-toggle" />
               {!isHomePage && <GlobalSearchButton />}
