@@ -1,0 +1,153 @@
+# 🔧 FIX: Cleanup Loop Causing Banner to Disappear
+
+## The Problem
+
+Lines 898-906 in `lyric-display.tsx`:
+
+```typescript
+useEffect(() => {
+  return () => {
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
+    savePracticeStats();
+    cleanupPracticeMode(); // ← This is being called repeatedly!
+  };
+}, [cleanupPracticeMode, savePracticeStats]); // ← cleanupPracticeMode in deps causes loop!
+```
+
+**What's happening:**
+1. `cleanupPracticeMode` is a `useCallback` that recreates on every render
+2. When it recreates, the useEffect cleanup function runs
+3. Cleanup calls `cleanupPracticeMode()`
+4. This sets `isPracticeListening(false)`
+5. Banner disappears immediately after appearing
+
+**The logs prove it:**
+```
+[Capacitor Speech] ✅ Started listening
+[CLEANUP] cleanupPracticeMode called from: ...  ← Called immediately after!
+[STATE CHANGE] setIsPracticeListening(false) called from: ...
+```
+
+## ✅ The Fix
+
+### Option 1: Remove from Dependencies (Recommended)
+
+Change lines 898-906 from:
+
+```typescript
+useEffect(() => {
+  return () => {
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
+    savePracticeStats();
+    cleanupPracticeMode();
+  };
+}, [cleanupPracticeMode, savePracticeStats]); // ← Remove cleanupPracticeMode
+```
+
+To:
+
+```typescript
+useEffect(() => {
+  return () => {
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
+    savePracticeStats();
+    cleanupPracticeMode();
+  };
+}, [savePracticeStats]); // ← Removed cleanupPracticeMode from deps
+```
+
+**Why this works:**
+- The cleanup only runs when component unmounts or `savePracticeStats` changes
+- Doesn't run every time `cleanupPracticeMode` recreates
+- ESLint warning can be ignored with: `// eslint-disable-next-line react-hooks/exhaustive-deps`
+
+### Option 2: Separate Cleanup Effects
+
+Better approach - split into two effects:
+
+```typescript
+// Effect 1: Cleanup TTS on unmount
+useEffect(() => {
+  return () => {
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
+  };
+}, []); // ← No dependencies, only runs on mount/unmount
+
+// Effect 2: Save stats on unmount
+useEffect(() => {
+  return () => {
+    savePracticeStats();
+  };
+}, [savePracticeStats]);
+
+// Effect 3: Cleanup practice mode on unmount (ALREADY EXISTS at line 463-499)
+// This one already exists, so we don't need the cleanup in this effect at all!
+```
+
+### Option 3: Remove the Entire Effect (Best)
+
+Actually, you already have cleanup on unmount at lines 463-499, so this effect is redundant!
+
+**Just delete lines 898-906 entirely:**
+
+```typescript
+// DELETE THIS ENTIRE useEffect
+useEffect(() => {
+  return () => {
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
+    savePracticeStats();
+    cleanupPracticeMode();
+  };
+}, [cleanupPracticeMode, savePracticeStats]);
+```
+
+Move the TTS cleanup to the main cleanup effect at line 463:
+
+```typescript
+// Around line 463
+useEffect(() => {
+  return () => {
+    console.log('[Cleanup] Component unmounting, resetting practice state');
+
+    // ADD THIS: Cancel TTS
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
+
+    // Reset all refs
+    practiceListeningRef.current = false;
+    recognitionHandledRef.current = false;
+
+    // ... rest of existing cleanup
+  };
+}, []);
+```
+
+## 🎯 Recommended Solution
+
+**Delete the redundant useEffect at lines 898-906** and add TTS cleanup to the main effect at line 463.
+
+This eliminates the loop completely!
+
+## After the Fix
+
+Console logs should show:
+```
+[Capacitor Speech] ✅ Started listening
+[Capacitor Speech] Partial result: suerte
+[Capacitor Speech] Partial result: suerte
+```
+
+No more repeated cleanup calls!
+
+Banner will stay visible while listening. ✅

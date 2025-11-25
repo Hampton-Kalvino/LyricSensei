@@ -465,6 +465,11 @@ export function LyricDisplay({
     return () => {
       console.log('[Cleanup] Component unmounting, resetting practice state');
 
+      // Cancel text-to-speech
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
+
       // Reset all refs
       practiceListeningRef.current = false;
       recognitionHandledRef.current = false;
@@ -1089,17 +1094,6 @@ export function LyricDisplay({
       toast({ title: "Recognition Failed", description: error?.message || "Unknown error", variant: "destructive" });
     }
   }, [calculateAccuracy, getAccuracyTier, setWordStates, setLastScore, setShowScoreBanner, setCurrentWordIndex, setIsPracticeListening, toast]);
-  
-  // Cleanup speech on unmount
-  useEffect(() => {
-    return () => {
-      if ('speechSynthesis' in window) {
-        window.speechSynthesis.cancel();
-      }
-      savePracticeStats(); // Save stats before cleanup
-      cleanupPracticeMode(); // Also cleanup practice mode
-    };
-  }, [cleanupPracticeMode, savePracticeStats]);
 
   if (isLoading) {
     return (
