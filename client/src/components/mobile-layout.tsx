@@ -426,14 +426,14 @@ export function MobileLayout({
       {/* SWIPEABLE CONTENT AREA */}
       <main 
         {...swipeHandlers}
-        className="flex-1 overflow-hidden relative"
+        className="flex-1 overflow-hidden relative w-full"
       >
         <div 
-          className="flex h-full transition-transform duration-300 ease-out"
+          className="flex h-full transition-transform duration-300 ease-out w-full"
           style={{ transform: `translateX(-${activeTabIndex * 100}%)` }}
         >
           {/* Menu Tab */}
-          <div className="w-full h-full flex-shrink-0 overflow-y-auto">
+          <div className="w-full h-full flex-shrink-0 overflow-y-auto scrollbar-hide">
             <div className="p-4">
               <h3 className="text-sm font-semibold mb-3">{t('history.recentSongs')}</h3>
               <RecognitionHistory
@@ -446,7 +446,7 @@ export function MobileLayout({
           </div>
 
           {/* Lyrics Tab */}
-          <div className="w-full h-full flex-shrink-0 overflow-y-auto">
+          <div className="w-full h-full flex-shrink-0 overflow-y-auto scrollbar-hide">
             <LyricDisplay
               lyrics={lyrics}
               translations={translations}
@@ -457,7 +457,7 @@ export function MobileLayout({
           </div>
 
           {/* Album Info Tab */}
-          <div className="w-full h-full flex-shrink-0 overflow-y-auto">
+          <div className="w-full h-full flex-shrink-0 overflow-y-auto scrollbar-hide">
             <div className="p-4">
               <SongMetadata song={currentSong} />
             </div>
