@@ -1,0 +1,590 @@
+# 🎤 Complete Capacitor Speech Recognition Implementation
+
+## The Problem
+
+Android logcat shows:
+```
+[CLEANUP] cleanupPracticeMode called from: ...
+[STATE CHANGE] setIsPracticeListening(false) called from: ...
+```
+
+Repeated cleanup calls are preventing the banner from showing. This happens because **Web Speech API doesn't exist in Android WebView**, so the recognition fails immediately and cleanup runs.
+
+## ✅ Solution: Use Capacitor Plugin
+
+### Step 1: Install Plugin
+
+```bash
+npm install @capacitor-community/speech-recognition
+npx cap sync android
+```
+
+### Step 2: Add Permission
+
+Edit `android/app/src/main/AndroidManifest.xml`:
+
+```xml
+<manifest ...>
+    <!-- Add this line -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    
+    <application ...>
+        ...
+    </application>
+</manifest>
+```
+
+### Step 3: Update lyric-display.tsx
+
+**Add import at top (around line 22):**
+
+```typescript
+import { SpeechRecognition as CapacitorSpeechRecognition } from '@capacitor-community/speech-recognition';
+```
+
+**Replace the entire `practiceWord` function with this version that supports both web and mobile:**
+
+```typescript
+const practiceWord = useCallback(async (wordIndex: number) => {
+  console.log('[Practice Word] Called with index:', wordIndex, 'wordStates length:', wordStates.length);
+
+  // Guard - only block if there's an active recognition session
+  if (practiceRecognitionRef.current) {
+    console.log('[Practice Word] Active recognition in progress, ignoring');
+    return;
+  }
+
+  // Reset the ref just in case it's stuck
+  practiceListeningRef.current = false;
+
+  // Validate bounds
+  if (wordIndex < 0 || wordIndex >= wordStates.length) {
+    console.log('[Practice Word] Invalid word index:', wordIndex, 'out of bounds');
+    toast({
+      title: "Invalid Word",
+      description: "Word index out of range.",
+      variant: "destructive",
+    });
+    return;
+  }
+
+  // Capture current session and values
+  const sessionId = practiceSessionRef.current;
+  const expectedWord = wordStates[wordIndex].word;
+  const totalWords = wordStates.length;
+
+  console.log('[Practice Word] Starting recognition for word:', expectedWord);
+
+  // Set listening state
+  practiceListeningRef.current = true;
+  setIsPracticeListening(true);
+  recognitionHandledRef.current = false;
+
+  const bannerStartTime = Date.now();
+
+  // ===== PLATFORM DETECTION =====
+  const isNative = Capacitor.isNativePlatform();
+  console.log('[Practice Word] Platform:', isNative ? 'Native (Capacitor)' : 'Web');
+
+  if (isNative) {
+    // ===== USE CAPACITOR FOR NATIVE PLATFORMS =====
+    await handleCapacitorSpeech(expectedWord, wordIndex, sessionId, bannerStartTime, totalWords);
+  } else {
+    // ===== USE WEB SPEECH API FOR WEB =====
+    handleWebSpeech(expectedWord, wordIndex, sessionId, bannerStartTime, totalWords);
+  }
+}, [wordStates, toast, calculateAccuracy, getAccuracyTier, setIsPracticeListening, setLastScore, setShowScoreBanner, setWordStates, setCurrentWordIndex]);
+
+// ===== NEW FUNCTION: Capacitor Speech Recognition =====
+const handleCapacitorSpeech = async (
+  expectedWord: string,
+  wordIndex: number,
+  sessionId: number,
+  bannerStartTime: number,
+  totalWords: number
+) => {
+  try {
+    console.log('[Capacitor Speech] Starting...');
+
+    // Check and request permissions
+    const hasPermission = await CapacitorSpeechRecognition.checkPermissions();
+    console.log('[Capacitor Speech] Permission status:', hasPermission);
+
+    if (hasPermission.speechRecognition !== 'granted') {
+      console.log('[Capacitor Speech] Requesting permission...');
+      const permissionResult = await CapacitorSpeechRecognition.requestPermissions();
+      
+      if (permissionResult.speechRecognition !== 'granted') {
+        console.log('[Capacitor Speech] Permission denied');
+        practiceListeningRef.current = false;
+        setIsPracticeListening(false);
+        
+        toast({
+          title: "Permission Denied",
+          description: "Microphone access is required for pronunciation practice.",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
+    console.log('[Capacitor Speech] Permission granted, checking availability...');
+
+    // Check if speech recognition is available
+    const available = await CapacitorSpeechRecognition.available();
+    console.log('[Capacitor Speech] Available:', available);
+
+    if (!available) {
+      practiceListeningRef.current = false;
+      setIsPracticeListening(false);
+      
+      toast({
+        title: "Not Available",
+        description: "Speech recognition is not available on this device.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Set up listener for partial results
+    let finalTranscript = '';
+    let hasReceivedResult = false;
+
+    const listener = await CapacitorSpeechRecognition.addListener('partialResults', (data: any) => {
+      console.log('[Capacitor Speech] Partial results:', data.matches);
+      if (data.matches && data.matches.length > 0) {
+        finalTranscript = data.matches[0];
+        hasReceivedResult = true;
+      }
+    });
+
+    // Start listening
+    console.log('[Capacitor Speech] Starting recognition...');
+    await CapacitorSpeechRecognition.start({
+      language: 'en-US',
+      maxResults: 5,
+      prompt: '', // Empty to avoid system dialog
+      partialResults: true,
+      popup: false,
+    });
+
+    console.log('[Capacitor Speech] ✅ Recognition started successfully');
+
+    // Wait for speech with timeout
+    const timeout = new Promise((resolve) => setTimeout(resolve, 10000)); // 10 second timeout
+    
+    await timeout;
+
+    // Stop listening
+    console.log('[Capacitor Speech] Stopping recognition...');
+    await CapacitorSpeechRecognition.stop();
+    listener.remove();
+
+    // Process result
+    if (hasReceivedResult && finalTranscript) {
+      console.log('[Capacitor Speech] 📝 Final transcript:', finalTranscript);
+      
+      const transcript = finalTranscript.toLowerCase().trim();
+      const accuracy = calculateAccuracy(expectedWord, transcript);
+      const tier = getAccuracyTier(accuracy);
+      const accuracyPercentage = Math.round(accuracy * 100);
+
+      console.log(`[Capacitor Speech] 🎯 Accuracy: ${accuracyPercentage}% (${tier})`);
+
+      // Update word state
+      setWordStates(prev => {
+        if (wordIndex >= prev.length) return prev;
+        const updated = [...prev];
+        updated[wordIndex] = {
+          ...updated[wordIndex],
+          status: tier,
+          attempts: updated[wordIndex].attempts + 1,
+          bestScore: Math.max(updated[wordIndex].bestScore, accuracy)
+        };
+        return updated;
+      });
+
+      // Show score banner
+      setLastScore(accuracyPercentage);
+      setShowScoreBanner(true);
+
+      // Clear banner after 3 seconds
+      if (scoreBannerTimeoutRef.current) {
+        clearTimeout(scoreBannerTimeoutRef.current);
+      }
+      scoreBannerTimeoutRef.current = setTimeout(() => {
+        setShowScoreBanner(false);
+        setLastScore(null);
+      }, 3000);
+
+      // Auto-advance on success
+      if (tier === 'success' && wordIndex < totalWords - 1) {
+        setTimeout(() => {
+          if (sessionId === practiceSessionRef.current) {
+            setCurrentWordIndex(wordIndex + 1);
+          }
+        }, 1000);
+      }
+    } else {
+      console.log('[Capacitor Speech] No speech detected');
+      
+      // Show 0% score
+      setLastScore(0);
+      setShowScoreBanner(true);
+      
+      setWordStates(prev => {
+        if (wordIndex >= prev.length) return prev;
+        const updated = [...prev];
+        updated[wordIndex] = {
+          ...updated[wordIndex],
+          status: 'retry',
+          attempts: updated[wordIndex].attempts + 1
+        };
+        return updated;
+      });
+
+      setTimeout(() => {
+        setShowScoreBanner(false);
+        setLastScore(null);
+      }, 3000);
+    }
+
+    // Calculate minimum display time
+    const elapsed = Date.now() - bannerStartTime;
+    const remainingTime = Math.max(0, 3000 - elapsed);
+
+    // Reset listening state after minimum display time
+    setTimeout(() => {
+      if (sessionId === practiceSessionRef.current) {
+        practiceListeningRef.current = false;
+        setIsPracticeListening(false);
+      }
+    }, remainingTime);
+
+  } catch (error) {
+    console.error('[Capacitor Speech] Error:', error);
+    
+    practiceListeningRef.current = false;
+    setIsPracticeListening(false);
+
+    const errorMessage = error instanceof Error ? error.message : 'Speech recognition failed';
+    
+    toast({
+      title: "Recognition Failed",
+      description: errorMessage,
+      variant: "destructive",
+    });
+  }
+};
+
+// ===== EXISTING FUNCTION: Web Speech Recognition =====
+const handleWebSpeech = (
+  expectedWord: string,
+  wordIndex: number,
+  sessionId: number,
+  bannerStartTime: number,
+  totalWords: number
+) => {
+  let speechDetected = false; // Track if speech was detected
+
+  const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+
+  if (!SpeechRecognition) {
+    console.log('[Practice Word] Browser does not support speech recognition');
+    practiceListeningRef.current = false;
+
+    toast({
+      title: "Not Supported",
+      description: "Your browser doesn't support speech recognition. Try Chrome or Edge.",
+      variant: "destructive",
+    });
+
+    setTimeout(() => {
+      if (sessionId === practiceSessionRef.current) {
+        setIsPracticeListening(false);
+      }
+    }, 2000);
+    return;
+  }
+
+  const recognition = new SpeechRecognition();
+  recognition.lang = 'en-US';
+  recognition.continuous = true;
+  recognition.interimResults = true;
+  recognition.maxAlternatives = 1;
+
+  recognition.onstart = () => {
+    console.log('[Practice Word] ✅ Recognition ACTUALLY STARTED - microphone is now active');
+  };
+
+  recognition.onspeechstart = () => {
+    console.log('[Practice Word] 🎤 User started speaking');
+    speechDetected = true;
+  };
+
+  recognition.onspeechend = () => {
+    console.log('[Practice Word] 🎤 User stopped speaking - will process results');
+  };
+
+  recognition.onresult = (event: any) => {
+    if (sessionId !== practiceSessionRef.current) return;
+
+    recognitionHandledRef.current = true;
+
+    if (maxListeningTimeoutRef.current) {
+      clearTimeout(maxListeningTimeoutRef.current);
+      maxListeningTimeoutRef.current = null;
+    }
+
+    for (let i = event.resultIndex; i < event.results.length; i++) {
+      const result = event.results[i];
+      const transcript = result[0].transcript.toLowerCase().trim();
+
+      if (result.isFinal) {
+        console.log('[Practice Word] 📝 Final transcript:', transcript);
+
+        const accuracy = calculateAccuracy(expectedWord, transcript);
+        const tier = getAccuracyTier(accuracy);
+        const accuracyPercentage = Math.round(accuracy * 100);
+
+        console.log(`[Practice Word] 🎯 Accuracy: ${accuracyPercentage}% (${tier})`);
+
+        setWordStates(prev => {
+          if (wordIndex >= prev.length) return prev;
+          const updated = [...prev];
+          updated[wordIndex] = {
+            ...updated[wordIndex],
+            status: tier,
+            attempts: updated[wordIndex].attempts + 1,
+            bestScore: Math.max(updated[wordIndex].bestScore, accuracy)
+          };
+          return updated;
+        });
+
+        setLastScore(accuracyPercentage);
+        setShowScoreBanner(true);
+
+        if (scoreBannerTimeoutRef.current) {
+          clearTimeout(scoreBannerTimeoutRef.current);
+        }
+        scoreBannerTimeoutRef.current = setTimeout(() => {
+          setShowScoreBanner(false);
+          setLastScore(null);
+        }, 3000);
+
+        if (tier === 'success' && wordIndex < totalWords - 1) {
+          setTimeout(() => {
+            if (sessionId === practiceSessionRef.current) {
+              setCurrentWordIndex(wordIndex + 1);
+            }
+          }, 1000);
+        }
+
+        const elapsed = Date.now() - bannerStartTime;
+        const remainingTime = Math.max(0, 3000 - elapsed);
+
+        if (listeningResetTimeoutRef.current) {
+          clearTimeout(listeningResetTimeoutRef.current);
+        }
+
+        listeningResetTimeoutRef.current = setTimeout(() => {
+          if (sessionId === practiceSessionRef.current) {
+            practiceListeningRef.current = false;
+            setIsPracticeListening(false);
+            listeningResetTimeoutRef.current = null;
+          }
+        }, remainingTime);
+
+        recognition.stop();
+        break;
+      }
+    }
+  };
+
+  recognition.onerror = (event: any) => {
+    if (sessionId !== practiceSessionRef.current) return;
+
+    recognitionHandledRef.current = true;
+    practiceListeningRef.current = false;
+
+    if (maxListeningTimeoutRef.current) {
+      clearTimeout(maxListeningTimeoutRef.current);
+      maxListeningTimeoutRef.current = null;
+    }
+
+    console.log('[Practice Word] Recognition error:', event.error);
+
+    let errorMessage = "Recognition failed. Please try again.";
+
+    if (event.error === 'not-allowed') {
+      errorMessage = "Microphone access denied. Please allow microphone access in your browser settings.";
+    } else if (event.error === 'no-speech') {
+      errorMessage = "No speech detected. Please speak clearly into your microphone.";
+    } else if (event.error === 'audio-capture') {
+      errorMessage = "No microphone found. Please connect a microphone and try again.";
+    }
+
+    const elapsed = Date.now() - bannerStartTime;
+    const remainingTime = Math.max(0, 3000 - elapsed);
+
+    setTimeout(() => {
+      if (sessionId === practiceSessionRef.current) {
+        toast({
+          title: "Recognition Error",
+          description: errorMessage,
+          variant: "destructive",
+        });
+      }
+    }, remainingTime);
+
+    if (listeningResetTimeoutRef.current) {
+      clearTimeout(listeningResetTimeoutRef.current);
+    }
+
+    listeningResetTimeoutRef.current = setTimeout(() => {
+      if (sessionId === practiceSessionRef.current) {
+        setIsPracticeListening(false);
+        listeningResetTimeoutRef.current = null;
+      }
+    }, remainingTime);
+  };
+
+  recognition.onend = () => {
+    console.log('[Practice Word] ⚠️ Recognition.onend fired!');
+
+    if (sessionId !== practiceSessionRef.current) {
+      return;
+    }
+
+    practiceListeningRef.current = false;
+
+    if (recognitionHandledRef.current) {
+      console.log('[Practice Word] Already handled by onresult/onerror');
+      return;
+    }
+
+    // ===== GRACE PERIOD FOR SPEECH DETECTED =====
+    if (speechDetected) {
+      console.log('[Practice Word] Speech detected, waiting 500ms for onresult...');
+
+      setTimeout(() => {
+        if (sessionId !== practiceSessionRef.current) return;
+        if (recognitionHandledRef.current) {
+          console.log('[Practice Word] onresult fired during grace period');
+          return;
+        }
+
+        console.log('[Practice Word] Grace period expired, onresult never fired');
+        // Process as no result
+        handleNoResultWeb();
+      }, 500);
+
+      return;
+    }
+
+    console.log('[Practice Word] No speech detected');
+    handleNoResultWeb();
+  };
+
+  function handleNoResultWeb() {
+    const elapsed = Date.now() - bannerStartTime;
+    const remainingTime = Math.max(0, 3000 - elapsed);
+
+    if (listeningResetTimeoutRef.current) {
+      clearTimeout(listeningResetTimeoutRef.current);
+    }
+
+    listeningResetTimeoutRef.current = setTimeout(() => {
+      if (sessionId === practiceSessionRef.current) {
+        setIsPracticeListening(false);
+        setLastScore(0);
+        setShowScoreBanner(true);
+
+        setWordStates(prev => {
+          if (wordIndex >= prev.length) return prev;
+          const updated = [...prev];
+          updated[wordIndex] = {
+            ...updated[wordIndex],
+            status: 'retry',
+            attempts: updated[wordIndex].attempts + 1
+          };
+          return updated;
+        });
+
+        setTimeout(() => {
+          setShowScoreBanner(false);
+          setLastScore(null);
+        }, 3000);
+      }
+    }, remainingTime);
+  }
+
+  practiceRecognitionRef.current = recognition;
+  console.log('[Practice Word] Calling recognition.start()...');
+
+  try {
+    recognition.start();
+    console.log('[Practice Word] recognition.start() called successfully');
+
+    if (maxListeningTimeoutRef.current) {
+      clearTimeout(maxListeningTimeoutRef.current);
+    }
+
+    maxListeningTimeoutRef.current = setTimeout(() => {
+      if (sessionId === practiceSessionRef.current && !recognitionHandledRef.current) {
+        console.log('[Practice Word] Maximum listening timeout reached (10s)');
+        practiceListeningRef.current = false;
+        recognition.stop();
+      }
+    }, 10000);
+
+  } catch (error) {
+    console.error('[Practice Word] Failed to start recognition:', error);
+
+    practiceListeningRef.current = false;
+    setIsPracticeListening(false);
+
+    toast({
+      title: "Failed to Start",
+      description: "Could not start speech recognition. Please try again.",
+      variant: "destructive",
+    });
+  }
+};
+```
+
+### Step 4: Rebuild and Test
+
+```bash
+npm run build
+npx cap sync android
+```
+
+Open Android Studio and run the app.
+
+## What This Fixes
+
+1. **Web:** Continues to use Web Speech API (working now ✅)
+2. **Android:** Uses native Android speech recognition via Capacitor plugin
+3. **Banner:** Shows "Speak now..." on both platforms
+4. **Score:** Displays accuracy score after speaking
+5. **Permissions:** Properly requests microphone permission on Android
+
+## Testing Checklist
+
+### Android:
+- [ ] Banner shows "Speak now..."
+- [ ] Microphone permission dialog appears (first time)
+- [ ] Can hear yourself speaking (mic is active)
+- [ ] Score banner appears after speaking
+- [ ] Words turn green on success
+
+### Web:
+- [ ] Banner shows "Speak now..."
+- [ ] Browser asks for microphone permission
+- [ ] Recognition works and shows score
+- [ ] Can practice multiple words
+
+---
+
+**After this implementation, practice mode will work on both web and Android!** 🎉

@@ -716,9 +716,10 @@ export function LyricDisplay({
               setWordStates(prev => {
                 if (wordIndex >= prev.length) return prev;
                 const updated = [...prev];
+                const status = tier === 'close' ? 'retry' : tier;
                 updated[wordIndex] = {
                   ...updated[wordIndex],
-                  status: tier,
+                  status,
                   attempts: updated[wordIndex].attempts + 1,
                   bestScore: Math.max(updated[wordIndex].bestScore, accuracy)
                 };
@@ -1011,9 +1012,10 @@ export function LyricDisplay({
         setWordStates(prev => {
           if (wordIndex >= prev.length) return prev;
           const updated = [...prev];
+          const status = tier === 'close' ? 'retry' : tier;
           updated[wordIndex] = {
             ...updated[wordIndex],
-            status: tier,
+            status,
             attempts: updated[wordIndex].attempts + 1,
             bestScore: Math.max(updated[wordIndex].bestScore, accuracy)
           };
