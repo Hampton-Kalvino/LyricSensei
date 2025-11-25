@@ -213,63 +213,152 @@ export default function Account() {
           </div>
         </div>
 
-        {/* Edit Profile Section */}
-        <Card className="p-6">
-          <div className="space-y-6">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xl font-semibold">Edit Profile</h2>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setIsEditingProfile(!isEditingProfile)}
-                data-testid="button-toggle-edit-profile"
-              >
-                {isEditingProfile ? <Save className="h-4 w-4" /> : <Edit2 className="h-4 w-4" />}
-                <span className="ml-2">{isEditingProfile ? "Cancel" : "Edit"}</span>
-              </Button>
+        {/* Profile Overview Section */}
+        {!isEditingProfile && (
+          <Card className="p-6 md:p-8">
+            <div className="space-y-6">
+              <div className="flex items-start justify-between">
+                <h2 className="text-2xl font-bold">My Profile</h2>
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={() => setIsEditingProfile(true)}
+                  data-testid="button-toggle-edit-profile"
+                >
+                  <Edit2 className="h-4 w-4 mr-2" />
+                  Edit Profile
+                </Button>
+              </div>
+
+              <Separator />
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                {/* Avatar Section */}
+                <div className="flex flex-col items-center gap-4">
+                  <Avatar className="h-32 w-32 ring-2 ring-primary/20">
+                    <AvatarImage src={profileImageUrl || undefined} />
+                    <AvatarFallback className="text-4xl bg-primary/10">
+                      {(username || firstName || "U").charAt(0).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  {isPremium && (
+                    <Badge variant="default" className="gap-2 px-3 py-1.5">
+                      <Crown className="h-4 w-4" />
+                      {t('account.premium')}
+                    </Badge>
+                  )}
+                </div>
+
+                {/* Profile Info Section */}
+                <div className="md:col-span-2 space-y-5">
+                  {/* Name */}
+                  {(firstName || lastName) && (
+                    <div className="pb-3 border-b border-border">
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Full Name</p>
+                      <p className="text-lg font-semibold mt-1" data-testid="text-user-name">
+                        {firstName} {lastName}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Username */}
+                  {username && (
+                    <div className="pb-3 border-b border-border">
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Username</p>
+                      <p className="text-lg font-semibold mt-1" data-testid="text-username">
+                        @{username}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Email */}
+                  <div className="pb-3 border-b border-border">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{t('account.email')}</p>
+                    <p className="text-base text-muted-foreground mt-1" data-testid="text-user-email">
+                      {email}
+                    </p>
+                  </div>
+
+                  {/* Country */}
+                  {country && (
+                    <div>
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Country</p>
+                      <p className="text-lg font-semibold mt-1" data-testid="text-country">
+                        {country}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
+          </Card>
+        )}
 
-            <Separator />
+        {/* Edit Profile Form Section */}
+        {isEditingProfile && (
+          <Card className="p-6 md:p-8 border-primary/30 bg-primary/5">
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <h2 className="text-2xl font-bold">Edit Your Profile</h2>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setIsEditingProfile(false)}
+                  data-testid="button-close-edit"
+                >
+                  <span>Close</span>
+                </Button>
+              </div>
 
-            {isEditingProfile ? (
+              <Separator />
+
               <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                  <div className="flex items-start gap-6">
-                    <div className="flex flex-col items-center gap-3">
-                      <Avatar className="h-24 w-24">
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+                  {/* Avatar Upload */}
+                  <div className="flex flex-col md:flex-row gap-8">
+                    <div className="flex flex-col items-center gap-4 md:w-32">
+                      <Avatar className="h-32 w-32 ring-2 ring-primary/20">
                         <AvatarImage src={form.watch("profileImageUrl") || undefined} />
-                        <AvatarFallback className="text-2xl">
+                        <AvatarFallback className="text-4xl bg-primary/10">
                           {(form.watch("username") || firstName || "U").charAt(0).toUpperCase()}
                         </AvatarFallback>
                       </Avatar>
-                      <div className="space-y-2">
-                        <Label htmlFor="profile-picture" className="text-sm">Profile Picture</Label>
+                      <div className="w-full space-y-2">
+                        <Label htmlFor="profile-picture" className="text-sm font-medium cursor-pointer block">
+                          <span className="inline-flex items-center gap-2 px-3 py-2 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 text-sm">
+                            <Upload className="h-4 w-4" />
+                            Change Photo
+                          </span>
+                        </Label>
                         <Input 
                           id="profile-picture"
                           type="file"
                           accept="image/*"
                           ref={fileInputRef}
+                          className="hidden"
                           data-testid="input-profile-picture-file"
                         />
-                        <p className="text-xs text-muted-foreground">
+                        <p className="text-xs text-muted-foreground text-center">
                           JPG, PNG or GIF. Max 10MB.
                         </p>
                       </div>
                     </div>
 
-                    <div className="flex-1 space-y-4">
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Profile Form Fields */}
+                    <div className="flex-1 space-y-5">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                         <FormField
                           control={form.control}
                           name="firstName"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>First Name</FormLabel>
+                              <FormLabel className="text-sm font-semibold">First Name</FormLabel>
                               <FormControl>
                                 <Input 
                                   {...field} 
                                   placeholder="John"
+                                  className="text-base"
                                   data-testid="input-first-name"
                                 />
                               </FormControl>
@@ -283,11 +372,12 @@ export default function Account() {
                           name="lastName"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>Last Name</FormLabel>
+                              <FormLabel className="text-sm font-semibold">Last Name</FormLabel>
                               <FormControl>
                                 <Input 
                                   {...field} 
                                   placeholder="Doe"
+                                  className="text-base"
                                   data-testid="input-last-name"
                                 />
                               </FormControl>
@@ -302,14 +392,16 @@ export default function Account() {
                         name="username"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Username</FormLabel>
+                            <FormLabel className="text-sm font-semibold">Username</FormLabel>
                             <FormControl>
                               <Input 
                                 {...field} 
                                 placeholder="musiclover123"
+                                className="text-base"
                                 data-testid="input-username"
                               />
                             </FormControl>
+                            <p className="text-xs text-muted-foreground">3-30 characters. Unique identifier for your profile.</p>
                             <FormMessage />
                           </FormItem>
                         )}
@@ -320,11 +412,12 @@ export default function Account() {
                         name="country"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Country</FormLabel>
+                            <FormLabel className="text-sm font-semibold">Country</FormLabel>
                             <FormControl>
                               <Input 
                                 {...field} 
                                 placeholder="United States"
+                                className="text-base"
                                 data-testid="input-country"
                               />
                             </FormControl>
@@ -335,7 +428,8 @@ export default function Account() {
                     </div>
                   </div>
 
-                  <div className="flex justify-end gap-3">
+                  {/* Action Buttons */}
+                  <div className="flex justify-end gap-3 pt-4 border-t">
                     <Button
                       type="button"
                       variant="outline"
@@ -355,75 +449,9 @@ export default function Account() {
                   </div>
                 </form>
               </Form>
-            ) : (
-              <div className="flex items-start gap-6">
-                <Avatar className="h-24 w-24">
-                  <AvatarImage src={profileImageUrl || undefined} />
-                  <AvatarFallback className="text-2xl">
-                    {(username || firstName || "U").charAt(0).toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
-
-                <div className="flex-1 space-y-4">
-                  <div className="flex items-start gap-3">
-                    <Mail className="h-5 w-5 text-muted-foreground mt-0.5" />
-                    <div>
-                      <p className="text-sm font-medium">{t('account.email')}</p>
-                      <p className="text-sm text-muted-foreground" data-testid="text-user-email">
-                        {email}
-                      </p>
-                    </div>
-                  </div>
-
-                  {(firstName || lastName) && (
-                    <div className="flex items-start gap-3">
-                      <User className="h-5 w-5 text-muted-foreground mt-0.5" />
-                      <div>
-                        <p className="text-sm font-medium">{t('account.name')}</p>
-                        <p className="text-sm text-muted-foreground" data-testid="text-user-name">
-                          {firstName} {lastName}
-                        </p>
-                      </div>
-                    </div>
-                  )}
-
-                  {username && (
-                    <div className="flex items-start gap-3">
-                      <User className="h-5 w-5 text-muted-foreground mt-0.5" />
-                      <div>
-                        <p className="text-sm font-medium">Username</p>
-                        <p className="text-sm text-muted-foreground" data-testid="text-username">
-                          @{username}
-                        </p>
-                      </div>
-                    </div>
-                  )}
-
-                  {country && (
-                    <div className="flex items-start gap-3">
-                      <Globe className="h-5 w-5 text-muted-foreground mt-0.5" />
-                      <div>
-                        <p className="text-sm font-medium">Country</p>
-                        <p className="text-sm text-muted-foreground" data-testid="text-country">
-                          {country}
-                        </p>
-                      </div>
-                    </div>
-                  )}
-
-                  {isPremium && (
-                    <div className="pt-2">
-                      <Badge variant="default" className="gap-1">
-                        <Crown className="h-3 w-3" />
-                        {t('account.premium')}
-                      </Badge>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-        </Card>
+            </div>
+          </Card>
+        )}
 
         {/* Subscription Information */}
         <Card className="p-6">

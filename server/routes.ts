@@ -203,10 +203,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: 'Email, password, and username are required' });
       }
 
-      // Check if user already exists
+      // Validate username length
+      if (username.length < 3 || username.length > 30) {
+        return res.status(400).json({ error: 'Username must be between 3 and 30 characters' });
+      }
+
+      // Check if email already exists
       const existingUser = await storage.getUserByEmail(email);
       if (existingUser) {
         return res.status(409).json({ error: 'Email already registered' });
+      }
+
+      // Check if username already exists
+      const existingUsername = await storage.getUserByUsername(username);
+      if (existingUsername) {
+        return res.status(409).json({ error: 'Username already taken' });
       }
 
       // Hash password
@@ -227,13 +238,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Log in the user
       req.logIn(user, (err: any) => {
         if (err) {
-          return res.status(500).json({ error: 'Signup failed' });
+          console.error('Login error after signup:', err);
+          return res.status(500).json({ error: 'Account created but login failed. Please try logging in.' });
         }
         res.json({ user });
       });
     } catch (error) {
       console.error('Signup error:', error);
-      res.status(500).json({ error: 'Signup failed' });
+      const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
+      res.status(500).json({ error: errorMessage });
     }
   });
 
