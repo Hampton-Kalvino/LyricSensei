@@ -1,7 +1,6 @@
 import { useState, useRef } from "react";
 import { Filesystem, Directory } from "@capacitor/filesystem";
 import { Capacitor } from "@capacitor/core";
-import { toPng } from "html-to-image";
 import {
   Dialog,
   DialogContent,
@@ -19,6 +18,10 @@ import {
   Link2,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import {
+  generateStoryCard,
+  generateStoryCardCanvas,
+} from "@/lib/share-utils";
 import type { Song } from "@shared/schema";
 
 declare global {
@@ -77,25 +80,45 @@ export function ShareSheet({
   const songUrl = `https://lyricsensei.com/song/${song.id}`;
 
   const generateImage = async (): Promise<string> => {
-    if (!cardRef.current) {
-      throw new Error("Story card not ready");
-    }
-
     try {
       console.log("[Share] Generating image...");
 
-      const dataUrl = await toPng(cardRef.current, {
-        quality: 1.0,
-        pixelRatio: 2,
-        width: 1080,
-        height: 1920,
-        cacheBust: true,
-        backgroundColor: "#667eea",
+      let imageBlob: Blob;
+
+      // Try html-to-image first
+      try {
+        imageBlob = await generateStoryCard(
+          song.title,
+          song.artist,
+          albumArtUrl
+        );
+      } catch (error) {
+        console.warn(
+          "[Share] html-to-image failed, falling back to canvas:",
+          error
+        );
+        // Fallback to canvas-based approach
+        imageBlob = await generateStoryCardCanvas(
+          song.title,
+          song.artist,
+          albumArtUrl
+        );
+      }
+
+      // Convert blob to base64
+      const reader = new FileReader();
+      const base64Data = await new Promise<string>((resolve, reject) => {
+        reader.onload = () => {
+          const result = reader.result as string;
+          resolve(result.split(",")[1]);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(imageBlob);
       });
 
-      const base64Data = dataUrl.split(",")[1];
-
       const fileName = `lyric-sensei-story-${Date.now()}.png`;
+
+      console.log("[Share] Saving image to cache...");
 
       const result = await Filesystem.writeFile({
         path: fileName,
@@ -284,9 +307,11 @@ export function ShareSheet({
       setIsGenerating(true);
 
       const message = `Check out ${song.title} by ${song.artist} on Lyric Sensei`;
-      const imageUri = await generateImage();
 
       if (window.plugins?.socialsharing) {
+        console.log("[Share] Using native plugin...");
+        const imageUri = await generateImage();
+
         window.plugins.socialsharing.share(
           message,
           song.title,
@@ -294,30 +319,82 @@ export function ShareSheet({
           songUrl,
           () => {
             console.log("[Share] Success!");
+            toast({
+              title: "Shared!",
+              description: "Opening share sheet...",
+            });
             onOpenChange(false);
           },
           (error) => {
             console.error("[Share] Failed:", error);
+            toast({
+              title: "Share Failed",
+              description: "Please try again",
+              variant: "destructive",
+            });
           }
         );
-      } else {
-        if (navigator.share) {
-          await navigator.share({
-            title: song.title,
-            text: message,
-            url: songUrl,
-          });
-          onOpenChange(false);
-        } else {
-          toast({
-            title: "Share Not Supported",
-            description: "Please copy the link instead",
-            variant: "destructive",
-          });
+      } else if (navigator.share) {
+        console.log("[Share] Using Web Share API...");
+
+        // Generate image for web share
+        let imageBlob: Blob;
+        try {
+          imageBlob = await generateStoryCard(
+            song.title,
+            song.artist,
+            albumArtUrl
+          );
+        } catch (error) {
+          console.warn("[Share] html-to-image failed, using canvas fallback");
+          imageBlob = await generateStoryCardCanvas(
+            song.title,
+            song.artist,
+            albumArtUrl
+          );
         }
+
+        const file = new File(
+          [imageBlob],
+          `lyric-sensei-${song.title.replace(/\s+/g, "-")}.png`,
+          { type: "image/png" }
+        );
+
+        console.log("[Share] Sharing with Web Share API...");
+
+        await navigator.share({
+          files: [file],
+          title: song.title,
+          text: message,
+          url: songUrl,
+        });
+
+        console.log("[Share] Web share successful!");
+        toast({
+          title: "Shared!",
+          description: "Shared via Web Share",
+        });
+        onOpenChange(false);
+      } else {
+        console.log("[Share] No share method available");
+        toast({
+          title: "Share Not Supported",
+          description: "Please copy the link instead",
+          variant: "destructive",
+        });
       }
     } catch (error) {
-      console.error("[Share] Error:", error);
+      if ((error as Error).name === "AbortError") {
+        console.log("[Share] User cancelled");
+      } else {
+        console.error("[Share] Error:", error);
+        toast({
+          title: "Share Failed",
+          description:
+            error instanceof Error ? error.message : "Unknown error",
+          variant: "destructive",
+        });
+      }
     } finally {
       setIsGenerating(false);
     }
