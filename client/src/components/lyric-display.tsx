@@ -459,7 +459,44 @@ export function LyricDisplay({
       }
     }
   }, [isPracticeMode, songId, wordStates, savePracticeStatsMutation, toast, queryClient]);
+  // Cleanup on component unmount
+  useEffect(() => {
+    return () => {
+      console.log('[Cleanup] Component unmounting, resetting practice state');
 
+      // Reset all refs
+      practiceListeningRef.current = false;
+      recognitionHandledRef.current = false;
+
+      // Stop recognition if active
+      if (practiceRecognitionRef.current) {
+        try {
+          practiceRecognitionRef.current.stop();
+        } catch (e) {
+          // Already stopped
+        }
+        practiceRecognitionRef.current = null;
+      }
+
+      // Clear all timeouts
+      if (listeningResetTimeoutRef.current) {
+        clearTimeout(listeningResetTimeoutRef.current);
+        listeningResetTimeoutRef.current = null;
+      }
+      if (maxListeningTimeoutRef.current) {
+        clearTimeout(maxListeningTimeoutRef.current);
+        maxListeningTimeoutRef.current = null;
+      }
+      if (scoreBannerTimeoutRef.current) {
+        clearTimeout(scoreBannerTimeoutRef.current);
+        scoreBannerTimeoutRef.current = null;
+      }
+      if (autoAdvanceTimeoutRef.current) {
+        clearTimeout(autoAdvanceTimeoutRef.current);
+        autoAdvanceTimeoutRef.current = null;
+      }
+    };
+  }, []);
   // Centralized cleanup for practice mode
   const cleanupPracticeMode = useCallback(() => {
     const caller = new Error().stack?.split('\n')[2]?.trim();
@@ -541,326 +578,309 @@ export function LyricDisplay({
   }, [isPracticeMode, practiceLineIndex, toast, cleanupPracticeMode, savePracticeStats]);
 
   // Word-level speech recognition for practice mode
-  const practiceWord = useCallback((wordIndex: number) => {
-    console.log('[Practice Word] Called with index:', wordIndex, 'wordStates length:', wordStates.length);
-    
-    // Guard against concurrent calls without disrupting active session
-    // If already listening/starting, ignore duplicate calls (e.g., double-click, React strict mode)
-    if (practiceListeningRef.current) {
-      console.log('[Practice Word] Already listening or starting, ignoring duplicate call');
-      return; // Simply return without cleanup to avoid session invalidation
-    }
+      const practiceWord = useCallback((wordIndex: number) => {
+        console.log('[Practice Word] Called with index:', wordIndex, 'wordStates length:', wordStates.length);
 
-    // Validate bounds BEFORE any state operations
-    if (wordIndex < 0 || wordIndex >= wordStates.length) {
-      console.log('[Practice Word] Invalid word index:', wordIndex, 'out of bounds');
-      toast({
-        title: "Invalid Word",
-        description: "Word index out of range.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Capture current session and values
-    const sessionId = practiceSessionRef.current;
-    const expectedWord = wordStates[wordIndex].word;
-    const totalWords = wordStates.length;
-
-    console.log('[Practice Word] Starting recognition for word:', expectedWord);
-    console.log('[Practice Word] Setting isPracticeListening to TRUE');
-    
-    // CRITICAL: Set listening state FIRST so banner shows immediately
-    setIsPracticeListening(true);
-    recognitionHandledRef.current = false; // Reset flag for this session
-    console.log('[Practice Word] isPracticeListening state update called');
-    
-    // Set minimum display timeout IMMEDIATELY to ensure banner stays visible for 2 seconds
-    // This prevents instant banner disappearance if onend fires immediately
-    const bannerStartTime = Date.now();
-    
-    // Check for browser support AFTER setting state so banner appears even on error
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    
-    if (!SpeechRecognition) {
-      console.log('[Practice Word] Browser does not support speech recognition');
-      toast({
-        title: "Not Supported",
-        description: "Your browser doesn't support speech recognition. Try Chrome or Edge.",
-        variant: "destructive",
-      });
-      
-      // Show banner for 2 seconds even on this error
-      if (listeningResetTimeoutRef.current) {
-        clearTimeout(listeningResetTimeoutRef.current);
-      }
-      
-      listeningResetTimeoutRef.current = setTimeout(() => {
-        if (sessionId === practiceSessionRef.current) {
-          setIsPracticeListening(false);
-          listeningResetTimeoutRef.current = null;
+        // ===== FIX #1: Better Guard - Check if ACTUALLY listening, not just ref =====
+        // Only block if there's an active recognition session
+        if (practiceRecognitionRef.current) {
+          console.log('[Practice Word] Active recognition in progress, ignoring');
+          return;
         }
-      }, 2000);
-      return;
-    }
 
-    const recognition = new SpeechRecognition();
-    recognition.lang = 'en-US';
-    recognition.continuous = true;  // CRITICAL: Must be true to prevent immediate onend
-    recognition.interimResults = true; // Get real-time feedback
-    recognition.maxAlternatives = 1;
+        // Reset the ref just in case it's stuck
+        practiceListeningRef.current = false;
 
-    recognition.onstart = () => {
-      console.log('[Practice Word] ✅ Recognition ACTUALLY STARTED - microphone is now active');
-    };
-
-    recognition.onspeechstart = () => {
-      console.log('[Practice Word] 🎤 User started speaking');
-    };
-
-    recognition.onspeechend = () => {
-      console.log('[Practice Word] 🎤 User stopped speaking - will process results');
-      // Don't set listening to false here - wait for onresult or onerror
-    };
-
-    recognition.onresult = (event: any) => {
-      // Guard against stale session
-      if (sessionId !== practiceSessionRef.current) return;
-      
-      recognitionHandledRef.current = true; // Mark as handled
-      
-      // Clear maximum listening timeout since we got a result
-      if (maxListeningTimeoutRef.current) {
-        clearTimeout(maxListeningTimeoutRef.current);
-        maxListeningTimeoutRef.current = null;
-      }
-      
-      // Process all results
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        const result = event.results[i];
-        const transcript = result[0].transcript.toLowerCase().trim();
-        
-        // Only process final results to avoid duplicate scoring
-        if (result.isFinal) {
-          console.log('[Practice Word] 📝 Final transcript:', transcript);
-          
-          const accuracy = calculateAccuracy(expectedWord, transcript);
-          const tier = getAccuracyTier(accuracy);
-          const accuracyPercentage = Math.round(accuracy * 100); // Convert to 0-100
-          
-          // Update word state
-          setWordStates(prev => {
-            if (wordIndex >= prev.length) return prev;
-            
-            const updated = [...prev];
-            updated[wordIndex] = {
-              ...updated[wordIndex],
-              status: tier === 'success' ? 'success' : 'retry',
-              attempts: updated[wordIndex].attempts + 1,
-              bestScore: Math.max(updated[wordIndex].bestScore, accuracy)
-            };
-            return updated;
-          });
-          
-          // Show score banner with percentage (0-100)
-          setLastScore(accuracyPercentage);
-          setShowScoreBanner(true);
-          
-          // Clear any existing timeout
-          if (scoreBannerTimeoutRef.current) {
-            clearTimeout(scoreBannerTimeoutRef.current);
-          }
-          
-          // Hide banner after 3 seconds
-          scoreBannerTimeoutRef.current = setTimeout(() => {
-            setShowScoreBanner(false);
-            setLastScore(null);
-          }, 3000);
-          
-          // Auto-advance on success
-          if (tier === 'success' && wordIndex < totalWords - 1) {
-            autoAdvanceTimeoutRef.current = setTimeout(() => {
-              if (sessionId !== practiceSessionRef.current) return; // Check session again
-              setCurrentWordIndex(wordIndex + 1);
-              autoAdvanceTimeoutRef.current = null;
-            }, 1000);
-          }
-          
-          // Stop recognition after getting final result
-          setIsPracticeListening(false);
-          recognition.stop();
-        } else {
-          // Show interim results for user feedback
-          console.log('[Practice Word] 💭 Interim:', transcript);
-        }
-      }
-    };
-
-    recognition.onerror = (event: any) => {
-      if (sessionId !== practiceSessionRef.current) return;
-      console.error('[Practice Word] Speech recognition error:', event.error);
-      
-      recognitionHandledRef.current = true; // Mark as handled
-      
-      // Clear maximum listening timeout since we got an error
-      if (maxListeningTimeoutRef.current) {
-        clearTimeout(maxListeningTimeoutRef.current);
-        maxListeningTimeoutRef.current = null;
-      }
-      
-      // Calculate remaining time to show banner (minimum 2 seconds total)
-      const elapsed = Date.now() - bannerStartTime;
-      const remainingTime = Math.max(0, 2000 - elapsed);
-      
-      // Prepare error message for toast - shown AFTER banner clears to avoid visual conflict
-      let errorMessage = "Couldn't recognize speech. Please try again.";
-      if (event.error === 'not-allowed') {
-        errorMessage = "Microphone access denied. Please allow microphone access in your browser settings.";
-      } else if (event.error === 'no-speech') {
-        errorMessage = "No speech detected. Please speak clearly into your microphone.";
-      } else if (event.error === 'audio-capture') {
-        errorMessage = "No microphone found. Please connect a microphone and try again.";
-      } else if (event.error === 'network') {
-        errorMessage = "Network error. Please check your connection and try again.";
-      }
-      
-      // Show toast AFTER banner clears to avoid competing for user attention
-      setTimeout(() => {
-        if (sessionId === practiceSessionRef.current) {
+        // Validate bounds
+        if (wordIndex < 0 || wordIndex >= wordStates.length) {
+          console.log('[Practice Word] Invalid word index:', wordIndex, 'out of bounds');
           toast({
-            title: "Recognition Error",
-            description: errorMessage,
+            title: "Invalid Word",
+            description: "Word index out of range.",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        // Capture current session and values
+        const sessionId = practiceSessionRef.current;
+        const expectedWord = wordStates[wordIndex].word;
+        const totalWords = wordStates.length;
+
+        console.log('[Practice Word] Starting recognition for word:', expectedWord);
+        console.log('[Practice Word] Setting isPracticeListening to TRUE');
+
+        // ===== FIX #2: Set state AND ref together =====
+        practiceListeningRef.current = true;  // Set ref AFTER guard check
+        setIsPracticeListening(true);
+        recognitionHandledRef.current = false;
+
+        console.log('[Practice Word] isPracticeListening state update called');
+
+        const bannerStartTime = Date.now();
+
+        // Check for browser support
+        const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+
+        if (!SpeechRecognition) {
+          console.log('[Practice Word] Browser does not support speech recognition');
+
+          // ===== FIX #3: Reset ref on error =====
+          practiceListeningRef.current = false;
+
+          toast({
+            title: "Not Supported",
+            description: "Your browser doesn't support speech recognition. Try Chrome or Edge.",
+            variant: "destructive",
+          });
+
+          if (listeningResetTimeoutRef.current) {
+            clearTimeout(listeningResetTimeoutRef.current);
+          }
+
+          listeningResetTimeoutRef.current = setTimeout(() => {
+            if (sessionId === practiceSessionRef.current) {
+              setIsPracticeListening(false);
+              listeningResetTimeoutRef.current = null;
+            }
+          }, 2000);
+          return;
+        }
+
+        const recognition = new SpeechRecognition();
+        recognition.lang = 'en-US';
+        recognition.continuous = true;
+        recognition.interimResults = true;
+        recognition.maxAlternatives = 1;
+
+        recognition.onstart = () => {
+          console.log('[Practice Word] ✅ Recognition ACTUALLY STARTED - microphone is now active');
+        };
+
+        recognition.onspeechstart = () => {
+          console.log('[Practice Word] 🎤 User started speaking');
+        };
+
+        recognition.onspeechend = () => {
+          console.log('[Practice Word] 🎤 User stopped speaking - will process results');
+        };
+
+        recognition.onresult = (event: any) => {
+          if (sessionId !== practiceSessionRef.current) return;
+
+          recognitionHandledRef.current = true;
+
+          if (maxListeningTimeoutRef.current) {
+            clearTimeout(maxListeningTimeoutRef.current);
+            maxListeningTimeoutRef.current = null;
+          }
+
+          for (let i = event.resultIndex; i < event.results.length; i++) {
+            const result = event.results[i];
+            const transcript = result[0].transcript.toLowerCase().trim();
+
+            if (result.isFinal) {
+              console.log('[Practice Word] 📝 Final transcript:', transcript);
+
+              const accuracy = calculateAccuracy(expectedWord, transcript);
+              const tier = getAccuracyTier(accuracy);
+              const accuracyPercentage = Math.round(accuracy * 100);
+
+              console.log(`[Practice Word] 🎯 Accuracy: ${accuracyPercentage}% (${tier})`);
+
+              setWordStates(prev => {
+                if (wordIndex >= prev.length) return prev;
+                const updated = [...prev];
+                updated[wordIndex] = {
+                  ...updated[wordIndex],
+                  status: tier,
+                  attempts: updated[wordIndex].attempts + 1,
+                  bestScore: Math.max(updated[wordIndex].bestScore, accuracy)
+                };
+                return updated;
+              });
+
+              setLastScore(accuracyPercentage);
+              setShowScoreBanner(true);
+
+              if (scoreBannerTimeoutRef.current) {
+                clearTimeout(scoreBannerTimeoutRef.current);
+              }
+              scoreBannerTimeoutRef.current = setTimeout(() => {
+                setShowScoreBanner(false);
+                setLastScore(null);
+              }, 3000);
+
+              if (tier === 'success' && wordIndex < totalWords - 1) {
+                setTimeout(() => {
+                  if (sessionId === practiceSessionRef.current) {
+                    setCurrentWordIndex(wordIndex + 1);
+                  }
+                }, 1000);
+              }
+
+              const elapsed = Date.now() - bannerStartTime;
+              const remainingTime = Math.max(0, 2000 - elapsed);
+
+              if (listeningResetTimeoutRef.current) {
+                clearTimeout(listeningResetTimeoutRef.current);
+              }
+
+              listeningResetTimeoutRef.current = setTimeout(() => {
+                if (sessionId === practiceSessionRef.current) {
+                  // ===== FIX #4: Reset ref when done =====
+                  practiceListeningRef.current = false;
+                  setIsPracticeListening(false);
+                  listeningResetTimeoutRef.current = null;
+                }
+              }, remainingTime);
+
+              recognition.stop();
+              break;
+            }
+          }
+        };
+
+        recognition.onerror = (event: any) => {
+          if (sessionId !== practiceSessionRef.current) return;
+
+          recognitionHandledRef.current = true;
+
+          // ===== FIX #5: Reset ref on error =====
+          practiceListeningRef.current = false;
+
+          if (maxListeningTimeoutRef.current) {
+            clearTimeout(maxListeningTimeoutRef.current);
+            maxListeningTimeoutRef.current = null;
+          }
+
+          console.log('[Practice Word] Recognition error:', event.error);
+
+          let errorMessage = "Recognition failed. Please try again.";
+
+          if (event.error === 'not-allowed') {
+            errorMessage = "Microphone access denied. Please allow microphone access in your browser settings.";
+          } else if (event.error === 'no-speech') {
+            errorMessage = "No speech detected. Please speak clearly into your microphone.";
+          } else if (event.error === 'audio-capture') {
+            errorMessage = "No microphone found. Please connect a microphone and try again.";
+          } else if (event.error === 'aborted') {
+            errorMessage = "Recognition was aborted. Please try again.";
+          }
+
+          const elapsed = Date.now() - bannerStartTime;
+          const remainingTime = Math.max(0, 2000 - elapsed);
+
+          setTimeout(() => {
+            if (sessionId === practiceSessionRef.current && recognitionHandledRef.current) {
+              toast({
+                title: "Recognition Error",
+                description: errorMessage,
+                variant: "destructive",
+              });
+            }
+          }, remainingTime);
+
+          if (listeningResetTimeoutRef.current) {
+            clearTimeout(listeningResetTimeoutRef.current);
+          }
+
+          listeningResetTimeoutRef.current = setTimeout(() => {
+            if (sessionId === practiceSessionRef.current) {
+              setIsPracticeListening(false);
+              listeningResetTimeoutRef.current = null;
+            }
+          }, remainingTime);
+        };
+
+        recognition.onend = () => {
+          console.log('[Practice Word] ⚠️ Recognition.onend fired!');
+          if (sessionId !== practiceSessionRef.current) {
+            return;
+          }
+
+          // ===== FIX #6: Always reset ref on end =====
+          practiceListeningRef.current = false;
+
+          if (recognitionHandledRef.current) {
+            console.log('[Practice Word] Already handled by onresult/onerror');
+            return;
+          }
+
+          console.log('[Practice Word] Recognition ended without result');
+
+          const elapsed = Date.now() - bannerStartTime;
+          const remainingTime = Math.max(0, 2000 - elapsed);
+
+          if (listeningResetTimeoutRef.current) {
+            clearTimeout(listeningResetTimeoutRef.current);
+          }
+
+          listeningResetTimeoutRef.current = setTimeout(() => {
+            if (sessionId === practiceSessionRef.current && !recognitionHandledRef.current) {
+              setIsPracticeListening(false);
+              listeningResetTimeoutRef.current = null;
+
+              setLastScore(0);
+              setShowScoreBanner(true);
+
+              setWordStates(prev => {
+                if (wordIndex >= prev.length) return prev;
+                const updated = [...prev];
+                updated[wordIndex] = {
+                  ...updated[wordIndex],
+                  status: 'retry',
+                  attempts: updated[wordIndex].attempts + 1
+                };
+                return updated;
+              });
+
+              if (scoreBannerTimeoutRef.current) {
+                clearTimeout(scoreBannerTimeoutRef.current);
+              }
+              scoreBannerTimeoutRef.current = setTimeout(() => {
+                setShowScoreBanner(false);
+                setLastScore(null);
+              }, 3000);
+            }
+          }, remainingTime);
+        };
+
+        practiceRecognitionRef.current = recognition;
+        console.log('[Practice Word] Calling recognition.start()...');
+
+        try {
+          recognition.start();
+          console.log('[Practice Word] recognition.start() called successfully');
+
+          if (maxListeningTimeoutRef.current) {
+            clearTimeout(maxListeningTimeoutRef.current);
+          }
+
+          maxListeningTimeoutRef.current = setTimeout(() => {
+            if (sessionId === practiceSessionRef.current && !recognitionHandledRef.current) {
+              console.log('[Practice Word] Maximum listening timeout reached (10s)');
+              // ===== FIX #7: Reset ref on timeout =====
+              practiceListeningRef.current = false;
+              recognition.stop();
+            }
+          }, 10000);
+
+        } catch (error) {
+          console.error('[Practice Word] Failed to start recognition:', error);
+
+          // ===== FIX #8: Reset ref on start failure =====
+          practiceListeningRef.current = false;
+          setIsPracticeListening(false);
+
+          toast({
+            title: "Failed to Start",
+            description: "Could not start speech recognition. Please try again.",
             variant: "destructive",
           });
         }
-      }, remainingTime);
-      
-      // Session-aware reset with minimum banner display time
-      if (listeningResetTimeoutRef.current) {
-        clearTimeout(listeningResetTimeoutRef.current);
-      }
-      
-      // Reset state after ensuring minimum display time
-      listeningResetTimeoutRef.current = setTimeout(() => {
-        if (sessionId === practiceSessionRef.current) {
-          setIsPracticeListening(false);
-          listeningResetTimeoutRef.current = null;
-        }
-      }, remainingTime);
-    };
-
-    recognition.onend = () => {
-      console.log('[Practice Word] ⚠️ Recognition.onend fired! SessionId match?', sessionId === practiceSessionRef.current);
-      if (sessionId !== practiceSessionRef.current) {
-        console.log('[Practice Word] Ignoring onend - session mismatch');
-        return;
-      }
-      
-      // Check if onresult or onerror already handled this
-      if (recognitionHandledRef.current) {
-        console.log('[Practice Word] Recognition already handled by onresult/onerror, no action needed');
-        return;
-      }
-      
-      console.log('[Practice Word] Recognition ended without onresult/onerror - applying fallback with minimum display time');
-      
-      // Calculate remaining time to show banner (minimum 2 seconds total)
-      const elapsed = Date.now() - bannerStartTime;
-      const remainingTime = Math.max(0, 2000 - elapsed);
-      
-      // Fallback: If neither onresult nor onerror fired (edge case), reset after ensuring minimum display time
-      if (listeningResetTimeoutRef.current) {
-        clearTimeout(listeningResetTimeoutRef.current);
-      }
-      
-      listeningResetTimeoutRef.current = setTimeout(() => {
-        if (sessionId === practiceSessionRef.current && !recognitionHandledRef.current) {
-          console.log('[Practice Word] Fallback timeout: resetting listening state after minimum display');
-          setIsPracticeListening(false);
-          listeningResetTimeoutRef.current = null;
-          
-          // Show accuracy banner with 0% score for timeout/no speech
-          // Banner message ("Keep Practicing") is sufficient feedback - no toast needed
-          setLastScore(0);
-          setShowScoreBanner(true);
-          
-          // Update word state to track attempt
-          setWordStates(prev => {
-            if (wordIndex >= prev.length) return prev;
-            const updated = [...prev];
-            updated[wordIndex] = {
-              ...updated[wordIndex],
-              status: 'retry',
-              attempts: updated[wordIndex].attempts + 1
-            };
-            return updated;
-          });
-          
-          // Clear score banner after 3 seconds
-          if (scoreBannerTimeoutRef.current) {
-            clearTimeout(scoreBannerTimeoutRef.current);
-          }
-          scoreBannerTimeoutRef.current = setTimeout(() => {
-            setShowScoreBanner(false);
-            setLastScore(null);
-          }, 3000);
-          
-          // DON'T show toast - score banner provides sufficient feedback
-        }
-      }, remainingTime); // Wait for remaining time to reach 2 second minimum
-    };
-
-    practiceRecognitionRef.current = recognition;
-    console.log('[Practice Word] Calling recognition.start()...');
-    try {
-      recognition.start();
-      console.log('[Practice Word] recognition.start() called successfully');
-      
-      // Set maximum listening timeout (10 seconds) to prevent indefinite listening
-      // This ensures recognition stops even if user doesn't speak or onend doesn't fire
-      if (maxListeningTimeoutRef.current) {
-        clearTimeout(maxListeningTimeoutRef.current);
-      }
-      
-      maxListeningTimeoutRef.current = setTimeout(() => {
-        if (sessionId === practiceSessionRef.current && !recognitionHandledRef.current) {
-          console.log('[Practice Word] Maximum listening timeout reached (10s) - stopping recognition');
-          recognition.stop(); // This will trigger onend
-        }
-      }, 10000); // 10 second maximum listening duration
-      
-    } catch (error) {
-      console.error('[Practice Word] Error calling recognition.start():', error);
-      
-      // Calculate remaining time to show banner (minimum 2 seconds total)
-      const elapsed = Date.now() - bannerStartTime;
-      const remainingTime = Math.max(0, 2000 - elapsed);
-      
-      // Show toast AFTER banner clears to avoid conflict
-      setTimeout(() => {
-        if (sessionId === practiceSessionRef.current) {
-          toast({
-            title: "Error",
-            description: `Failed to start speech recognition. Please try again.`,
-            variant: "destructive",
-          });
-        }
-      }, remainingTime);
-      
-      // Reset listening state after ensuring minimum banner display time
-      if (listeningResetTimeoutRef.current) {
-        clearTimeout(listeningResetTimeoutRef.current);
-      }
-      
-      listeningResetTimeoutRef.current = setTimeout(() => {
-        if (sessionId === practiceSessionRef.current) {
-          setIsPracticeListening(false);
-          listeningResetTimeoutRef.current = null;
-        }
-      }, remainingTime);
-    }
-  }, [wordStates, toast]);
-
+      }, [wordStates, toast, calculateAccuracy, getAccuracyTier]);
+  
   // Cleanup speech on unmount
   useEffect(() => {
     return () => {
