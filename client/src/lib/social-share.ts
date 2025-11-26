@@ -1,5 +1,6 @@
 import type { Song } from "@shared/schema";
 import { generateStoryCard, generateStoryCardCanvas } from "@/lib/share-utils";
+import { detectSongLanguage } from "@/lib/language-utils";
 import { Share } from "@capacitor/share";
 import { Filesystem, Directory } from "@capacitor/filesystem";
 
@@ -67,14 +68,17 @@ export const shareToSocialMedia = async (options: ShareOptions): Promise<boolean
       try {
         console.log("[Share] Generating visual card for mobile...");
         
+        // Auto-detect language if not provided
+        const detectedLanguage = language || detectSongLanguage(song.artist);
+        
         // Generate visual card with language
         let imageBlob: Blob;
         try {
-          imageBlob = await generateStoryCard(song.title, song.artist, albumArt, language || 'Spanish');
+          imageBlob = await generateStoryCard(song.title, song.artist, albumArt, detectedLanguage);
           console.log("[Share] Card generated:", imageBlob.size, "bytes");
         } catch (error) {
           console.warn("[Share] html-to-image failed, using canvas:", error);
-          imageBlob = await generateStoryCardCanvas(song.title, song.artist, albumArt, language || 'Spanish');
+          imageBlob = await generateStoryCardCanvas(song.title, song.artist, albumArt, detectedLanguage);
         }
         
         // Convert blob to base64
@@ -174,14 +178,17 @@ export const shareToInstagram = async (song: Song, albumArt?: string, language?:
     try {
       console.log("[Instagram Share] Generating visual card...");
       
+      // Auto-detect language if not provided
+      const detectedLanguage = language || detectSongLanguage(song.artist);
+      
       // Generate visual card with language
       let imageBlob: Blob;
       try {
-        imageBlob = await generateStoryCard(song.title, song.artist, albumArt || "", language || 'Spanish');
+        imageBlob = await generateStoryCard(song.title, song.artist, albumArt || "", detectedLanguage);
         console.log("[Instagram Share] Card generated:", imageBlob.size, "bytes");
       } catch (error) {
         console.warn("[Instagram Share] html-to-image failed, using canvas:", error);
-        imageBlob = await generateStoryCardCanvas(song.title, song.artist, albumArt || "", language || 'Spanish');
+        imageBlob = await generateStoryCardCanvas(song.title, song.artist, albumArt || "", detectedLanguage);
       }
       
       // Convert blob to base64
@@ -254,14 +261,17 @@ export const shareToTwitter = async (song: Song, albumArt?: string, language?: s
     try {
       console.log("[Twitter Share] Generating visual card...");
       
+      // Auto-detect language if not provided
+      const detectedLanguage = language || detectSongLanguage(song.artist);
+      
       // Generate visual card with language
       let imageBlob: Blob;
       try {
-        imageBlob = await generateStoryCard(song.title, song.artist, albumArt || "", language || 'Spanish');
+        imageBlob = await generateStoryCard(song.title, song.artist, albumArt || "", detectedLanguage);
         console.log("[Twitter Share] Card generated:", imageBlob.size, "bytes");
       } catch (error) {
         console.warn("[Twitter Share] html-to-image failed, using canvas:", error);
-        imageBlob = await generateStoryCardCanvas(song.title, song.artist, albumArt || "", language || 'Spanish');
+        imageBlob = await generateStoryCardCanvas(song.title, song.artist, albumArt || "", detectedLanguage);
       }
       
       // Convert blob to base64

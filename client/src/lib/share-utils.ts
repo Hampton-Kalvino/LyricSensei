@@ -87,23 +87,28 @@ export async function generateStoryCard(
           align-items: center;
           gap: 60px;
         ">
-          <!-- Album Cover (Perfectly Centered) -->
+          <!-- Album Cover Container with CONTAIN -->
           <div style="
             width: 750px;
             height: 750px;
             border-radius: 24px;
             overflow: hidden;
+            background: rgba(0,0,0,0.3);
             box-shadow: 
               0 50px 120px rgba(0,0,0,0.8),
               0 0 0 1px rgba(255,255,255,0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
           ">
             <img 
               src="${albumArtwork}" 
               style="
                 width: 100%;
                 height: 100%;
-                object-fit: cover;
+                object-fit: contain;
               "
+              alt="Album Art"
               crossorigin="anonymous"
             />
           </div>
@@ -245,7 +250,7 @@ export async function generateStoryCardCanvas(
             ctx.textBaseline = 'middle';
             ctx.fillText('Lyric Sensei', 170, 115);
 
-            // Album art
+            // Album art with contain logic
             ctx.shadowColor = 'rgba(0,0,0,0.8)';
             ctx.shadowBlur = 120;
             ctx.shadowOffsetY = 50;
@@ -255,7 +260,23 @@ export async function generateStoryCardCanvas(
             const artSize = 750;
             const artRad = 24;
 
+            // Draw rounded container background
             ctx.save();
+            ctx.fillStyle = 'rgba(0,0,0,0.3)';
+            ctx.beginPath();
+            ctx.moveTo(artX + artRad, artY);
+            ctx.lineTo(artX + artSize - artRad, artY);
+            ctx.quadraticCurveTo(artX + artSize, artY, artX + artSize, artY + artRad);
+            ctx.lineTo(artX + artSize, artY + artSize - artRad);
+            ctx.quadraticCurveTo(artX + artSize, artY + artSize, artX + artSize - artRad, artY + artSize);
+            ctx.lineTo(artX + artRad, artY + artSize);
+            ctx.quadraticCurveTo(artX, artY + artSize, artX, artY + artSize - artRad);
+            ctx.lineTo(artX, artY + artRad);
+            ctx.quadraticCurveTo(artX, artY, artX + artRad, artY);
+            ctx.closePath();
+            ctx.fill();
+
+            // Clip and draw image with contain
             ctx.beginPath();
             ctx.moveTo(artX + artRad, artY);
             ctx.lineTo(artX + artSize - artRad, artY);
@@ -269,7 +290,24 @@ export async function generateStoryCardCanvas(
             ctx.closePath();
             ctx.clip();
 
-            ctx.drawImage(img, artX, artY, artSize, artSize);
+            // Calculate contain fit
+            const imgRatio = img.width / img.height;
+            const containerRatio = artSize / artSize;
+            let drawWidth, drawHeight, drawX, drawY;
+
+            if (imgRatio > containerRatio) {
+              drawHeight = artSize;
+              drawWidth = artSize * imgRatio;
+              drawX = artX - (drawWidth - artSize) / 2;
+              drawY = artY;
+            } else {
+              drawWidth = artSize;
+              drawHeight = artSize / imgRatio;
+              drawX = artX;
+              drawY = artY - (drawHeight - artSize) / 2;
+            }
+
+            ctx.drawImage(img, drawX, drawY, drawWidth, drawHeight);
             ctx.restore();
 
             ctx.shadowColor = 'transparent';
@@ -284,7 +322,6 @@ export async function generateStoryCardCanvas(
             // Learn Language
             ctx.fillStyle = '#8B5CF6';
             ctx.font = '900 56px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
-            ctx.textTransform = 'uppercase';
             ctx.fillText(`LEARN ${songLanguage.toUpperCase()}`, 540, 1560);
 
             // Website

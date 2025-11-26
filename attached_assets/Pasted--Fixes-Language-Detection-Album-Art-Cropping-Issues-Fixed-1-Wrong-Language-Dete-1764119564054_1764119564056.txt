@@ -1,0 +1,413 @@
+# 🔧 Fixes: Language Detection & Album Art Cropping
+
+## Issues Fixed
+
+1. ✅ **Wrong Language Detection** - Mylène Farmer is French, not Spanish
+2. ✅ **Album Art Cropping** - Willie Colón photo cut off on sides
+
+---
+
+## Fix 1: Better Language Detection
+
+### Option A: Database-Stored Language (Recommended)
+
+```typescript
+// server/db/schema.ts
+
+export const songs = pgTable('songs', {
+  id: serial('id').primaryKey(),
+  title: text('title').notNull(),
+  artist: text('artist').notNull(),
+  albumArtwork: text('album_artwork'),
+  language: text('language').notNull(), // ← Add this field
+  // ... other fields
+});
+
+// When inserting songs
+await db.insert(songs).values({
+  title: 'California',
+  artist: 'Mylène Farmer',
+  language: 'French', // ← Store actual language
+  // ...
+});
+
+await db.insert(songs).values({
+  title: 'Gitana',
+  artist: 'Willie Colón',
+  language: 'Spanish',
+  // ...
+});
+```
+
+### Option B: Artist-Based Language Map
+
+```typescript
+// client/src/lib/language-utils.ts
+
+const ARTIST_LANGUAGE_MAP: Record<string, string> = {
+  // French Artists
+  'Mylène Farmer': 'French',
+  'Édith Piaf': 'French',
+  'Céline Dion': 'French',
+  'Jacques Brel': 'French',
+  'Charles Aznavour': 'French',
+  
+  // Spanish Artists
+  'Willie Colón': 'Spanish',
+  'Héctor Lavoe': 'Spanish',
+  'Marc Anthony': 'Spanish',
+  'Shakira': 'Spanish',
+  'Bad Bunny': 'Spanish',
+  
+  // Portuguese Artists
+  'Caetano Veloso': 'Portuguese',
+  'Gilberto Gil': 'Portuguese',
+  
+  // Italian Artists
+  'Andrea Bocelli': 'Italian',
+  'Eros Ramazzotti': 'Italian',
+  
+  // Japanese Artists
+  'Hikaru Utada': 'Japanese',
+  'Kenshi Yonezu': 'Japanese',
+  
+  // Korean Artists
+  'BTS': 'Korean',
+  'BLACKPINK': 'Korean',
+  
+  // German Artists
+  'Rammstein': 'German',
+  'Nena': 'German',
+};
+
+export function detectSongLanguage(artistName: string, lyrics?: string): string {
+  // First, check artist map
+  const mappedLanguage = ARTIST_LANGUAGE_MAP[artistName];
+  if (mappedLanguage) {
+    return mappedLanguage;
+  }
+
+  // Fallback: Detect from lyrics
+  if (lyrics) {
+    return detectFromLyrics(lyrics);
+  }
+
+  // Default
+  return 'this Language';
+}
+
+function detectFromLyrics(lyrics: string): string {
+  const text = lyrics.toLowerCase();
+
+  const patterns = {
+    French: ['le', 'la', 'les', 'de', 'un', 'une', 'je', 'tu', 'vous', 'est', 'sont', 'avec'],
+    Spanish: ['el', 'la', 'los', 'las', 'de', 'en', 'que', 'por', 'con', 'mi', 'tu', 'es'],
+    Portuguese: ['o', 'a', 'os', 'as', 'de', 'em', 'para', 'não', 'é', 'um', 'uma'],
+    Italian: ['il', 'la', 'lo', 'i', 'le', 'di', 'da', 'in', 'con', 'che'],
+    German: ['der', 'die', 'das', 'und', 'ist', 'nicht', 'ich', 'du'],
+    Japanese: ['は', 'が', 'を', 'に', 'の', 'で'],
+    Korean: ['은', '는', '이', '가', '을', '를'],
+  };
+
+  let maxMatches = 0;
+  let detectedLanguage = 'this Language';
+
+  for (const [language, words] of Object.entries(patterns)) {
+    const matches = words.filter(word => text.includes(word)).length;
+    if (matches > maxMatches) {
+      maxMatches = matches;
+      detectedLanguage = language;
+    }
+  }
+
+  return detectedLanguage;
+}
+```
+
+---
+
+## Fix 2: Album Art Cropping
+
+### Problem
+Using `object-fit: cover` crops the image. Need `object-fit: contain` for full image.
+
+### Solution
+
+```typescript
+// client/src/lib/share-utils.ts
+
+export async function generateStoryCard(
+  songTitle: string,
+  artistName: string,
+  albumArtwork: string,
+  songLanguage: string
+): Promise<Blob> {
+  const container = document.createElement('div');
+  container.style.position = 'fixed';
+  container.style.left = '-10000px';
+  container.style.width = '1080px';
+  container.style.height = '1920px';
+  
+  container.innerHTML = `
+    <div style="
+      width: 1080px;
+      height: 1920px;
+      background: #1a1a1a;
+      position: relative;
+      font-family: -apple-system, sans-serif;
+      overflow: hidden;
+    ">
+      <!-- Dark Blurred Background -->
+      <div style="
+        position: absolute;
+        inset: -100px;
+        background-image: url(${albumArtwork});
+        background-size: cover;
+        background-position: center;
+        filter: blur(100px) brightness(0.2);
+        opacity: 0.8;
+      "></div>
+
+      <!-- Dark Overlay -->
+      <div style="
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(180deg, 
+          rgba(0,0,0,0.7) 0%, 
+          rgba(0,0,0,0.4) 50%, 
+          rgba(0,0,0,0.8) 100%);
+      "></div>
+
+      <!-- Content -->
+      <div style="
+        position: relative;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        padding: 80px 60px;
+        z-index: 1;
+      ">
+        <!-- Logo Horizontal -->
+        <div style="display: flex; align-items: center; gap: 20px;">
+          <img 
+            src="/Lyric_Sensei_Logo_Single_Transparent.png"
+            style="width: 70px; height: 70px;"
+          />
+          <div style="
+            font-size: 52px;
+            font-weight: 800;
+            color: #8B5CF6;
+          ">
+            Lyric Sensei
+          </div>
+        </div>
+
+        <!-- Centered Album Cover -->
+        <div style="
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 60px;
+        ">
+          <!-- Album Art Container -->
+          <div style="
+            width: 750px;
+            height: 750px;
+            border-radius: 24px;
+            overflow: hidden;
+            background: rgba(0,0,0,0.3);
+            box-shadow: 0 50px 120px rgba(0,0,0,0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+          ">
+            <!-- Album Image - CONTAIN not COVER -->
+            <img 
+              src="${albumArtwork}" 
+              style="
+                width: 100%;
+                height: 100%;
+                object-fit: contain;
+              "
+              crossorigin="anonymous"
+            />
+          </div>
+
+          <!-- Song - Artist -->
+          <div style="
+            font-size: 72px;
+            font-weight: 700;
+            color: #FFFFFF;
+            text-align: center;
+            line-height: 1.2;
+          ">
+            ${songTitle} - ${artistName}
+          </div>
+
+          <!-- Learn [Language] -->
+          <div style="
+            font-size: 56px;
+            font-weight: 900;
+            color: #8B5CF6;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+          ">
+            Learn ${songLanguage}
+          </div>
+        </div>
+
+        <!-- App Link -->
+        <div style="text-align: center;">
+          <div style="
+            font-size: 48px;
+            font-weight: 700;
+            color: #FFFFFF;
+          ">
+            lyricsensei.com
+          </div>
+          <div style="
+            font-size: 36px;
+            color: rgba(255,255,255,0.6);
+          ">
+            Available on iOS & Android
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(container);
+
+  try {
+    const { toPng } = await import('html-to-image');
+    const dataUrl = await toPng(container.firstChild as HTMLElement, {
+      quality: 1.0,
+      pixelRatio: 2,
+      width: 1080,
+      height: 1920,
+      cacheBust: true
+    });
+
+    const blob = await (await fetch(dataUrl)).blob();
+    return blob;
+  } finally {
+    document.body.removeChild(container);
+  }
+}
+```
+
+---
+
+## Usage with Fixed Language Detection
+
+```typescript
+// client/src/components/ShareButton.tsx
+
+import { generateStoryCard } from '@/lib/share-utils';
+import { detectSongLanguage } from '@/lib/language-utils';
+
+export function ShareButton({ song, lyrics }) {
+  const handleShare = async () => {
+    try {
+      // Detect language from artist + lyrics
+      const language = detectSongLanguage(song.artist, lyrics);
+      
+      console.log('[Share] Detected language:', language);
+
+      // Generate card
+      const imageBlob = await generateStoryCard(
+        song.title,
+        song.artist,
+        song.albumArtwork,
+        language
+      );
+
+      // Share...
+    } catch (error) {
+      console.error('Share failed:', error);
+    }
+  };
+
+  return <button onClick={handleShare}>Share</button>;
+}
+```
+
+---
+
+## Alternative: Use MusicBrainz API for Language
+
+```typescript
+// Get language from MusicBrainz
+async function getSongLanguage(artistName: string, songTitle: string): Promise<string> {
+  try {
+    const response = await fetch(
+      `https://musicbrainz.org/ws/2/recording/?query=artist:"${artistName}" AND recording:"${songTitle}"&fmt=json`
+    );
+    
+    const data = await response.json();
+    
+    if (data.recordings && data.recordings.length > 0) {
+      const language = data.recordings[0].language;
+      return language || 'this Language';
+    }
+    
+    return 'this Language';
+  } catch (error) {
+    console.error('Failed to fetch language:', error);
+    return 'this Language';
+  }
+}
+```
+
+---
+
+## Key Changes
+
+### 1. Album Art Fix
+```diff
+- object-fit: cover;  ❌ Crops image
++ object-fit: contain; ✅ Shows full image
+```
+
+### 2. Language Detection
+```typescript
+// Before
+const language = 'Spanish'; // Always Spanish
+
+// After
+const language = detectSongLanguage(artist, lyrics);
+// Returns: French, Spanish, Portuguese, etc.
+```
+
+---
+
+## Test Cases
+
+```typescript
+// Test 1: Mylène Farmer (French)
+const language1 = detectSongLanguage('Mylène Farmer');
+console.log(language1); // "French" ✅
+
+// Test 2: Willie Colón (Spanish)
+const language2 = detectSongLanguage('Willie Colón');
+console.log(language2); // "Spanish" ✅
+
+// Test 3: Andrea Bocelli (Italian)
+const language3 = detectSongLanguage('Andrea Bocelli');
+console.log(language3); // "Italian" ✅
+```
+
+---
+
+## 🎯 Results
+
+**Before:**
+- ❌ Mylène Farmer → "LEARN SPANISH" (wrong!)
+- ❌ Willie Colón photo cut off on sides
+
+**After:**
+- ✅ Mylène Farmer → "LEARN FRENCH" (correct!)
+- ✅ Willie Colón photo shows completely (no cropping)
+
+**The fixes ensure accurate language detection and proper album art display!** 🎨✨
