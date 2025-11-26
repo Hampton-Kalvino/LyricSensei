@@ -1,0 +1,136 @@
+export async function generateStoryCardMinimalist(
+  songTitle: string,
+  artistName: string,
+  albumArtwork: string
+): Promise<Blob> {
+  const container = document.createElement('div');
+  container.style.position = 'fixed';
+  container.style.left = '-10000px';
+  container.style.width = '1080px';
+  container.style.height = '1920px';
+  
+  container.innerHTML = `
+    <div style="
+      width: 1080px;
+      height: 1920px;
+      background: #FFFFFF;
+      position: relative;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    ">
+      <!-- Subtle Gradient Background -->
+      <div style="
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(180deg, #F9FAFB 0%, #FFFFFF 50%, #F3F4F6 100%);
+      "></div>
+
+      <!-- Content -->
+      <div style="
+        position: relative;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        padding: 100px 80px;
+      ">
+        <!-- Top: Logo -->
+        <div style="
+          display: flex;
+          align-items: center;
+          gap: 20px;
+        ">
+          <img 
+            src="/Lyric_Sensei_Logo_Single_Transparent.png"
+            style="
+              width: 80px;
+              height: 80px;
+            "
+          />
+          <div style="
+            font-size: 48px;
+            font-weight: 800;
+            color: #8B5CF6;
+            letter-spacing: -1px;
+          ">
+            Lyric Sensei
+          </div>
+        </div>
+
+        <!-- Middle: Album + Info -->
+        <div style="
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 60px;
+        ">
+          <!-- Album Art with Shadow -->
+          <div style="
+            width: 700px;
+            height: 700px;
+            border-radius: 24px;
+            overflow: hidden;
+            box-shadow: 
+              0 40px 100px rgba(0,0,0,0.15),
+              0 0 0 1px rgba(0,0,0,0.05);
+          ">
+            <img 
+              src="${albumArtwork}" 
+              style="
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
+              "
+              crossorigin="anonymous"
+            />
+          </div>
+
+          <!-- Song Info -->
+          <div style="text-align: center;">
+            <div style="
+              font-size: 80px;
+              font-weight: 900;
+              color: #111827;
+              line-height: 1.1;
+              margin-bottom: 20px;
+            ">
+              ${songTitle}
+            </div>
+            <div style="
+              font-size: 52px;
+              color: #6B7280;
+              font-weight: 600;
+            ">
+              ${artistName}
+            </div>
+          </div>
+        </div>
+
+        <!-- Bottom: CTA -->
+        <div style="text-align: center;">
+          <div style="
+            display: inline-block;
+            background: #8B5CF6;
+            color: white;
+            font-size: 40px;
+            font-weight: 700;
+            padding: 28px 70px;
+            border-radius: 100px;
+            box-shadow: 0 10px 30px rgba(139, 92, 246, 0.3);
+          ">
+            Download Now
+          </div>
+          <div style="
+            font-size: 32px;
+            color: #9CA3AF;
+            margin-top: 24px;
+            font-weight: 500;
+          ">
+            lyricsensei.com
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  // Same conversion code...
+}
