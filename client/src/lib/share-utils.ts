@@ -3,138 +3,240 @@ import { toPng } from 'html-to-image';
 /**
  * Generate a beautiful 1080×1920px story card for Instagram/Snapchat
  * Uses html-to-image to convert HTML to PNG blob
+ * Premium design with glassmorphism and gradient effects
  */
 export async function generateStoryCard(
   songTitle: string,
   artistName: string,
-  albumArtwork: string
+  albumArtwork: string,
+  lyricText?: string
 ): Promise<Blob> {
-  // Create hidden container
   const container = document.createElement('div');
   container.style.position = 'fixed';
   container.style.left = '-10000px';
-  container.style.top = '0';
   container.style.width = '1080px';
   container.style.height = '1920px';
-  container.style.zIndex = '-1';
-  container.style.pointerEvents = 'none';
-
-  // Create story card HTML with Tidal-like design
+  
   container.innerHTML = `
     <div style="
       width: 1080px;
       height: 1920px;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      background: linear-gradient(135deg, #8B5CF6 0%, #6366F1 50%, #3B82F6 100%);
       position: relative;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
       overflow: hidden;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
     ">
-      <!-- Blurred background -->
+      <!-- Blurred Background Layer -->
       <div style="
         position: absolute;
-        top: -50px;
-        left: -50px;
-        right: -50px;
-        bottom: -50px;
+        inset: -100px;
         background-image: url(${albumArtwork});
         background-size: cover;
         background-position: center;
-        filter: blur(80px) brightness(0.3);
-        opacity: 0.6;
+        filter: blur(80px) brightness(0.25) saturate(1.5);
+        opacity: 0.5;
       "></div>
 
-      <!-- Content: White card (Tidal-style) -->
+      <!-- Gradient Overlay -->
+      <div style="
+        position: absolute;
+        inset: 0;
+        background: radial-gradient(circle at 50% 40%, rgba(139, 92, 246, 0.3) 0%, transparent 70%);
+      "></div>
+
+      <!-- Content -->
       <div style="
         position: relative;
-        z-index: 1;
-        background: white;
-        border-radius: 40px;
-        padding: 60px 60px;
-        width: 900px;
-        box-shadow: 0 40px 100px rgba(0,0,0,0.5);
+        height: 100%;
         display: flex;
         flex-direction: column;
-        align-items: center;
-        gap: 50px;
+        justify-content: space-between;
+        padding: 80px 60px;
+        z-index: 1;
       ">
-        <!-- Album Art with Logo Overlay (Tidal-style) -->
+        <!-- Top: Logo + App Name -->
         <div style="
-          position: relative;
-          width: 650px;
-          height: 650px;
-          border-radius: 30px;
-          overflow: hidden;
-          box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 24px;
         ">
-          <img 
-            src="${albumArtwork}" 
-            style="
-              width: 100%;
-              height: 100%;
-              object-fit: cover;
-            "
-            crossorigin="anonymous"
-          />
-          
-          <!-- Logo overlay on top-left corner -->
-          <img 
-            src="/lyric-sensei-logo.png" 
-            style="
+          <!-- Logo -->
+          <div style="
+            width: 140px;
+            height: 140px;
+            background: white;
+            border-radius: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+          ">
+            <img 
+              src="/Lyric_Sensei_Logo_Single_Transparent.png"
+              style="
+                width: 100px;
+                height: 100px;
+                object-fit: contain;
+              "
+              crossorigin="anonymous"
+            />
+          </div>
+
+          <!-- App Name -->
+          <div style="
+            font-size: 48px;
+            font-weight: 800;
+            color: white;
+            letter-spacing: -1px;
+            text-shadow: 0 4px 20px rgba(0,0,0,0.4);
+          ">
+            Lyric Sensei
+          </div>
+
+          <!-- Tagline -->
+          <div style="
+            font-size: 24px;
+            color: rgba(255,255,255,0.85);
+            font-weight: 500;
+            text-align: center;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.3);
+          ">
+            Master Lyrics in Any Language
+          </div>
+        </div>
+
+        <!-- Middle: Album Art Container -->
+        <div style="
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 50px;
+        ">
+          <!-- Album Artwork with Glow -->
+          <div style="
+            position: relative;
+            width: 650px;
+            height: 650px;
+          ">
+            <!-- Glow Effect -->
+            <div style="
               position: absolute;
-              top: 20px;
-              left: 20px;
-              width: 80px;
-              height: 80px;
-              object-fit: contain;
-              background: rgba(255,255,255,0.95);
-              border-radius: 12px;
-              padding: 8px;
-              box-shadow: 0 4px 16px rgba(0,0,0,0.3);
-              z-index: 10;
-            "
-            crossorigin="anonymous"
-          />
+              inset: -20px;
+              background: linear-gradient(135deg, rgba(139, 92, 246, 0.5), rgba(99, 102, 241, 0.5));
+              border-radius: 50px;
+              filter: blur(30px);
+              opacity: 0.7;
+            "></div>
+
+            <!-- Album Art -->
+            <div style="
+              position: relative;
+              width: 650px;
+              height: 650px;
+              border-radius: 36px;
+              overflow: hidden;
+              box-shadow: 
+                0 30px 80px rgba(0,0,0,0.5),
+                0 0 0 1px rgba(255,255,255,0.1);
+            ">
+              <img 
+                src="${albumArtwork}" 
+                style="
+                  width: 100%;
+                  height: 100%;
+                  object-fit: cover;
+                "
+                crossorigin="anonymous"
+              />
+            </div>
+          </div>
+
+          <!-- Song Info Card -->
+          <div style="
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 28px;
+            padding: 40px 50px;
+            text-align: center;
+            max-width: 850px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+          ">
+            <!-- Song Title -->
+            <div style="
+              font-size: 72px;
+              font-weight: 900;
+              color: white;
+              line-height: 1.1;
+              margin-bottom: 20px;
+              text-shadow: 0 4px 20px rgba(0,0,0,0.4);
+            ">
+              ${songTitle}
+            </div>
+
+            <!-- Artist -->
+            <div style="
+              font-size: 48px;
+              color: rgba(255,255,255,0.9);
+              font-weight: 600;
+              text-shadow: 0 2px 10px rgba(0,0,0,0.3);
+            ">
+              ${artistName}
+            </div>
+          </div>
+
+          ${lyricText ? `
+          <!-- Lyric Snippet -->
+          <div style="
+            background: rgba(255,255,255,0.08);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 20px;
+            padding: 32px 40px;
+            max-width: 800px;
+          ">
+            <div style="
+              font-size: 42px;
+              color: rgba(255,255,255,0.95);
+              font-style: italic;
+              line-height: 1.5;
+              text-align: center;
+              text-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            ">
+              "${lyricText}"
+            </div>
+          </div>
+          ` : ''}
         </div>
 
-        <!-- Song Info -->
-        <div style="text-align: center;">
+        <!-- Bottom: Call to Action -->
+        <div style="
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 16px;
+        ">
+          <!-- Download Button Style -->
           <div style="
-            font-size: 56px;
-            font-weight: 900;
-            color: #1a1a1a;
-            line-height: 1.2;
-            margin-bottom: 16px;
-          ">
-            ${songTitle}
-          </div>
-          <div style="
-            font-size: 40px;
-            color: #666666;
-            font-weight: 600;
-            margin-bottom: 32px;
-          ">
-            ${artistName}
-          </div>
-        </div>
-
-        <!-- Bottom: CTA -->
-        <div style="text-align: center;">
-          <div style="
-            font-size: 36px;
-            color: #667eea;
-            font-weight: 700;
-            margin-bottom: 8px;
+            background: white;
+            color: #8B5CF6;
+            font-size: 42px;
+            font-weight: 800;
+            padding: 24px 60px;
+            border-radius: 100px;
+            box-shadow: 
+              0 10px 40px rgba(0,0,0,0.3),
+              0 0 0 1px rgba(255,255,255,0.1);
           ">
             Download Lyric Sensei
           </div>
+
+          <!-- Website -->
           <div style="
-            font-size: 28px;
-            color: #999999;
-            font-weight: 500;
+            font-size: 32px;
+            color: rgba(255,255,255,0.8);
+            font-weight: 600;
           ">
             lyricsensei.com
           </div>
@@ -146,47 +248,34 @@ export async function generateStoryCard(
   document.body.appendChild(container);
 
   try {
-    console.log('[Share] Generating story card image...');
-
-    // Get the inner div (the actual card)
-    const cardElement = container.firstChild as HTMLElement;
-
-    // Convert to PNG with high quality
-    const dataUrl = await toPng(cardElement, {
+    const { toPng: toPngFunc } = await import('html-to-image');
+    
+    const dataUrl = await toPngFunc(container.firstChild as HTMLElement, {
       quality: 1.0,
       pixelRatio: 2,
       width: 1080,
       height: 1920,
-      cacheBust: true,
-      backgroundColor: '#667eea',
+      cacheBust: true
     });
 
-    console.log('[Share] Image generated, converting to blob...');
-
-    // Convert data URL to blob
     const response = await fetch(dataUrl);
     const blob = await response.blob();
 
-    console.log('[Share] Blob created:', blob.size, 'bytes');
-
+    console.log('[Share] Story card created:', blob.size, 'bytes');
     return blob;
-  } catch (error) {
-    console.error('[Share] Image generation failed:', error);
-    throw error;
   } finally {
-    // Clean up
     document.body.removeChild(container);
   }
 }
 
 /**
  * Alternative Canvas-based implementation if html-to-image fails
- * Matches Tidal-like design with white card and logo
  */
 export async function generateStoryCardCanvas(
   songTitle: string,
   artistName: string,
-  albumArtwork: string
+  albumArtwork: string,
+  lyricText?: string
 ): Promise<Blob> {
   return new Promise((resolve, reject) => {
     const canvas = document.createElement('canvas');
@@ -199,172 +288,201 @@ export async function generateStoryCardCanvas(
       return;
     }
 
-    // Background gradient (purple)
-    const bgGradient = ctx.createLinearGradient(0, 0, 0, 1920);
-    bgGradient.addColorStop(0, '#667eea');
-    bgGradient.addColorStop(1, '#764ba2');
+    // Background gradient (purple to blue)
+    const bgGradient = ctx.createLinearGradient(0, 0, 1080, 1920);
+    bgGradient.addColorStop(0, '#8B5CF6');
+    bgGradient.addColorStop(0.5, '#6366F1');
+    bgGradient.addColorStop(1, '#3B82F6');
     ctx.fillStyle = bgGradient;
     ctx.fillRect(0, 0, 1080, 1920);
 
-    // Load album artwork
+    // Load album artwork for blurred background
     const img = new Image();
     img.crossOrigin = 'anonymous';
 
     img.onload = () => {
       try {
-        // Draw blurred background image
-        ctx.filter = 'blur(40px) brightness(0.3)';
-        ctx.globalAlpha = 0.6;
-        ctx.drawImage(img, -50, -50, 1180, 2020);
+        // Draw blurred background
+        ctx.filter = 'blur(80px) brightness(0.25) saturate(1.5)';
+        ctx.globalAlpha = 0.5;
+        ctx.drawImage(img, -100, -100, 1280, 2120);
         ctx.globalAlpha = 1.0;
         ctx.filter = 'none';
 
-        // Draw white card (Tidal-style)
-        const cardWidth = 900;
-        const cardHeight = 1400;
-        const cardX = (1080 - cardWidth) / 2;
-        const cardY = (1920 - cardHeight) / 2;
-        const cardRadius = 40;
+        // Radial gradient overlay
+        const radialGrad = ctx.createRadialGradient(540, 768, 0, 540, 768, 800);
+        radialGrad.addColorStop(0, 'rgba(139, 92, 246, 0.3)');
+        radialGrad.addColorStop(1, 'transparent');
+        ctx.fillStyle = radialGrad;
+        ctx.fillRect(0, 0, 1080, 1920);
 
-        // Card background with shadow
-        ctx.shadowColor = 'rgba(0,0,0,0.5)';
-        ctx.shadowBlur = 40;
-        ctx.shadowOffsetY = 20;
-
-        ctx.fillStyle = 'white';
-        ctx.beginPath();
-        ctx.moveTo(cardX + cardRadius, cardY);
-        ctx.lineTo(cardX + cardWidth - cardRadius, cardY);
-        ctx.quadraticCurveTo(cardX + cardWidth, cardY, cardX + cardWidth, cardY + cardRadius);
-        ctx.lineTo(cardX + cardWidth, cardY + cardHeight - cardRadius);
-        ctx.quadraticCurveTo(cardX + cardWidth, cardY + cardHeight, cardX + cardWidth - cardRadius, cardY + cardHeight);
-        ctx.lineTo(cardX + cardRadius, cardY + cardHeight);
-        ctx.quadraticCurveTo(cardX, cardY + cardHeight, cardX, cardY + cardHeight - cardRadius);
-        ctx.lineTo(cardX, cardY + cardRadius);
-        ctx.quadraticCurveTo(cardX, cardY, cardX + cardRadius, cardY);
-        ctx.closePath();
-        ctx.fill();
-
-        ctx.shadowColor = 'transparent';
-
-        // Draw album art with rounded corners
-        const artSize = 650;
-        const artX = (1080 - artSize) / 2;
-        const artY = cardY + 80;
-
-        ctx.save();
-        const artRadius = 30;
-        ctx.beginPath();
-        ctx.moveTo(artX + artRadius, artY);
-        ctx.lineTo(artX + artSize - artRadius, artY);
-        ctx.quadraticCurveTo(artX + artSize, artY, artX + artSize, artY + artRadius);
-        ctx.lineTo(artX + artSize, artY + artSize - artRadius);
-        ctx.quadraticCurveTo(artX + artSize, artY + artSize, artX + artSize - artRadius, artY + artSize);
-        ctx.lineTo(artX + artRadius, artY + artSize);
-        ctx.quadraticCurveTo(artX, artY + artSize, artX, artY + artSize - artRadius);
-        ctx.lineTo(artX, artY + artRadius);
-        ctx.quadraticCurveTo(artX, artY, artX + artRadius, artY);
-        ctx.closePath();
-        ctx.clip();
-
-        ctx.drawImage(img, artX, artY, artSize, artSize);
-        ctx.restore();
-
-        // Load and draw logo image on top-left corner (like Tidal)
+        // Load logo
         const logoImg = new Image();
         logoImg.crossOrigin = 'anonymous';
-        
-        const drawWithLogo = () => {
-          try {
-            // Draw white rounded background for logo (top-left corner)
-            const logoBgX = artX + 20;
-            const logoBgY = artY + 20;
-            const logoBgSize = 96;
-            const logoBgRadius = 12;
 
-            ctx.fillStyle = 'rgba(255,255,255,0.95)';
+        const drawContent = () => {
+          try {
+            // Draw logo background circle
+            ctx.fillStyle = 'white';
             ctx.shadowColor = 'rgba(0,0,0,0.3)';
-            ctx.shadowBlur = 16;
+            ctx.shadowBlur = 60;
             ctx.shadowOffsetX = 0;
-            ctx.shadowOffsetY = 4;
+            ctx.shadowOffsetY = 20;
+
+            const logoRadius = 70;
+            ctx.beginPath();
+            ctx.arc(540, 240, logoRadius, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.shadowColor = 'transparent';
+
+            // Draw logo
+            if (logoImg.complete && logoImg.naturalWidth > 0) {
+              ctx.drawImage(logoImg, 490, 190, 100, 100);
+            }
+
+            // App name
+            ctx.fillStyle = 'white';
+            ctx.font = 'bold 48px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.shadowColor = 'rgba(0,0,0,0.4)';
+            ctx.shadowBlur = 20;
+            ctx.fillText('Lyric Sensei', 540, 390);
+
+            // Tagline
+            ctx.font = '500 24px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+            ctx.fillStyle = 'rgba(255,255,255,0.85)';
+            ctx.shadowBlur = 10;
+            ctx.fillText('Master Lyrics in Any Language', 540, 450);
+
+            // Draw glow around album art
+            const artX = 215;
+            const artY = 550;
+            const artSize = 650;
+
+            ctx.fillStyle = 'rgba(139, 92, 246, 0.5)';
+            ctx.shadowColor = 'transparent';
+            ctx.beginPath();
+            ctx.ellipse(540, 875, 375, 375, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Draw album art
+            ctx.shadowColor = 'rgba(0,0,0,0.5)';
+            ctx.shadowBlur = 80;
+            ctx.shadowOffsetY = 30;
+
+            ctx.save();
+            ctx.beginPath();
+            const rad = 36;
+            ctx.moveTo(artX + rad, artY);
+            ctx.lineTo(artX + artSize - rad, artY);
+            ctx.quadraticCurveTo(artX + artSize, artY, artX + artSize, artY + rad);
+            ctx.lineTo(artX + artSize, artY + artSize - rad);
+            ctx.quadraticCurveTo(artX + artSize, artY + artSize, artX + artSize - rad, artY + artSize);
+            ctx.lineTo(artX + rad, artY + artSize);
+            ctx.quadraticCurveTo(artX, artY + artSize, artX, artY + artSize - rad);
+            ctx.lineTo(artX, artY + rad);
+            ctx.quadraticCurveTo(artX, artY, artX + rad, artY);
+            ctx.closePath();
+            ctx.clip();
+
+            ctx.drawImage(img, artX, artY, artSize, artSize);
+            ctx.restore();
+
+            // Draw semi-transparent info card
+            ctx.shadowColor = 'rgba(0,0,0,0.2)';
+            ctx.shadowBlur = 40;
+            ctx.fillStyle = 'rgba(255,255,255,0.1)';
+
+            const cardX = 115;
+            const cardY = 1280;
+            const cardWidth = 850;
+            const cardHeight = 280;
+            const cardRad = 28;
 
             ctx.beginPath();
-            ctx.moveTo(logoBgX + logoBgRadius, logoBgY);
-            ctx.lineTo(logoBgX + logoBgSize - logoBgRadius, logoBgY);
-            ctx.quadraticCurveTo(logoBgX + logoBgSize, logoBgY, logoBgX + logoBgSize, logoBgY + logoBgRadius);
-            ctx.lineTo(logoBgX + logoBgSize, logoBgY + logoBgSize - logoBgRadius);
-            ctx.quadraticCurveTo(logoBgX + logoBgSize, logoBgY + logoBgSize, logoBgX + logoBgSize - logoBgRadius, logoBgY + logoBgSize);
-            ctx.lineTo(logoBgX + logoBgRadius, logoBgY + logoBgSize);
-            ctx.quadraticCurveTo(logoBgX, logoBgY + logoBgSize, logoBgX, logoBgY + logoBgSize - logoBgRadius);
-            ctx.lineTo(logoBgX, logoBgY + logoBgRadius);
-            ctx.quadraticCurveTo(logoBgX, logoBgY, logoBgX + logoBgRadius, logoBgY);
+            ctx.moveTo(cardX + cardRad, cardY);
+            ctx.lineTo(cardX + cardWidth - cardRad, cardY);
+            ctx.quadraticCurveTo(cardX + cardWidth, cardY, cardX + cardWidth, cardY + cardRad);
+            ctx.lineTo(cardX + cardWidth, cardY + cardHeight - cardRad);
+            ctx.quadraticCurveTo(cardX + cardWidth, cardY + cardHeight, cardX + cardWidth - cardRad, cardY + cardHeight);
+            ctx.lineTo(cardX + cardRad, cardY + cardHeight);
+            ctx.quadraticCurveTo(cardX, cardY + cardHeight, cardX, cardY + cardHeight - cardRad);
+            ctx.lineTo(cardX, cardY + cardRad);
+            ctx.quadraticCurveTo(cardX, cardY, cardX + cardRad, cardY);
             ctx.closePath();
             ctx.fill();
 
             ctx.shadowColor = 'transparent';
 
-            // Draw logo image
-            if (logoImg.complete && logoImg.naturalWidth > 0) {
-              const logoPadding = 8;
-              ctx.drawImage(
-                logoImg,
-                logoBgX + logoPadding,
-                logoBgY + logoPadding,
-                logoBgSize - logoPadding * 2,
-                logoBgSize - logoPadding * 2
-              );
-            }
-          } catch (e) {
-            console.error('[Share] Logo draw error:', e);
+            // Song title
+            ctx.fillStyle = 'white';
+            ctx.font = '900 72px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+            ctx.textAlign = 'center';
+            ctx.shadowColor = 'rgba(0,0,0,0.4)';
+            ctx.shadowBlur = 20;
+            ctx.fillText(songTitle.substring(0, 20), 540, 1360);
+
+            // Artist
+            ctx.font = '600 48px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+            ctx.fillStyle = 'rgba(255,255,255,0.9)';
+            ctx.shadowBlur = 10;
+            ctx.fillText(artistName, 540, 1430);
+
+            // Download button
+            ctx.fillStyle = 'white';
+            ctx.shadowColor = 'rgba(0,0,0,0.3)';
+            ctx.shadowBlur = 40;
+            ctx.shadowOffsetY = 10;
+
+            const btnRad = 50;
+            ctx.beginPath();
+            ctx.moveTo(290 + btnRad, 1680);
+            ctx.lineTo(790 - btnRad, 1680);
+            ctx.quadraticCurveTo(790, 1680, 790, 1680 + btnRad);
+            ctx.lineTo(790, 1680 + btnRad);
+            ctx.quadraticCurveTo(790, 1730, 790 - btnRad, 1730);
+            ctx.lineTo(290 + btnRad, 1730);
+            ctx.quadraticCurveTo(290, 1730, 290, 1680 + btnRad);
+            ctx.lineTo(290, 1680 + btnRad);
+            ctx.quadraticCurveTo(290, 1680, 290 + btnRad, 1680);
+            ctx.closePath();
+            ctx.fill();
+
+            ctx.fillStyle = '#8B5CF6';
+            ctx.font = '800 42px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.shadowColor = 'transparent';
+            ctx.fillText('Download Lyric Sensei', 540, 1705);
+
+            // Website
+            ctx.fillStyle = 'rgba(255,255,255,0.8)';
+            ctx.font = '600 32px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+            ctx.fillText('lyricsensei.com', 540, 1810);
+
+            // Convert to blob
+            canvas.toBlob(
+              (blob) => {
+                if (blob) {
+                  console.log('[Share] Canvas card created:', blob.size, 'bytes');
+                  resolve(blob);
+                } else {
+                  reject(new Error('Failed to create blob'));
+                }
+              },
+              'image/png',
+              1.0
+            );
+          } catch (error) {
+            reject(error);
           }
-
-          // Continue with text
-
-          // Text content
-          ctx.textAlign = 'center';
-          ctx.shadowColor = 'transparent';
-
-          // Song title
-          ctx.fillStyle = '#1a1a1a';
-          ctx.font = 'bold 56px system-ui';
-          const titleY = artY + artSize + 80;
-          const lines = songTitle.length > 25 ? songTitle.match(/.{1,25}/g) || [] : [songTitle];
-          lines.slice(0, 2).forEach((line, i) => {
-            ctx.fillText(line, 540, titleY + i * 70);
-          });
-
-          // Artist name
-          ctx.fillStyle = '#666666';
-          ctx.font = '600 40px system-ui';
-          ctx.fillText(artistName, 540, titleY + (lines.length * 70) + 60);
-
-          // CTA text
-          ctx.fillStyle = '#667eea';
-          ctx.font = 'bold 36px system-ui';
-          ctx.fillText('Download Lyric Sensei', 540, cardY + cardHeight - 120);
-
-          ctx.fillStyle = '#999999';
-          ctx.font = '500 28px system-ui';
-          ctx.fillText('lyricsensei.com', 540, cardY + cardHeight - 60);
-
-          // Convert to blob
-          canvas.toBlob(
-            (blob) => {
-              if (blob) {
-                console.log('[Share] Canvas blob created:', blob.size, 'bytes');
-                resolve(blob);
-              } else {
-                reject(new Error('Failed to create blob'));
-              }
-            },
-            'image/png',
-            1.0
-          );
         };
 
-        logoImg.onload = drawWithLogo;
-        logoImg.onerror = drawWithLogo;
-        logoImg.src = '/lyric-sensei-logo.png';
+        logoImg.onload = drawContent;
+        logoImg.onerror = drawContent;
+        logoImg.src = '/Lyric_Sensei_Logo_Single_Transparent.png';
       } catch (error) {
         reject(error);
       }
