@@ -1,17 +1,19 @@
 import { toPng } from 'html-to-image';
 
 /**
- * Generate a beautiful 1080×1920px story card for Instagram/Snapchat
- * Minimalist white design with purple accents
+ * Generate optimized 1080×1920px story card for Instagram/Snapchat
+ * Dark background with centered album art and language call-to-action
  */
 export async function generateStoryCard(
   songTitle: string,
   artistName: string,
-  albumArtwork: string
+  albumArtwork: string,
+  songLanguage: string = 'Spanish'
 ): Promise<Blob> {
   const container = document.createElement('div');
   container.style.position = 'fixed';
   container.style.left = '-10000px';
+  container.style.top = '0';
   container.style.width = '1080px';
   container.style.height = '1920px';
   
@@ -19,15 +21,27 @@ export async function generateStoryCard(
     <div style="
       width: 1080px;
       height: 1920px;
-      background: #FFFFFF;
+      background: #1a1a1a;
       position: relative;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      overflow: hidden;
     ">
-      <!-- Subtle Gradient Background -->
+      <!-- Dark Blurred Background -->
+      <div style="
+        position: absolute;
+        inset: -100px;
+        background-image: url(${albumArtwork});
+        background-size: cover;
+        background-position: center;
+        filter: blur(100px) brightness(0.2);
+        opacity: 0.8;
+      "></div>
+
+      <!-- Dark Overlay -->
       <div style="
         position: absolute;
         inset: 0;
-        background: linear-gradient(180deg, #F9FAFB 0%, #FFFFFF 50%, #F3F4F6 100%);
+        background: linear-gradient(180deg, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.4) 50%, rgba(0,0,0,0.8) 100%);
       "></div>
 
       <!-- Content -->
@@ -37,9 +51,10 @@ export async function generateStoryCard(
         display: flex;
         flex-direction: column;
         justify-content: space-between;
-        padding: 100px 80px;
+        padding: 80px 60px;
+        z-index: 1;
       ">
-        <!-- Top: Logo -->
+        <!-- Top: Logo Horizontal (Left Aligned) -->
         <div style="
           display: flex;
           align-items: center;
@@ -48,14 +63,15 @@ export async function generateStoryCard(
           <img 
             src="/Lyric_Sensei_Logo_Single_Transparent.png"
             style="
-              width: 80px;
-              height: 80px;
+              width: 70px;
+              height: 70px;
               object-fit: contain;
             "
+            alt="Lyric Sensei"
             crossorigin="anonymous"
           />
           <div style="
-            font-size: 48px;
+            font-size: 52px;
             font-weight: 800;
             color: #8B5CF6;
             letter-spacing: -1px;
@@ -64,22 +80,22 @@ export async function generateStoryCard(
           </div>
         </div>
 
-        <!-- Middle: Album + Info -->
+        <!-- Middle: Centered Album Cover -->
         <div style="
           display: flex;
           flex-direction: column;
           align-items: center;
           gap: 60px;
         ">
-          <!-- Album Art with Shadow -->
+          <!-- Album Cover (Perfectly Centered) -->
           <div style="
-            width: 700px;
-            height: 700px;
+            width: 750px;
+            height: 750px;
             border-radius: 24px;
             overflow: hidden;
             box-shadow: 
-              0 40px 100px rgba(0,0,0,0.15),
-              0 0 0 1px rgba(0,0,0,0.05);
+              0 50px 120px rgba(0,0,0,0.8),
+              0 0 0 1px rgba(255,255,255,0.1);
           ">
             <img 
               src="${albumArtwork}" 
@@ -92,48 +108,53 @@ export async function generateStoryCard(
             />
           </div>
 
-          <!-- Song Info -->
-          <div style="text-align: center;">
+          <!-- Song Title - Artist Name -->
+          <div style="
+            text-align: center;
+            max-width: 900px;
+          ">
             <div style="
-              font-size: 80px;
-              font-weight: 900;
-              color: #111827;
-              line-height: 1.1;
-              margin-bottom: 20px;
+              font-size: 72px;
+              font-weight: 700;
+              color: #FFFFFF;
+              line-height: 1.2;
+              margin-bottom: 16px;
             ">
-              ${songTitle}
+              ${songTitle} - ${artistName}
             </div>
-            <div style="
-              font-size: 52px;
-              color: #6B7280;
-              font-weight: 600;
-            ">
-              ${artistName}
-            </div>
+          </div>
+
+          <!-- Learn [Language] CTA -->
+          <div style="
+            font-size: 56px;
+            font-weight: 900;
+            color: #8B5CF6;
+            text-align: center;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+          ">
+            Learn ${songLanguage}
           </div>
         </div>
 
-        <!-- Bottom: CTA -->
-        <div style="text-align: center;">
+        <!-- Bottom: App Link -->
+        <div style="
+          text-align: center;
+        ">
           <div style="
-            display: inline-block;
-            background: #8B5CF6;
-            color: white;
-            font-size: 40px;
+            font-size: 48px;
             font-weight: 700;
-            padding: 28px 70px;
-            border-radius: 100px;
-            box-shadow: 0 10px 30px rgba(139, 92, 246, 0.3);
-          ">
-            Download Now
-          </div>
-          <div style="
-            font-size: 32px;
-            color: #9CA3AF;
-            margin-top: 24px;
-            font-weight: 500;
+            color: #FFFFFF;
+            margin-bottom: 16px;
           ">
             lyricsensei.com
+          </div>
+          <div style="
+            font-size: 36px;
+            color: rgba(255,255,255,0.6);
+            font-weight: 500;
+          ">
+            Available on iOS & Android
           </div>
         </div>
       </div>
@@ -143,9 +164,7 @@ export async function generateStoryCard(
   document.body.appendChild(container);
 
   try {
-    const { toPng: toPngFunc } = await import('html-to-image');
-    
-    const dataUrl = await toPngFunc(container.firstChild as HTMLElement, {
+    const dataUrl = await toPng(container.firstChild as HTMLElement, {
       quality: 1.0,
       pixelRatio: 2,
       width: 1080,
@@ -164,13 +183,13 @@ export async function generateStoryCard(
 }
 
 /**
- * Alternative Canvas-based implementation if html-to-image fails
- * Minimalist white design matching the HTML version
+ * Canvas fallback for story card generation
  */
 export async function generateStoryCardCanvas(
   songTitle: string,
   artistName: string,
-  albumArtwork: string
+  albumArtwork: string,
+  songLanguage: string = 'Spanish'
 ): Promise<Blob> {
   return new Promise((resolve, reject) => {
     const canvas = document.createElement('canvas');
@@ -183,12 +202,8 @@ export async function generateStoryCardCanvas(
       return;
     }
 
-    // Subtle gradient background
-    const bgGradient = ctx.createLinearGradient(0, 0, 0, 1920);
-    bgGradient.addColorStop(0, '#F9FAFB');
-    bgGradient.addColorStop(0.5, '#FFFFFF');
-    bgGradient.addColorStop(1, '#F3F4F6');
-    ctx.fillStyle = bgGradient;
+    // Dark background
+    ctx.fillStyle = '#1a1a1a';
     ctx.fillRect(0, 0, 1080, 1920);
 
     // Load album artwork
@@ -197,6 +212,21 @@ export async function generateStoryCardCanvas(
 
     img.onload = () => {
       try {
+        // Draw blurred background
+        ctx.filter = 'blur(100px) brightness(0.2)';
+        ctx.globalAlpha = 0.8;
+        ctx.drawImage(img, -100, -100, 1280, 2120);
+        ctx.globalAlpha = 1.0;
+        ctx.filter = 'none';
+
+        // Dark overlay gradient
+        const overlayGrad = ctx.createLinearGradient(0, 0, 0, 1920);
+        overlayGrad.addColorStop(0, 'rgba(0,0,0,0.7)');
+        overlayGrad.addColorStop(0.5, 'rgba(0,0,0,0.4)');
+        overlayGrad.addColorStop(1, 'rgba(0,0,0,0.8)');
+        ctx.fillStyle = overlayGrad;
+        ctx.fillRect(0, 0, 1080, 1920);
+
         // Load logo
         const logoImg = new Image();
         logoImg.crossOrigin = 'anonymous';
@@ -205,25 +235,24 @@ export async function generateStoryCardCanvas(
           try {
             // Draw logo
             if (logoImg.complete && logoImg.naturalWidth > 0) {
-              ctx.drawImage(logoImg, 80, 100, 80, 80);
+              ctx.drawImage(logoImg, 80, 80, 70, 70);
             }
 
             // App name
             ctx.fillStyle = '#8B5CF6';
-            ctx.font = 'bold 48px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+            ctx.font = 'bold 52px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
             ctx.textAlign = 'left';
             ctx.textBaseline = 'middle';
-            ctx.fillText('Lyric Sensei', 180, 140);
+            ctx.fillText('Lyric Sensei', 170, 115);
 
-            // Album art with shadow
-            ctx.shadowColor = 'rgba(0,0,0,0.15)';
-            ctx.shadowBlur = 100;
-            ctx.shadowOffsetX = 0;
-            ctx.shadowOffsetY = 40;
+            // Album art
+            ctx.shadowColor = 'rgba(0,0,0,0.8)';
+            ctx.shadowBlur = 120;
+            ctx.shadowOffsetY = 50;
 
-            const artX = 190;
-            const artY = 590;
-            const artSize = 700;
+            const artX = 165;
+            const artY = 585;
+            const artSize = 750;
             const artRad = 24;
 
             ctx.save();
@@ -245,60 +274,28 @@ export async function generateStoryCardCanvas(
 
             ctx.shadowColor = 'transparent';
 
-            // Song title
-            ctx.fillStyle = '#111827';
-            ctx.font = '900 80px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+            // Song - Artist
+            ctx.fillStyle = '#FFFFFF';
+            ctx.font = '700 72px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            
-            const titleY = 1400;
-            const titleLines = songTitle.length > 20 ? [songTitle.substring(0, 20), songTitle.substring(20)] : [songTitle];
-            titleLines.slice(0, 2).forEach((line, i) => {
-              ctx.fillText(line, 540, titleY + i * 100);
-            });
+            ctx.fillText(`${songTitle} - ${artistName}`, 540, 1440);
 
-            // Artist name
-            ctx.fillStyle = '#6B7280';
-            ctx.font = '600 52px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
-            ctx.fillText(artistName, 540, titleY + (titleLines.length * 100) + 80);
-
-            // Download button
+            // Learn Language
             ctx.fillStyle = '#8B5CF6';
-            ctx.shadowColor = 'rgba(139, 92, 246, 0.3)';
-            ctx.shadowBlur = 30;
-            ctx.shadowOffsetY = 10;
-
-            const btnX = 310;
-            const btnY = 1700;
-            const btnW = 460;
-            const btnH = 80;
-            const btnRad = 40;
-
-            ctx.beginPath();
-            ctx.moveTo(btnX + btnRad, btnY);
-            ctx.lineTo(btnX + btnW - btnRad, btnY);
-            ctx.quadraticCurveTo(btnX + btnW, btnY, btnX + btnW, btnY + btnRad);
-            ctx.lineTo(btnX + btnW, btnY + btnH - btnRad);
-            ctx.quadraticCurveTo(btnX + btnW, btnY + btnH, btnX + btnW - btnRad, btnY + btnH);
-            ctx.lineTo(btnX + btnRad, btnY + btnH);
-            ctx.quadraticCurveTo(btnX, btnY + btnH, btnX, btnY + btnH - btnRad);
-            ctx.lineTo(btnX, btnY + btnRad);
-            ctx.quadraticCurveTo(btnX, btnY, btnX + btnRad, btnY);
-            ctx.closePath();
-            ctx.fill();
-
-            // Button text
-            ctx.fillStyle = 'white';
-            ctx.font = '700 40px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.shadowColor = 'transparent';
-            ctx.fillText('Download Now', 540, 1740);
+            ctx.font = '900 56px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+            ctx.textTransform = 'uppercase';
+            ctx.fillText(`LEARN ${songLanguage.toUpperCase()}`, 540, 1560);
 
             // Website
-            ctx.fillStyle = '#9CA3AF';
-            ctx.font = '500 32px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
-            ctx.fillText('lyricsensei.com', 540, 1830);
+            ctx.fillStyle = '#FFFFFF';
+            ctx.font = '700 48px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+            ctx.fillText('lyricsensei.com', 540, 1720);
+
+            // Platform info
+            ctx.fillStyle = 'rgba(255,255,255,0.6)';
+            ctx.font = '500 36px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+            ctx.fillText('Available on iOS & Android', 540, 1800);
 
             // Convert to blob
             canvas.toBlob(

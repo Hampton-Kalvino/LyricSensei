@@ -57,7 +57,7 @@ export const isMobileDevice = (): boolean => {
  * Opens the device's native share sheet
  */
 export const shareToSocialMedia = async (options: ShareOptions): Promise<boolean> => {
-  const { song, albumArt } = options;
+  const { song, albumArt, language } = options;
   const shareText = generateShareText(song);
   const shareUrl = generateShareUrl(song.id);
 
@@ -67,14 +67,14 @@ export const shareToSocialMedia = async (options: ShareOptions): Promise<boolean
       try {
         console.log("[Share] Generating visual card for mobile...");
         
-        // Generate visual card
+        // Generate visual card with language
         let imageBlob: Blob;
         try {
-          imageBlob = await generateStoryCard(song.title, song.artist, albumArt);
+          imageBlob = await generateStoryCard(song.title, song.artist, albumArt, language || 'Spanish');
           console.log("[Share] Card generated:", imageBlob.size, "bytes");
         } catch (error) {
           console.warn("[Share] html-to-image failed, using canvas:", error);
-          imageBlob = await generateStoryCardCanvas(song.title, song.artist, albumArt);
+          imageBlob = await generateStoryCardCanvas(song.title, song.artist, albumArt, language || 'Spanish');
         }
         
         // Convert blob to base64
@@ -167,21 +167,21 @@ const generateAndroidIntent = (platform: "instagram" | "facebook" | "twitter", u
  * On mobile (Android/iOS): generates story card and shares via Capacitor Share API
  * On web: opens Instagram website
  */
-export const shareToInstagram = async (song: Song, albumArt?: string): Promise<void> => {
+export const shareToInstagram = async (song: Song, albumArt?: string, language?: string): Promise<void> => {
   const shareUrl = generateShareUrl(song.id);
   
   if (isMobileDevice()) {
     try {
       console.log("[Instagram Share] Generating visual card...");
       
-      // Generate visual card
+      // Generate visual card with language
       let imageBlob: Blob;
       try {
-        imageBlob = await generateStoryCard(song.title, song.artist, albumArt || "");
+        imageBlob = await generateStoryCard(song.title, song.artist, albumArt || "", language || 'Spanish');
         console.log("[Instagram Share] Card generated:", imageBlob.size, "bytes");
       } catch (error) {
         console.warn("[Instagram Share] html-to-image failed, using canvas:", error);
-        imageBlob = await generateStoryCardCanvas(song.title, song.artist, albumArt || "");
+        imageBlob = await generateStoryCardCanvas(song.title, song.artist, albumArt || "", language || 'Spanish');
       }
       
       // Convert blob to base64
@@ -246,7 +246,7 @@ export const shareToFacebook = async (song: Song): Promise<void> => {
  * On mobile (Android/iOS): generates story card and shares via Capacitor Share API
  * On web: opens Twitter web intent
  */
-export const shareToTwitter = async (song: Song, albumArt?: string): Promise<void> => {
+export const shareToTwitter = async (song: Song, albumArt?: string, language?: string): Promise<void> => {
   const shareUrl = generateShareUrl(song.id);
   const shareText = generateShareText(song);
 
@@ -254,14 +254,14 @@ export const shareToTwitter = async (song: Song, albumArt?: string): Promise<voi
     try {
       console.log("[Twitter Share] Generating visual card...");
       
-      // Generate visual card
+      // Generate visual card with language
       let imageBlob: Blob;
       try {
-        imageBlob = await generateStoryCard(song.title, song.artist, albumArt || "");
+        imageBlob = await generateStoryCard(song.title, song.artist, albumArt || "", language || 'Spanish');
         console.log("[Twitter Share] Card generated:", imageBlob.size, "bytes");
       } catch (error) {
         console.warn("[Twitter Share] html-to-image failed, using canvas:", error);
-        imageBlob = await generateStoryCardCanvas(song.title, song.artist, albumArt || "");
+        imageBlob = await generateStoryCardCanvas(song.title, song.artist, albumArt || "", language || 'Spanish');
       }
       
       // Convert blob to base64

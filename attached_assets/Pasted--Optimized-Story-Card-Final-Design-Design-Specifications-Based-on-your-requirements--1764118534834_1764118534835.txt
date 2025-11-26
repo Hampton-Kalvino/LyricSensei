@@ -1,0 +1,406 @@
+# 🎨 Optimized Story Card - Final Design
+
+## Design Specifications
+
+Based on your requirements:
+- ✅ Darker background with album art
+- ✅ Album cover centered
+- ✅ Logo horizontal across top left
+- ✅ Song title - Artist name below album
+- ✅ "Learn [Language]" in purple bold (#8B5CF6)
+- ✅ App link at bottom
+
+---
+
+## Complete Implementation
+
+```typescript
+// client/src/lib/share-utils.ts
+
+import { toPng } from 'html-to-image';
+
+export async function generateStoryCard(
+  songTitle: string,
+  artistName: string,
+  albumArtwork: string,
+  songLanguage: string = 'Spanish' // Pass the actual language
+): Promise<Blob> {
+  const container = document.createElement('div');
+  container.style.position = 'fixed';
+  container.style.left = '-10000px';
+  container.style.top = '0';
+  container.style.width = '1080px';
+  container.style.height = '1920px';
+  
+  container.innerHTML = `
+    <div style="
+      width: 1080px;
+      height: 1920px;
+      background: #1a1a1a;
+      position: relative;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      overflow: hidden;
+    ">
+      <!-- Dark Blurred Background -->
+      <div style="
+        position: absolute;
+        inset: -100px;
+        background-image: url(${albumArtwork});
+        background-size: cover;
+        background-position: center;
+        filter: blur(100px) brightness(0.2);
+        opacity: 0.8;
+      "></div>
+
+      <!-- Dark Overlay -->
+      <div style="
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(180deg, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.4) 50%, rgba(0,0,0,0.8) 100%);
+      "></div>
+
+      <!-- Content -->
+      <div style="
+        position: relative;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        padding: 80px 60px;
+        z-index: 1;
+      ">
+        <!-- Top: Logo Horizontal (Left Aligned) -->
+        <div style="
+          display: flex;
+          align-items: center;
+          gap: 20px;
+        ">
+          <img 
+            src="/Lyric_Sensei_Logo_Single_Transparent.png"
+            style="
+              width: 70px;
+              height: 70px;
+              object-fit: contain;
+            "
+            alt="Lyric Sensei"
+          />
+          <div style="
+            font-size: 52px;
+            font-weight: 800;
+            color: #8B5CF6;
+            letter-spacing: -1px;
+          ">
+            Lyric Sensei
+          </div>
+        </div>
+
+        <!-- Middle: Centered Album Cover -->
+        <div style="
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 60px;
+        ">
+          <!-- Album Cover (Perfectly Centered) -->
+          <div style="
+            width: 750px;
+            height: 750px;
+            border-radius: 24px;
+            overflow: hidden;
+            box-shadow: 
+              0 50px 120px rgba(0,0,0,0.8),
+              0 0 0 1px rgba(255,255,255,0.1);
+          ">
+            <img 
+              src="${albumArtwork}" 
+              style="
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
+              "
+              crossorigin="anonymous"
+            />
+          </div>
+
+          <!-- Song Title - Artist Name -->
+          <div style="
+            text-align: center;
+            max-width: 900px;
+          ">
+            <div style="
+              font-size: 72px;
+              font-weight: 700;
+              color: #FFFFFF;
+              line-height: 1.2;
+              margin-bottom: 16px;
+            ">
+              ${songTitle} - ${artistName}
+            </div>
+          </div>
+
+          <!-- Learn [Language] CTA -->
+          <div style="
+            font-size: 56px;
+            font-weight: 900;
+            color: #8B5CF6;
+            text-align: center;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+          ">
+            Learn ${songLanguage}
+          </div>
+        </div>
+
+        <!-- Bottom: App Link -->
+        <div style="
+          text-align: center;
+        ">
+          <div style="
+            font-size: 48px;
+            font-weight: 700;
+            color: #FFFFFF;
+            margin-bottom: 16px;
+          ">
+            lyricsensei.com
+          </div>
+          <div style="
+            font-size: 36px;
+            color: rgba(255,255,255,0.6);
+            font-weight: 500;
+          ">
+            Available on iOS & Android
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(container);
+
+  try {
+    const dataUrl = await toPng(container.firstChild as HTMLElement, {
+      quality: 1.0,
+      pixelRatio: 2,
+      width: 1080,
+      height: 1920,
+      cacheBust: true
+    });
+
+    const response = await fetch(dataUrl);
+    const blob = await response.blob();
+
+    return blob;
+  } finally {
+    document.body.removeChild(container);
+  }
+}
+```
+
+---
+
+## Usage with Language Detection
+
+```typescript
+// client/src/components/ShareButton.tsx
+
+import { generateStoryCard } from '@/lib/share-utils';
+import { detectSongLanguage } from '@/lib/language-utils';
+
+export function ShareButton({ 
+  songTitle, 
+  artistName, 
+  albumArtwork, 
+  songUrl,
+  lyrics // Pass lyrics to detect language
+}) {
+  const [isSharing, setIsSharing] = useState(false);
+
+  const handleShare = async () => {
+    try {
+      setIsSharing(true);
+
+      // Detect language from lyrics
+      const language = detectSongLanguage(lyrics);
+      
+      // Generate story card with language
+      const imageBlob = await generateStoryCard(
+        songTitle,
+        artistName,
+        albumArtwork,
+        language
+      );
+
+      // Create file
+      const file = new File(
+        [imageBlob],
+        `lyric-sensei-${songTitle}.png`,
+        { type: 'image/png' }
+      );
+
+      // Share
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: songTitle,
+          text: `Learn ${language} with "${songTitle}" by ${artistName}!`,
+          url: songUrl
+        });
+      } else {
+        // Fallback: Download
+        const url = URL.createObjectURL(imageBlob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = file.name;
+        link.click();
+        URL.revokeObjectURL(url);
+      }
+
+    } catch (error) {
+      console.error('Share failed:', error);
+    } finally {
+      setIsSharing(false);
+    }
+  };
+
+  return (
+    <button onClick={handleShare} disabled={isSharing}>
+      {isSharing ? <Loader2 className="animate-spin" /> : <Share2 />}
+    </button>
+  );
+}
+```
+
+---
+
+## Language Detection Helper
+
+```typescript
+// client/src/lib/language-utils.ts
+
+export function detectSongLanguage(lyrics: string): string {
+  // Simple detection based on common words
+  const text = lyrics.toLowerCase();
+
+  const languagePatterns = {
+    Spanish: ['el', 'la', 'los', 'las', 'de', 'en', 'es', 'que', 'por', 'para', 'con', 'tu', 'mi'],
+    French: ['le', 'la', 'les', 'de', 'un', 'une', 'je', 'tu', 'il', 'nous', 'vous', 'ils', 'est', 'sont'],
+    Portuguese: ['o', 'a', 'os', 'as', 'de', 'em', 'para', 'com', 'não', 'é', 'um', 'uma'],
+    Italian: ['il', 'la', 'lo', 'i', 'le', 'di', 'da', 'in', 'con', 'per', 'non', 'che'],
+    German: ['der', 'die', 'das', 'den', 'dem', 'des', 'und', 'ist', 'nicht', 'ich', 'du', 'er'],
+    Japanese: ['は', 'が', 'を', 'に', 'の', 'で', 'と', 'も'],
+    Korean: ['은', '는', '이', '가', '을', '를', '에', '의'],
+    Mandarin: ['的', '是', '在', '了', '我', '你', '他'],
+  };
+
+  let maxMatches = 0;
+  let detectedLanguage = 'this Language';
+
+  for (const [language, patterns] of Object.entries(languagePatterns)) {
+    let matches = 0;
+    for (const pattern of patterns) {
+      if (text.includes(pattern)) {
+        matches++;
+      }
+    }
+    
+    if (matches > maxMatches) {
+      maxMatches = matches;
+      detectedLanguage = language;
+    }
+  }
+
+  return detectedLanguage;
+}
+```
+
+---
+
+## Alternative: Hardcoded Language Map
+
+If you store language with each song:
+
+```typescript
+// In your database schema
+interface Song {
+  id: string;
+  title: string;
+  artist: string;
+  language: 'Spanish' | 'French' | 'Portuguese' | 'Japanese' | 'Korean' | string;
+  // ...
+}
+
+// Then just use it directly
+const imageBlob = await generateStoryCard(
+  song.title,
+  song.artist,
+  song.albumArtwork,
+  song.language
+);
+```
+
+---
+
+## Visual Result
+
+```
+┌─────────────────────────────────────┐
+│ 🎵 Lyric Sensei                     │ ← Logo + Text (left)
+│                                     │
+│                                     │
+│        ┌───────────────┐            │
+│        │               │            │
+│        │  Album Art    │            │ ← Centered
+│        │   750x750     │            │
+│        │               │            │
+│        └───────────────┘            │
+│                                     │
+│    California - Mylène Farmer      │ ← Song - Artist
+│                                     │
+│        LEARN FRENCH                 │ ← Purple bold
+│                                     │
+│                                     │
+│       lyricsensei.com               │ ← Link
+│    Available on iOS & Android      │
+└─────────────────────────────────────┘
+```
+
+---
+
+## 🎯 Key Features
+
+✅ **Dark background** - Black with blurred album art (20% brightness)
+✅ **Centered album** - 750x750px perfectly centered
+✅ **Logo horizontal** - Top left with icon + text
+✅ **Song - Artist** - Single line below album
+✅ **Learn [Language]** - Purple (#8B5CF6), bold, uppercase
+✅ **App link** - Bottom with platform info
+
+---
+
+## 🚀 Quick Test
+
+```typescript
+// Test with different languages
+await generateStoryCard(
+  "Gitana",
+  "Willie Colón",
+  albumArtwork,
+  "Spanish"
+);
+
+await generateStoryCard(
+  "La Vie en Rose",
+  "Édith Piaf",
+  albumArtwork,
+  "French"
+);
+
+await generateStoryCard(
+  "Sukiyaki",
+  "Kyu Sakamoto",
+  albumArtwork,
+  "Japanese"
+);
+```
+
+**This design is clean, focused, and has a strong call-to-action!** 🎨✨
