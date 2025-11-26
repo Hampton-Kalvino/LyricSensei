@@ -116,13 +116,13 @@ export function ShareMenu({
           }
           break;
         case "instagram":
-          await shareToInstagram(song, albumArt);
+          await shareToInstagram(song, albumArt, song.detectedLanguage);
           break;
         case "facebook":
           await shareToFacebook(song);
           break;
         case "twitter":
-          await shareToTwitter(song, albumArt);
+          await shareToTwitter(song, albumArt, song.detectedLanguage);
           break;
         case "whatsapp":
           await shareToWhatsApp(song);

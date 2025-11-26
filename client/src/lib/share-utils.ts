@@ -17,6 +17,21 @@ export async function generateStoryCard(
   container.style.width = '1080px';
   container.style.height = '1920px';
   
+  // Escape HTML special characters
+  const escapeHtml = (text: string) => {
+    const map: Record<string, string> = {
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#039;'
+    };
+    return text.replace(/[&<>"']/g, (c) => map[c]);
+  };
+  
+  const escapedTitle = escapeHtml(songTitle);
+  const escapedArtist = escapeHtml(artistName);
+  
   container.innerHTML = `
     <div style="
       width: 1080px;
@@ -66,6 +81,7 @@ export async function generateStoryCard(
               width: 70px;
               height: 70px;
               object-fit: contain;
+              flex-shrink: 0;
             "
             alt="Lyric Sensei"
             crossorigin="anonymous"
@@ -75,6 +91,7 @@ export async function generateStoryCard(
             font-weight: 800;
             color: #8B5CF6;
             letter-spacing: -1px;
+            white-space: nowrap;
           ">
             Lyric Sensei
           </div>
@@ -100,6 +117,7 @@ export async function generateStoryCard(
             display: flex;
             align-items: center;
             justify-content: center;
+            flex-shrink: 0;
           ">
             <img 
               src="${albumArtwork}" 
@@ -113,19 +131,23 @@ export async function generateStoryCard(
             />
           </div>
 
-          <!-- Song Title - Artist Name -->
+          <!-- Song Title - Artist Name (with proper wrapping) -->
           <div style="
             text-align: center;
             max-width: 900px;
+            width: 100%;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            hyphens: auto;
           ">
             <div style="
-              font-size: 72px;
+              font-size: 56px;
               font-weight: 700;
               color: #FFFFFF;
-              line-height: 1.2;
+              line-height: 1.3;
               margin-bottom: 16px;
             ">
-              ${songTitle} - ${artistName}
+              ${escapedTitle} - ${escapedArtist}
             </div>
           </div>
 
@@ -312,12 +334,29 @@ export async function generateStoryCardCanvas(
 
             ctx.shadowColor = 'transparent';
 
-            // Song - Artist
+            // Song - Artist (wrapped text with smaller font)
             ctx.fillStyle = '#FFFFFF';
-            ctx.font = '700 72px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+            ctx.font = '700 52px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            ctx.fillText(`${songTitle} - ${artistName}`, 540, 1440);
+            
+            // Wrap text if too long
+            const fullText = `${songTitle} - ${artistName}`;
+            const maxWidth = 850;
+            const lineHeight = 70;
+            
+            if (ctx.measureText(fullText).width > maxWidth) {
+              // Split into two lines if too long
+              const parts = fullText.split(' - ');
+              if (parts.length === 2) {
+                ctx.fillText(parts[0], 540, 1380);
+                ctx.fillText('- ' + parts[1], 540, 1460);
+              } else {
+                ctx.fillText(fullText, 540, 1420);
+              }
+            } else {
+              ctx.fillText(fullText, 540, 1420);
+            }
 
             // Learn Language
             ctx.fillStyle = '#8B5CF6';

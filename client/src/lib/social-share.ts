@@ -54,6 +54,26 @@ export const isMobileDevice = (): boolean => {
 };
 
 /**
+ * Map language code to full language name
+ */
+function mapLanguageCode(code: string): string {
+  const languageMap: Record<string, string> = {
+    'en': 'English',
+    'es': 'Spanish',
+    'fr': 'French',
+    'pt': 'Portuguese',
+    'it': 'Italian',
+    'de': 'German',
+    'ja': 'Japanese',
+    'ko': 'Korean',
+    'zh': 'Mandarin',
+    'zh-CN': 'Mandarin',
+    'zh-TW': 'Mandarin',
+  };
+  return languageMap[code] || code;
+}
+
+/**
  * Native share using Capacitor (mobile) or Web Share API (web)
  * Opens the device's native share sheet
  */
@@ -68,8 +88,12 @@ export const shareToSocialMedia = async (options: ShareOptions): Promise<boolean
       try {
         console.log("[Share] Generating visual card for mobile...");
         
-        // Auto-detect language if not provided
-        const detectedLanguage = language || detectSongLanguage(song.artist);
+        // Use song's detected language, fallback to parameter, then auto-detect from artist
+        const detectedLanguage = song.detectedLanguage ? 
+          mapLanguageCode(song.detectedLanguage) : 
+          (language || detectSongLanguage(song.artist));
+        
+        console.log("[Share] Using language:", detectedLanguage, "from song:", song.detectedLanguage);
         
         // Generate visual card with language
         let imageBlob: Blob;
@@ -178,8 +202,12 @@ export const shareToInstagram = async (song: Song, albumArt?: string, language?:
     try {
       console.log("[Instagram Share] Generating visual card...");
       
-      // Auto-detect language if not provided
-      const detectedLanguage = language || detectSongLanguage(song.artist);
+      // Use song's detected language, fallback to parameter, then auto-detect from artist
+      const detectedLanguage = song.detectedLanguage ? 
+        mapLanguageCode(song.detectedLanguage) : 
+        (language || detectSongLanguage(song.artist));
+      
+      console.log("[Instagram Share] Using language:", detectedLanguage, "from song:", song.detectedLanguage);
       
       // Generate visual card with language
       let imageBlob: Blob;
@@ -261,8 +289,12 @@ export const shareToTwitter = async (song: Song, albumArt?: string, language?: s
     try {
       console.log("[Twitter Share] Generating visual card...");
       
-      // Auto-detect language if not provided
-      const detectedLanguage = language || detectSongLanguage(song.artist);
+      // Use song's detected language, fallback to parameter, then auto-detect from artist
+      const detectedLanguage = song.detectedLanguage ? 
+        mapLanguageCode(song.detectedLanguage) : 
+        (language || detectSongLanguage(song.artist));
+      
+      console.log("[Twitter Share] Using language:", detectedLanguage, "from song:", song.detectedLanguage);
       
       // Generate visual card with language
       let imageBlob: Blob;
