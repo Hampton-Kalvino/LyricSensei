@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -12,11 +13,16 @@ import { generateAchievementImage } from "@/lib/achievement-generator";
 export default function PracticeStats() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const [, navigate] = useLocation();
 
   const { data: stats = [], isLoading } = useQuery<PracticeStatsWithSong[]>({
     queryKey: ["/api/practice-stats"],
     enabled: !!user,
   });
+
+  const handlePracticeSong = (songId: string) => {
+    navigate(`/?song=${songId}`);
+  };
 
   // Function to get medal based on accuracy
   const getMedal = (accuracy: number) => {
@@ -150,8 +156,9 @@ export default function PracticeStats() {
             return (
               <Card
                 key={stat.id}
-                className="hover-elevate transition-all"
+                className="hover-elevate transition-all cursor-pointer"
                 data-testid={`practice-stat-card-${stat.songId}`}
+                onClick={() => handlePracticeSong(stat.songId)}
               >
                 <CardContent className="p-6">
                   <div className="flex items-center gap-4">
