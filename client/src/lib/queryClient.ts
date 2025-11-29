@@ -109,6 +109,11 @@ export async function apiRequest<T = unknown>(
     if (guestUserId) {
       headers['X-Guest-Id'] = guestUserId;
     }
+    
+    // Add authenticated user ID header for mobile fallback auth
+    if (authenticatedUserId) {
+      headers['X-User-Id'] = authenticatedUserId;
+    }
 
     const res = await fetch(fullUrl, {
       method,
@@ -147,6 +152,10 @@ export const getQueryFn: <T>(options: {
       
       if (guestUserId) {
         headers['X-Guest-Id'] = guestUserId;
+      }
+      
+      if (authenticatedUserId) {
+        headers['X-User-Id'] = authenticatedUserId;
       }
       
       const res = await fetch(fullUrl, {

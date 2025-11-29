@@ -7,7 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Card } from "@/components/ui/card";
 import { Mail, Lock, User, Music2, Music, Eye, EyeOff } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { clearGuestUserId } from "@/lib/queryClient";
+import { clearGuestUserId, setAuthenticatedUserId, clearAuthenticatedUserId } from "@/lib/queryClient";
 
 // Get backend URL based on Capacitor environment
 function getBackendUrl() {
@@ -71,10 +71,9 @@ export default function Login() {
       // Clear guest ID so it stops being sent in headers
       clearGuestUserId();
       
-      // Store authenticated user ID in localStorage for mobile (header-based auth fallback)
-      if (typeof window !== 'undefined' && user?.id) {
-        localStorage.setItem('authenticatedUserId', user.id);
-        console.log('[Auth] Stored authenticated user ID:', user.id);
+      // Store authenticated user ID for mobile (header-based auth fallback)
+      if (user?.id) {
+        setAuthenticatedUserId(user.id);
       }
       
       // Set user data in cache immediately so auth state updates right away
@@ -113,6 +112,9 @@ export default function Login() {
         title: "Welcome!",
         description: "You're now in guest mode. You can upgrade anytime!",
       });
+      
+      // Clear authenticated user ID for guest mode
+      clearAuthenticatedUserId();
       
       // Set guest user data in cache immediately so auth state updates right away
       queryClient.setQueryData(["/api/auth/user"], data.user || { id: data.id, isGuest: true, username: 'Guest', isPremium: false });
