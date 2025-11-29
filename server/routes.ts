@@ -245,22 +245,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Log in the user
       req.logIn(user, (err: any) => {
         if (err) {
-          console.error('Login error after signup:', err);
+          console.error('[SIGNUP] Login error after signup:', err);
+          console.error('[SIGNUP] Login error stack:', (err as any)?.stack);
           return res.status(500).json({ error: 'Account created but login failed. Please try logging in.' });
         }
         console.log(`[SIGNUP] User logged in successfully: ${user.id}`);
         res.json({ user });
       });
     } catch (error) {
-      console.error('[SIGNUP] Error:', error);
+      console.error('[SIGNUP] Error caught:', error);
+      console.error('[SIGNUP] Error type:', error?.constructor?.name);
+      console.error('[SIGNUP] Error stack:', (error as any)?.stack);
       
       // Handle database constraint errors
       if (error instanceof Error) {
         const message = error.message || '';
+        const code = (error as any)?.code;
         console.error('[SIGNUP] Error message:', message);
+        console.error('[SIGNUP] Error code:', code);
         
-        // Drizzle ORM unique constraint error
-        if (message.includes('unique') || message.includes('duplicate key') || message.includes('UNIQUE')) {
+        // Drizzle ORM unique constraint error (code 23505)
+        if (code === '23505' || message.includes('unique') || message.includes('duplicate key') || message.includes('UNIQUE')) {
           if (message.includes('email')) {
             return res.status(409).json({ error: 'Email already registered' });
           }
@@ -270,10 +275,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(409).json({ error: 'This email or username is already in use' });
         }
         
-        return res.status(500).json({ error: message });
+        // Return actual error message instead of generic message
+        console.error('[SIGNUP] Returning error message to client:', message);
+        return res.status(500).json({ error: message || 'Unknown error during signup' });
       }
       
-      res.status(500).json({ error: 'An unexpected error occurred during signup' });
+      // Log any non-Error type exceptions
+      console.error('[SIGNUP] Non-Error exception:', JSON.stringify(error, null, 2));
+      res.status(500).json({ error: 'An unexpected error occurred during signup', details: String(error) });
     }
   });
 
