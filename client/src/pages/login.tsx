@@ -7,6 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Card } from "@/components/ui/card";
 import { Mail, Lock, User, Music2, Music } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { clearGuestUserId } from "@/lib/queryClient";
 
 // Get backend URL based on Capacitor environment
 function getBackendUrl() {
@@ -65,6 +66,9 @@ export default function Login() {
         title: "Success",
         description: isSignUp ? "Account created successfully" : "Logged in successfully",
       });
+      
+      // Clear guest ID so it stops being sent in headers
+      clearGuestUserId();
       
       // Refetch auth query to get user data and update sidebar
       await queryClient.refetchQueries({ queryKey: ["/api/auth/user"] });
