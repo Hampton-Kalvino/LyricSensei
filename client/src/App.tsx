@@ -14,6 +14,8 @@ import { useAuth } from "@/hooks/useAuth";
 import Home from "@/pages/home";
 import Landing from "@/pages/landing";
 import Login from "@/pages/login";
+import ForgotPassword from "@/pages/forgot-password";
+import ResetPassword from "@/pages/reset-password";
 import Profile from "@/pages/profile";
 import Pricing from "@/pages/pricing";
 import Account from "@/pages/account";
@@ -62,6 +64,8 @@ function Router() {
             <Route path="/pricing" component={Pricing} />
             <Route path="/terms" component={Terms} />
             <Route path="/auth/login" component={Login} />
+            <Route path="/auth/forgot-password" component={ForgotPassword} />
+            <Route path="/auth/reset-password" component={ResetPassword} />
             <Route path="/" component={Landing} />
             <Route component={NotFound} />
           </Switch>

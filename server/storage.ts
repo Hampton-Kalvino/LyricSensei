@@ -1,5 +1,5 @@
-import type { Song, LyricLine, Translation, User, UpsertUser, InsertSong, InsertLyric, InsertTranslationsCache, RecognitionHistory, InsertRecognitionHistory, UserFavorite, InsertUserFavorite, PracticeStats, InsertPracticeStats, PracticeStatsWithSong, PronunciationAssessment, InsertPronunciationAssessment, PracticeSessionCache, InsertPracticeSessionCache, AzureUsageLedger, InsertAzureUsageLedger } from "@shared/schema";
-import { songs, lyrics, translationsCache, users, recognitionHistory, userFavorites, practiceStats, pronunciationAssessments, practiceSessionCache, azureUsageLedger } from "@shared/schema";
+import type { Song, LyricLine, Translation, User, UpsertUser, InsertSong, InsertLyric, InsertTranslationsCache, RecognitionHistory, InsertRecognitionHistory, UserFavorite, InsertUserFavorite, PracticeStats, InsertPracticeStats, PracticeStatsWithSong, PronunciationAssessment, InsertPronunciationAssessment, PracticeSessionCache, InsertPracticeSessionCache, AzureUsageLedger, InsertAzureUsageLedger, PasswordResetToken } from "@shared/schema";
+import { songs, lyrics, translationsCache, users, recognitionHistory, userFavorites, practiceStats, pronunciationAssessments, practiceSessionCache, azureUsageLedger, passwordResetTokens } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, sql, gte, lte } from "drizzle-orm";
 
@@ -32,6 +32,12 @@ export interface IStorage {
   updateUserTranslationCount(id: string, count: number, resetDate: string): Promise<void>;
   checkAndUpdateTranslationLimit(userId: string): Promise<{ allowed: boolean, remaining: number }>;
   updateUserAuthProvider(userId: string, provider: string): Promise<void>;
+  
+  // Password reset
+  createPasswordResetToken(userId: string, token: string, expiresAt: Date): Promise<PasswordResetToken>;
+  getPasswordResetToken(token: string): Promise<(PasswordResetToken & { user?: User }) | undefined>;
+  deletePasswordResetToken(token: string): Promise<void>;
+  updateUserPassword(userId: string, passwordHash: string): Promise<void>;
   
   // Recognition History
   addRecognitionHistory(history: InsertRecognitionHistory): Promise<RecognitionHistory>;
@@ -361,6 +367,33 @@ export class DatabaseStorage implements IStorage {
 
   async updateUserAuthProvider(userId: string, provider: string): Promise<void> {
     await db.update(users).set({ authProvider: provider }).where(eq(users.id, userId));
+  }
+
+  async createPasswordResetToken(userId: string, token: string, expiresAt: Date): Promise<PasswordResetToken> {
+    const [resetToken] = await db.insert(passwordResetTokens).values({ userId, token, expiresAt }).returning();
+    return resetToken;
+  }
+
+  async getPasswordResetToken(token: string): Promise<(PasswordResetToken & { user?: User }) | undefined> {
+    const [resetToken] = await db.select().from(passwordResetTokens).where(eq(passwordResetTokens.token, token)).limit(1);
+    if (!resetToken) return undefined;
+    
+    // Check if token has expired
+    if (new Date() > resetToken.expiresAt) {
+      await db.delete(passwordResetTokens).where(eq(passwordResetTokens.token, token));
+      return undefined;
+    }
+
+    const user = await this.getUser(resetToken.userId);
+    return { ...resetToken, user };
+  }
+
+  async deletePasswordResetToken(token: string): Promise<void> {
+    await db.delete(passwordResetTokens).where(eq(passwordResetTokens.token, token));
+  }
+
+  async updateUserPassword(userId: string, passwordHash: string): Promise<void> {
+    await db.update(users).set({ passwordHash }).where(eq(users.id, userId));
   }
 
   async checkAndUpdateTranslationLimit(userId: string): Promise<{ allowed: boolean, remaining: number }> {
