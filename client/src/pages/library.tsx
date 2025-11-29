@@ -9,7 +9,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest, queryClient, getQueryFn } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { RecognitionResult, LyricLine, Translation, Song } from "@shared/schema";
 import { formatDistanceToNow } from "date-fns";
 import { LyricDisplay } from "@/components/lyric-display";
@@ -99,14 +99,12 @@ export default function Library() {
   };
 
   const { data: history = [], isLoading: isHistoryLoading, isError: isHistoryError } = useQuery<RecognitionResult[]>({
-    queryKey: ["/api/recognition-history?limit=100"],
-    queryFn: getQueryFn(),
+    queryKey: ["/api/recognition-history"],
     enabled: !!user,
   });
 
   const { data: favorites = [], isLoading: isFavoritesLoading, isError: isFavoritesError } = useQuery<RecognitionResult[]>({
     queryKey: ["/api/favorites"],
-    queryFn: getQueryFn(),
     enabled: !!user,
   });
 
