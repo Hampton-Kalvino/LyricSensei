@@ -30,6 +30,9 @@ export function AppSidebar() {
   const [, setLocation] = useLocation();
   const { isInstalled, showInstallPrompt, hasPrompt } = usePWAInstall();
   const [showManualInstructions, setShowManualInstructions] = useState(false);
+  
+  // Hide install button in native Capacitor app (already installed as native app)
+  const isNativeApp = !!(window as any).Capacitor;
 
   const handleAuthButton = async () => {
     if (user) {
@@ -154,7 +157,7 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
       <SidebarFooter className="p-4 space-y-2">
-        {!isInstalled && (
+        {!isInstalled && !isNativeApp && (
           <Button
             onClick={async () => {
               console.log('[PWA] Install button clicked, hasPrompt:', hasPrompt);
