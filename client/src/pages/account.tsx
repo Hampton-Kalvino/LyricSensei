@@ -195,6 +195,40 @@ export default function Account() {
     }
   };
 
+  const handlePhotoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Check file size (max 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      toast({
+        title: "File Too Large",
+        description: "Image must be less than 10MB.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      
+      // Update form value immediately so preview shows
+      form.setValue("profileImageUrl", dataUrl);
+    } catch (readError) {
+      console.error("File read error:", readError);
+      toast({
+        title: "Image Upload Failed",
+        description: "Could not process the image file.",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <div className="min-h-screen p-6 md:p-12">
       <div className="max-w-4xl mx-auto space-y-8">
@@ -336,6 +370,7 @@ export default function Account() {
                           type="file"
                           accept="image/*"
                           ref={fileInputRef}
+                          onChange={handlePhotoSelect}
                           className="hidden"
                           data-testid="input-profile-picture-file"
                         />
