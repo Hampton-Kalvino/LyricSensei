@@ -337,6 +337,78 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
 
+  // Forgot password - request password reset
+  app.post('/api/auth/forgot-password', async (req: any, res) => {
+    try {
+      const { email } = req.body;
+      
+      if (!email) {
+        return res.status(400).json({ error: 'Email is required' });
+      }
+
+      const user = await storage.getUserByEmail(email);
+      if (!user) {
+        // Return success even if user doesn't exist (security best practice)
+        return res.json({ success: true, message: 'If an account exists with this email, a reset link has been sent.' });
+      }
+
+      // Generate reset token (32 character hex string)
+      const token = randomBytes(16).toString('hex');
+      const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour expiry
+
+      // Save reset token to database
+      await storage.createPasswordResetToken(user.id, token, expiresAt);
+
+      // TODO: Send email with reset link
+      // For now, log the token for testing
+      const resetUrl = `${process.env.FRONTEND_URL || 'https://lyricsensei.com'}/#/auth/reset-password?token=${token}`;
+      console.log(`[PASSWORD RESET] Reset link for ${email}: ${resetUrl}`);
+
+      // In production, send email here using nodemailer or similar
+      // Example: await sendPasswordResetEmail(email, resetUrl);
+
+      res.json({ success: true, message: 'Password reset link sent to your email' });
+    } catch (error) {
+      console.error('[PASSWORD RESET] Error:', error);
+      res.status(500).json({ error: 'Failed to process password reset request' });
+    }
+  });
+
+  // Reset password - complete the password reset
+  app.post('/api/auth/reset-password', async (req: any, res) => {
+    try {
+      const { token, password } = req.body;
+      
+      if (!token || !password) {
+        return res.status(400).json({ error: 'Token and password are required' });
+      }
+
+      if (password.length < 8) {
+        return res.status(400).json({ error: 'Password must be at least 8 characters' });
+      }
+
+      // Validate reset token
+      const resetData = await storage.getPasswordResetToken(token);
+      if (!resetData || !resetData.user) {
+        return res.status(400).json({ error: 'Invalid or expired reset token' });
+      }
+
+      // Hash new password
+      const passwordHash = await bcrypt.hash(password, 10);
+
+      // Update user password
+      await storage.updateUserPassword(resetData.user.id, passwordHash);
+
+      // Delete used reset token
+      await storage.deletePasswordResetToken(token);
+
+      res.json({ success: true, message: 'Password has been reset successfully' });
+    } catch (error) {
+      console.error('[RESET PASSWORD] Error:', error);
+      res.status(500).json({ error: 'Failed to reset password' });
+    }
+  });
+
   // Search for songs using iTunes API (MUST come before :id route)
   app.get("/api/songs/search", async (req, res) => {
     try {
