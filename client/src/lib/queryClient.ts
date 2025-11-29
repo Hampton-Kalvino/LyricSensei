@@ -40,6 +40,35 @@ export function clearGuestUserId() {
 }
 // --- End Guest User ID Management ---
 
+// --- Authenticated User ID Management (for mobile fallback) ---
+let authenticatedUserId: string | null = null;
+
+// Initialize from localStorage on app load
+if (typeof window !== 'undefined') {
+  const stored = localStorage.getItem('authenticatedUserId');
+  if (stored) {
+    authenticatedUserId = stored;
+    console.log('[Auth] Loaded authenticated user ID from localStorage:', authenticatedUserId);
+  }
+}
+
+export function setAuthenticatedUserId(id: string) {
+  authenticatedUserId = id;
+  if (typeof window !== 'undefined') {
+    localStorage.setItem('authenticatedUserId', id);
+    console.log('[Auth] Stored authenticated user ID:', id);
+  }
+}
+
+export function clearAuthenticatedUserId() {
+  authenticatedUserId = null;
+  if (typeof window !== 'undefined') {
+    localStorage.removeItem('authenticatedUserId');
+    console.log('[Auth] Cleared authenticated user ID');
+  }
+}
+// --- End Authenticated User ID Management ---
+
 
 // Detect if running in Capacitor (mobile app)
 const isCapacitor = !!(window as any).Capacitor;

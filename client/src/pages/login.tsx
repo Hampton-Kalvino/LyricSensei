@@ -71,6 +71,12 @@ export default function Login() {
       // Clear guest ID so it stops being sent in headers
       clearGuestUserId();
       
+      // Store authenticated user ID in localStorage for mobile (header-based auth fallback)
+      if (typeof window !== 'undefined' && user?.id) {
+        localStorage.setItem('authenticatedUserId', user.id);
+        console.log('[Auth] Stored authenticated user ID:', user.id);
+      }
+      
       // Set user data in cache immediately so auth state updates right away
       queryClient.setQueryData(["/api/auth/user"], user);
       

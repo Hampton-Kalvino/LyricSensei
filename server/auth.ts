@@ -501,7 +501,7 @@ export async function setupNewAuth(app: Express) {
   // Note: /api/auth/user endpoint is defined in routes.ts to handle both authenticated and guest users
 }
 
-// Middleware to check authentication (supports both session-based and header-based guest auth)
+// Middleware to check authentication (supports session-based, header-based guest auth, and header-based user auth for mobile)
 export const isAuthenticated = async (req: Request, res: Response, next: NextFunction) => {
   // Check for guest ID in headers (for mobile/header-based auth)
   const guestId = (req.headers as any)['x-guest-id'];
@@ -516,6 +516,20 @@ export const isAuthenticated = async (req: Request, res: Response, next: NextFun
       authProvider: 'guest',
     };
     return next();
+  }
+
+  // Check for authenticated user ID in headers (for mobile Capacitor fallback when session fails)
+  const userId = (req.headers as any)['x-user-id'];
+  if (userId && typeof userId === 'string') {
+    try {
+      const user = await storage.getUser(userId);
+      if (user) {
+        (req as any).user = user;
+        return next();
+      }
+    } catch (error) {
+      console.error('[Auth] Error fetching user from header:', error);
+    }
   }
 
   // Check for session-based authentication (Passport)
