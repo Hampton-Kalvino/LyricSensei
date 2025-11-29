@@ -46,6 +46,40 @@ I prefer iterative development with clear communication on significant changes. 
 - **Lyric Timing & Scrolling**: Absolute time positioning and container-based scrolling with IntersectionObserver.
 - **Album Artwork**: Fetched from Spotify API with fallback.
 
+## Email & DNS Configuration
+
+### Resend Domain Verification (Nov 29, 2025)
+**Domain**: lyricsensei.com
+
+DNS records to add at your domain provider (Route53, Cloudflare, GoDaddy, etc.):
+
+#### Domain Verification (DKIM)
+- **Type**: TXT
+- **Name**: `resend._domainkey`
+- **Content**: `p=MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDkih34+f3CqVYCpeuFaedHMU45sh8ta7eoqrFgRWr1jJEFc62iSwUV8uUqBPcz8HltfaVI1wJh7eABFS+Cl9IvvC1yH6VRUSs39Jg8Hhh0aZ4yf8G5iYHJSBvGb37YO7/mhfu/tEf6TRh1GyX/TUPBDZQEcs2OhGLz/BH2cxra0wIDAQAB`
+- **TTL**: Auto
+
+#### Enable Sending (SPF & MX)
+- **Type**: MX
+- **Name**: `send`
+- **Content**: `feedback-smtp.us-east-1.amazonses.com`
+- **Priority**: 10
+- **TTL**: Auto
+
+- **Type**: TXT
+- **Name**: `send`
+- **Content**: `v=spf1 include:amazonses.com ~all`
+- **TTL**: Auto
+
+#### Enable Receiving (MX)
+- **Type**: MX
+- **Name**: `@`
+- **Content**: `inbound-smtp.us-east-1.amazonaws.com`
+- **Priority**: 10
+- **TTL**: Auto
+
+**Status**: DNS records configured. Add these to your domain provider. DNS typically propagates in 15-30 minutes, up to 48 hours globally. Once verified, Resend will enable email sending.
+
 ## External Dependencies
 - **ACRCloud**: Music recognition service.
 - **Azure Translator**: Microsoft Cognitive Services for translation and transliteration.
