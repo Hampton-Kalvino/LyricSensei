@@ -362,49 +362,63 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const resetUrl = `${process.env.FRONTEND_URL || 'https://lyricsensei.com'}/#/auth/reset-password?token=${token}`;
       console.log(`[PASSWORD RESET] Reset link for ${email}: ${resetUrl}`);
 
-      // Send email with reset link using Resend
+      // Send email with reset link using Resend (only attempt if Resend is configured)
       try {
-        const { getUncachableResendClient } = await import('./resend-client');
-        const { client, fromEmail } = await getUncachableResendClient();
-        
-        await client.emails.send({
-          from: fromEmail,
-          to: email,
-          subject: 'Reset Your Lyric Sensei Password',
-          html: `
-            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-              <div style="background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%); padding: 40px; text-align: center; border-radius: 8px 8px 0 0;">
-                <h1 style="color: white; margin: 0; font-size: 28px;">Lyric Sensei</h1>
-              </div>
-              <div style="background: #f9fafb; padding: 40px; border-radius: 0 0 8px 8px;">
-                <h2 style="color: #1f2937; margin-top: 0;">Password Reset Request</h2>
-                <p style="color: #6b7280; line-height: 1.6;">
-                  We received a request to reset the password for your Lyric Sensei account. 
-                  If you didn't make this request, you can safely ignore this email.
-                </p>
-                <p style="color: #6b7280; line-height: 1.6;">
-                  Click the button below to reset your password. This link will expire in 1 hour.
-                </p>
-                <div style="text-align: center; margin: 30px 0;">
-                  <a href="${resetUrl}" style="background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%); color: white; padding: 12px 32px; border-radius: 6px; text-decoration: none; display: inline-block; font-weight: bold;">
-                    Reset Password
-                  </a>
-                </div>
-                <p style="color: #9ca3af; font-size: 14px; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
-                  Or copy and paste this link in your browser:<br/>
-                  <code style="color: #6366f1; word-break: break-all;">${resetUrl}</code>
-                </p>
-                <p style="color: #9ca3af; font-size: 12px; margin-top: 20px;">
-                  Lyric Sensei Team
-                </p>
-              </div>
-            </div>
-          `,
-        });
-        
-        console.log(`[PASSWORD RESET] Email sent successfully to ${email}`);
+        if (!process.env.REPLIT_CONNECTORS_HOSTNAME) {
+          console.warn('[PASSWORD RESET] Resend not configured (REPLIT_CONNECTORS_HOSTNAME missing)');
+        } else {
+          const { getUncachableResendClient } = await import('./resend-client').catch((err) => {
+            console.warn('[PASSWORD RESET] Failed to import resend-client:', err.message);
+            return { getUncachableResendClient: null };
+          });
+          
+          if (getUncachableResendClient) {
+            try {
+              const { client, fromEmail } = await getUncachableResendClient();
+              
+              await client.emails.send({
+                from: fromEmail,
+                to: email,
+                subject: 'Reset Your Lyric Sensei Password',
+                html: `
+                  <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                    <div style="background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%); padding: 40px; text-align: center; border-radius: 8px 8px 0 0;">
+                      <h1 style="color: white; margin: 0; font-size: 28px;">Lyric Sensei</h1>
+                    </div>
+                    <div style="background: #f9fafb; padding: 40px; border-radius: 0 0 8px 8px;">
+                      <h2 style="color: #1f2937; margin-top: 0;">Password Reset Request</h2>
+                      <p style="color: #6b7280; line-height: 1.6;">
+                        We received a request to reset the password for your Lyric Sensei account. 
+                        If you didn't make this request, you can safely ignore this email.
+                      </p>
+                      <p style="color: #6b7280; line-height: 1.6;">
+                        Click the button below to reset your password. This link will expire in 1 hour.
+                      </p>
+                      <div style="text-align: center; margin: 30px 0;">
+                        <a href="${resetUrl}" style="background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%); color: white; padding: 12px 32px; border-radius: 6px; text-decoration: none; display: inline-block; font-weight: bold;">
+                          Reset Password
+                        </a>
+                      </div>
+                      <p style="color: #9ca3af; font-size: 14px; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
+                        Or copy and paste this link in your browser:<br/>
+                        <code style="color: #6366f1; word-break: break-all;">${resetUrl}</code>
+                      </p>
+                      <p style="color: #9ca3af; font-size: 12px; margin-top: 20px;">
+                        Lyric Sensei Team
+                      </p>
+                    </div>
+                  </div>
+                `,
+              });
+              
+              console.log(`[PASSWORD RESET] Email sent successfully to ${email}`);
+            } catch (sendError) {
+              console.error('[PASSWORD RESET] Failed to send email:', sendError);
+            }
+          }
+        }
       } catch (emailError) {
-        console.error('[PASSWORD RESET] Failed to send email:', emailError);
+        console.error('[PASSWORD RESET] Email service error:', emailError);
         // Don't fail the request if email fails, but log it
       }
 
