@@ -1,0 +1,407 @@
+# 🔧 Fix: 401 Authentication Error in Mobile App
+
+## Problem
+
+Mobile app shows:
+```
+401: {"error":"Authentication required"}
+```
+
+When trying to update profile, even though user is logged in.
+
+## Root Cause
+
+**Capacitor apps don't automatically send cookies like web browsers do.**
+
+The session cookie from login isn't being included in API requests.
+
+---
+
+## ✅ Solution 1: Use Capacitor HTTP Plugin (Recommended)
+
+The native HTTP plugin properly handles cookies and authentication.
+
+### Step 1: Install Plugin
+
+```bash
+npm install @capacitor/http
+npx cap sync
+```
+
+### Step 2: Create API Wrapper
+
+```typescript
+// client/src/lib/api.ts
+
+import { CapacitorHttp, HttpOptions, HttpResponse } from '@capacitor/http';
+import { Capacitor } from '@capacitor/core';
+
+const API_URL = import.meta.env.VITE_API_URL || 'https://lyricsensei.com';
+
+interface ApiOptions extends Omit<HttpOptions, 'url'> {
+  url: string;
+}
+
+async function apiRequest<T = any>(options: ApiOptions): Promise<T> {
+  const isNative = Capacitor.isNativePlatform();
+
+  // Use native HTTP for mobile, fetch for web
+  if (isNative) {
+    console.log('[API Native] Request:', options.method, options.url);
+
+    const response: HttpResponse = await CapacitorHttp.request({
+      ...options,
+      url: `${API_URL}${options.url}`,
+      headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+      },
+      // CRITICAL: Enable cookie handling
+      webFetchExtra: {
+        credentials: 'include'
+      }
+    });
+
+    console.log('[API Native] Response:', response.status);
+
+    if (response.status >= 400) {
+      throw new Error(`${response.status}: ${JSON.stringify(response.data)}`);
+    }
+
+    return response.data;
+  } else {
+    // Web: use regular fetch
+    console.log('[API Web] Request:', options.method, options.url);
+
+    const response = await fetch(`${API_URL}${options.url}`, {
+      method: options.method,
+      headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+      },
+      body: options.data ? JSON.stringify(options.data) : undefined,
+      credentials: 'include'
+    });
+
+    console.log('[API Web] Response:', response.status);
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: 'Request failed' }));
+      throw new Error(`${response.status}: ${JSON.stringify(error)}`);
+    }
+
+    return await response.json();
+  }
+}
+
+// API Methods
+export const api = {
+  // GET request
+  get: <T = any>(url: string, params?: Record<string, any>): Promise<T> => {
+    const queryString = params 
+      ? '?' + new URLSearchParams(params).toString()
+      : '';
+    
+    return apiRequest<T>({
+      url: url + queryString,
+      method: 'GET'
+    });
+  },
+
+  // POST request
+  post: <T = any>(url: string, data?: any): Promise<T> => {
+    return apiRequest<T>({
+      url,
+      method: 'POST',
+      data
+    });
+  },
+
+  // PUT request
+  put: <T = any>(url: string, data?: any): Promise<T> => {
+    return apiRequest<T>({
+      url,
+      method: 'PUT',
+      data
+    });
+  },
+
+  // DELETE request
+  delete: <T = any>(url: string): Promise<T> => {
+    return apiRequest<T>({
+      url,
+      method: 'DELETE'
+    });
+  },
+
+  // PATCH request
+  patch: <T = any>(url: string, data?: any): Promise<T> => {
+    return apiRequest<T>({
+      url,
+      method: 'PATCH',
+      data
+    });
+  }
+};
+```
+
+### Step 3: Update Profile Update Code
+
+```typescript
+// client/src/pages/edit-profile.tsx (or wherever profile update is)
+
+import { api } from '@/lib/api';
+import { useToast } from '@/hooks/use-toast';
+
+export function EditProfile() {
+  const { toast } = useToast();
+
+  const handleSaveProfile = async (profileData: {
+    firstName: string;
+    lastName: string;
+    username: string;
+    country: string;
+  }) => {
+    try {
+      console.log('[Profile] Updating profile:', profileData);
+
+      // Use new API wrapper
+      const updatedUser = await api.put('/api/user/profile', profileData);
+
+      console.log('[Profile] Update successful:', updatedUser);
+
+      toast({
+        title: 'Profile Updated',
+        description: 'Your changes have been saved'
+      });
+
+      // Refresh user data in auth context
+      await refreshUser();
+
+    } catch (error) {
+      console.error('[Profile] Update error:', error);
+
+      toast({
+        title: 'Update Failed',
+        description: error instanceof Error ? error.message : 'Could not save changes',
+        variant: 'destructive'
+      });
+    }
+  };
+
+  return (
+    // ... your form UI
+  );
+}
+```
+
+### Step 4: Update Auth Context
+
+```typescript
+// client/src/contexts/AuthContext.tsx
+
+import { api } from '@/lib/api';
+
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [user, setUser] = useState<User | null>(null);
+
+  // Fetch current user
+  const fetchUser = async () => {
+    try {
+      const userData = await api.get('/api/user/me');
+      console.log('[Auth] User loaded:', userData);
+      setUser(userData);
+    } catch (error) {
+      console.log('[Auth] No user session');
+      setUser(null);
+    }
+  };
+
+  // Login
+  const login = async (username: string, password: string) => {
+    try {
+      const userData = await api.post('/api/auth/login', { username, password });
+      console.log('[Auth] Login successful:', userData);
+      setUser(userData);
+    } catch (error) {
+      console.error('[Auth] Login error:', error);
+      throw error;
+    }
+  };
+
+  // ... rest of auth methods
+}
+```
+
+---
+
+## ✅ Solution 2: Backend - Enable CORS for Mobile
+
+Make sure your backend accepts requests from the mobile app:
+
+```typescript
+// server/index.ts
+
+import cors from 'cors';
+
+app.use(cors({
+  origin: [
+    'http://localhost:5173',           // Vite dev
+    'https://lyricsensei.com',         // Web
+    'capacitor://localhost',           // iOS
+    'http://localhost',                // Android local
+    'ionic://localhost'                // Ionic apps
+  ],
+  credentials: true,  // CRITICAL: Allow cookies
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+
+// Session config
+app.use(session({
+  secret: process.env.SESSION_SECRET || 'your-secret',
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: process.env.NODE_ENV === 'production',
+    httpOnly: true,
+    maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax'  // CRITICAL for mobile
+  },
+  store: sessionStore
+}));
+```
+
+---
+
+## ✅ Solution 3: Add Environment Variable
+
+```bash
+# client/.env
+
+# Development
+VITE_API_URL=http://localhost:5000
+
+# Production (when building for mobile)
+VITE_API_URL=https://lyricsensei.com
+```
+
+```typescript
+// capacitor.config.ts
+
+import { CapacitorConfig } from '@capacitor/cli';
+
+const config: CapacitorConfig = {
+  appId: 'com.lyricsensei.app',
+  appName: 'Lyric Sensei',
+  webDir: 'dist',
+  server: {
+    androidScheme: 'https',
+    // Allow API requests
+    cleartext: true,
+    allowNavigation: [
+      'lyricsensei.com',
+      'localhost'
+    ]
+  },
+  plugins: {
+    CapacitorHttp: {
+      enabled: true
+    }
+  }
+};
+
+export default config;
+```
+
+---
+
+## 🔍 Debugging
+
+Add these logs to track the issue:
+
+```typescript
+// Before API call
+console.log('[API] Making request:', {
+  url: '/api/user/profile',
+  method: 'PUT',
+  isNative: Capacitor.isNativePlatform(),
+  hasSession: document.cookie.includes('connect.sid')
+});
+
+// After API call
+console.log('[API] Response:', response);
+```
+
+Check Android logs:
+```bash
+npx cap run android --livereload --external
+```
+
+Then in logcat, look for:
+```
+[API Native] Request: PUT /api/user/profile
+[API Native] Response: 200  ← Should be 200, not 401
+```
+
+---
+
+## 🎯 Alternative: Token-Based Auth (If Cookies Don't Work)
+
+If cookies still don't work on mobile, switch to JWT tokens:
+
+```typescript
+// Store token in Capacitor Storage
+import { Preferences } from '@capacitor/preferences';
+
+// After login
+await Preferences.set({
+  key: 'authToken',
+  value: loginResponse.token
+});
+
+// In API wrapper
+const token = await Preferences.get({ key: 'authToken' });
+
+const response = await CapacitorHttp.request({
+  url: `${API_URL}${options.url}`,
+  headers: {
+    'Authorization': `Bearer ${token.value}`,
+    ...options.headers
+  }
+});
+```
+
+---
+
+## ✅ Complete Fix Checklist
+
+- [ ] Install `@capacitor/http` plugin
+- [ ] Create API wrapper (`client/src/lib/api.ts`)
+- [ ] Update all API calls to use wrapper
+- [ ] Enable CORS with credentials in backend
+- [ ] Set `sameSite: 'none'` for production cookies
+- [ ] Add Android `cleartext` config
+- [ ] Set `VITE_API_URL` environment variable
+- [ ] Test login on mobile
+- [ ] Test profile update on mobile
+- [ ] Check logcat for 200 response
+
+---
+
+## 🎯 Expected Result
+
+**Before:**
+```
+[API] PUT /api/user/profile
+Error: 401: Authentication required
+```
+
+**After:**
+```
+[API Native] Request: PUT /api/user/profile
+[API Native] Response: 200
+[Profile] Update successful: { username: 'Damonimi91', ... }
+```
+
+**The key is using @capacitor/http for native API calls with proper cookie handling!** 🔧✨

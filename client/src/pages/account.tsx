@@ -8,7 +8,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Crown, Mail, Calendar, CreditCard, AlertCircle, User, Edit2, Save, Globe, LogOut, Upload } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { Link, Redirect, useLocation } from "wouter";
-import { apiRequest, queryClient, clearGuestUserId, clearAuthenticatedUserId } from "@/lib/queryClient";
+import { api } from "@/lib/api";
+import { queryClient, clearGuestUserId, clearAuthenticatedUserId } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useState, useRef } from "react";
 import { useTranslation } from "react-i18next";
@@ -94,10 +95,10 @@ export default function Account() {
         }
       }
       
-      await apiRequest("PUT", "/api/user/profile", submitData);
+      const updatedUser = await api.put("/api/user/profile", submitData);
       
-      // Invalidate user query to refetch updated data
-      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      // Update cache with new user data
+      queryClient.setQueryData(["/api/auth/user"], updatedUser);
       
       toast({
         title: "Profile Updated",
@@ -147,7 +148,7 @@ export default function Account() {
   const handleManageSubscription = async () => {
     setIsLoading(true);
     try {
-      const data = await apiRequest("POST", "/api/create-portal-session") as { url: string };
+      const data = await api.post("/api/create-portal-session") as { url: string };
       window.location.href = data.url;
     } catch (error) {
       console.error("Portal error:", error);
@@ -168,7 +169,7 @@ export default function Account() {
     
     setIsLoading(true);
     try {
-      const data = await apiRequest("POST", "/api/create-portal-session") as { url: string };
+      const data = await api.post("/api/create-portal-session") as { url: string };
       window.location.href = data.url;
     } catch (error) {
       console.error("Portal error:", error);
