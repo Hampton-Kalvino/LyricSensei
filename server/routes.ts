@@ -36,7 +36,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   await setupNewAuth(app);
 
   // New auth endpoint - get current user (updated for new auth system)
-  app.get("/api/auth/user", (req: any, res) => {
+  app.get("/api/auth/user", async (req: any, res) => {
     // Check for guest ID in headers
     const guestId = req.headers['x-guest-id'];
     
@@ -54,10 +54,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     
     // Check for authenticated user
     if (!req.user) {
+      console.log('[Auth] No req.user found');
       return res.status(401).json({ error: "Not authenticated" });
     }
     
-    res.json(req.user);
+    // Fetch complete user data from database using the ID from session
+    try {
+      const userId = req.user.id;
+      const fullUser = await storage.getUser(userId);
+      
+      if (!fullUser) {
+        console.log('[Auth] User not found in database:', userId);
+        return res.status(401).json({ error: "User not found" });
+      }
+      
+      console.log('[Auth] Returning full user data:', fullUser.id);
+      res.json(fullUser);
+    } catch (error) {
+      console.error('[Auth] Error fetching user:', error);
+      res.status(500).json({ error: "Failed to fetch user" });
+    }
   });
 
   // OLD - Keep for backward compatibility but won't be used
