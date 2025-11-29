@@ -70,9 +70,10 @@ export default function Login() {
       // Clear guest ID so it stops being sent in headers
       clearGuestUserId();
       
-      // Refetch auth query to get user data and update sidebar
-      await queryClient.refetchQueries({ queryKey: ["/api/auth/user"] });
+      // Set user data in cache immediately so auth state updates right away
+      queryClient.setQueryData(["/api/auth/user"], user);
       
+      // Redirect to home (authenticated users will see Home page)
       setLocation("/");
     } catch (error) {
       toast({
@@ -100,13 +101,14 @@ export default function Login() {
         throw new Error("Guest login failed");
       }
 
+      const data = await response.json();
       toast({
         title: "Welcome!",
         description: "You're now in guest mode. You can upgrade anytime!",
       });
       
-      // Refetch auth query to get user data and update sidebar
-      await queryClient.refetchQueries({ queryKey: ["/api/auth/user"] });
+      // Set guest user data in cache immediately so auth state updates right away
+      queryClient.setQueryData(["/api/auth/user"], data.user || { id: data.id, isGuest: true, username: 'Guest', isPremium: false });
       
       setLocation("/");
     } catch (error) {
