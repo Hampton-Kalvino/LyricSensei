@@ -1,51 +1,46 @@
-import { CapacitorHttp, HttpOptions, HttpResponse } from '@capacitor/http';
 import { Capacitor } from '@capacitor/core';
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://lyricsensei.com';
 
-interface ApiOptions extends Omit<HttpOptions, 'url'> {
-  url: string;
-}
-
-async function apiRequest<T = any>(options: ApiOptions): Promise<T> {
+async function apiRequest<T = any>(method: string, url: string, data?: any): Promise<T> {
   const isNative = Capacitor.isNativePlatform();
 
   // Use native HTTP for mobile, fetch for web
   if (isNative) {
-    console.log('[API Native] Request:', options.method, options.url);
+    console.log('[API Native] Request:', method, url);
 
     try {
-      const response: HttpResponse = await CapacitorHttp.request({
-        ...options,
-        url: `${API_URL}${options.url}`,
+      const response = await fetch(`${API_URL}${url}`, {
+        method,
         headers: {
           'Content-Type': 'application/json',
-          ...options.headers
-        }
+        },
+        body: data ? JSON.stringify(data) : undefined,
+        credentials: 'include'
       });
 
       console.log('[API Native] Response:', response.status);
 
-      if (response.status >= 400) {
-        throw new Error(`${response.status}: ${JSON.stringify(response.data)}`);
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ error: 'Request failed' }));
+        throw new Error(`${response.status}: ${JSON.stringify(error)}`);
       }
 
-      return response.data;
+      return await response.json();
     } catch (error) {
       console.error('[API Native] Error:', error);
       throw error;
     }
   } else {
     // Web: use regular fetch
-    console.log('[API Web] Request:', options.method, options.url);
+    console.log('[API Web] Request:', method, url);
 
-    const response = await fetch(`${API_URL}${options.url}`, {
-      method: options.method,
+    const response = await fetch(`${API_URL}${url}`, {
+      method,
       headers: {
         'Content-Type': 'application/json',
-        ...options.headers
       },
-      body: options.data ? JSON.stringify(options.data) : undefined,
+      body: data ? JSON.stringify(data) : undefined,
       credentials: 'include'
     });
 
@@ -68,44 +63,26 @@ export const api = {
       ? '?' + new URLSearchParams(params).toString()
       : '';
     
-    return apiRequest<T>({
-      url: url + queryString,
-      method: 'GET'
-    });
+    return apiRequest<T>('GET', url + queryString);
   },
 
   // POST request
   post: <T = any>(url: string, data?: any): Promise<T> => {
-    return apiRequest<T>({
-      url,
-      method: 'POST',
-      data
-    });
+    return apiRequest<T>('POST', url, data);
   },
 
   // PUT request
   put: <T = any>(url: string, data?: any): Promise<T> => {
-    return apiRequest<T>({
-      url,
-      method: 'PUT',
-      data
-    });
+    return apiRequest<T>('PUT', url, data);
   },
 
   // DELETE request
   delete: <T = any>(url: string): Promise<T> => {
-    return apiRequest<T>({
-      url,
-      method: 'DELETE'
-    });
+    return apiRequest<T>('DELETE', url);
   },
 
   // PATCH request
   patch: <T = any>(url: string, data?: any): Promise<T> => {
-    return apiRequest<T>({
-      url,
-      method: 'PATCH',
-      data
-    });
+    return apiRequest<T>('PATCH', url, data);
   }
 };
