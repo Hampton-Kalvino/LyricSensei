@@ -24,6 +24,7 @@ import PracticeStats from "@/pages/practice-stats";
 import Terms from "@/pages/terms";
 import NotFound from "@/pages/not-found";
 import { Footer } from "@/components/footer";
+import { AdSense } from "@/components/ad-sense";
 import "@/i18n/config";
 
 // --- Guest User Initialization ---
@@ -100,6 +101,7 @@ function App() {
         <TooltipProvider>
           <WouterRouter hook={useHashLocation}>
             <AuthenticatedApp style={style} />
+            <AdSense />
           </WouterRouter>
           <Toaster />
         </TooltipProvider>
