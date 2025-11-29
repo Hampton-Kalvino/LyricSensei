@@ -112,13 +112,28 @@ export default function ForgotPassword() {
             </form>
           ) : (
             <div className="space-y-4 text-center">
+              <div className="flex justify-center mb-4">
+                <Mail className="h-12 w-12 text-primary" />
+              </div>
               <p className="text-sm text-muted-foreground">
                 We've sent a password reset link to <strong>{email}</strong>. 
                 Check your email and follow the link to reset your password.
               </p>
               <p className="text-xs text-muted-foreground">
-                Didn't receive an email? Check your spam folder or try again.
+                The reset link will expire in 1 hour.
               </p>
+              <p className="text-xs text-muted-foreground mt-4">
+                Didn't receive an email? Check your spam folder.
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full mt-6"
+                onClick={() => setIsSubmitted(false)}
+                data-testid="button-try-again"
+              >
+                Try Another Email
+              </Button>
             </div>
           )}
 

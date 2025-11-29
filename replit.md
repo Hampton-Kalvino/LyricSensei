@@ -50,6 +50,17 @@ I prefer iterative development with clear communication on significant changes. 
 
 ## Recent Fixes & Improvements
 
+### New Features (Nov 29, 2025)
+- **Password Show/Hide Toggle (Login Page)**: Added Eye/EyeOff icon toggle to password input field on login page, allowing users to view/hide password while typing
+- **Forgot Password Flow**: Implemented complete password reset system:
+  - New `/auth/forgot-password` page for requesting password reset
+  - New `/auth/reset-password` page for creating new password with token validation
+  - Backend endpoints `/api/auth/forgot-password` and `/api/auth/reset-password`
+  - Database schema for `password_reset_tokens` table with 1-hour expiry
+  - Resend email integration sending professional password reset emails with clickable button
+  - Token generation and validation with automatic expiry cleanup
+- **Google AdSense Integration**: Added AdSense script tag to index.html for site-wide ad serving (ads only show to free-tier users, not premium)
+
 ### Fixed Issues
 - **Minimalist Share Card Design (Nov 26, 2025)**: Redesigned share cards with clean, professional minimalist aesthetic: (1) White gradient background (subtle top-to-bottom), (2) Logo + "Lyric Sensei" horizontal layout at top-left (80×80px logo), (3) Large 700×700px album artwork with subtle rounded shadow, (4) Bold typography: 80px song title, 52px artist name, (5) Purple "Download Now" button with lyricsensei.com below, (6) Both html-to-image and Canvas implementations match the minimalist white design, (7) Professional typography with -apple-system font stack. Clean, modern aesthetic focuses on music content with minimal visual clutter.
 

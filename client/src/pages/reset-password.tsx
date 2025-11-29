@@ -16,9 +16,20 @@ function getBackendUrl() {
 
 function getTokenFromUrl() {
   if (typeof window === 'undefined') return null;
+  // Extract token from URL: /#/auth/reset-password?token=xxx
+  const search = window.location.search;
+  if (search) {
+    const params = new URLSearchParams(search);
+    return params.get('token');
+  }
+  // Fallback: try hash-based routing /#/auth/reset-password?token=xxx
   const hash = window.location.hash;
-  const params = new URLSearchParams(hash.split('?')[1]);
-  return params.get('token');
+  const hashPart = hash.split('?')[1];
+  if (hashPart) {
+    const params = new URLSearchParams(hashPart);
+    return params.get('token');
+  }
+  return null;
 }
 
 export default function ResetPassword() {
