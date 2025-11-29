@@ -66,8 +66,8 @@ export default function Login() {
         description: isSignUp ? "Account created successfully" : "Logged in successfully",
       });
       
-      // Invalidate auth query to refetch user data and update sidebar
-      await queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      // Refetch auth query to get user data and update sidebar
+      await queryClient.refetchQueries({ queryKey: ["/api/auth/user"] });
       
       setLocation("/");
     } catch (error) {
@@ -101,8 +101,8 @@ export default function Login() {
         description: "You're now in guest mode. You can upgrade anytime!",
       });
       
-      // Invalidate auth query to refetch user data and update sidebar
-      await queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      // Refetch auth query to get user data and update sidebar
+      await queryClient.refetchQueries({ queryKey: ["/api/auth/user"] });
       
       setLocation("/");
     } catch (error) {
