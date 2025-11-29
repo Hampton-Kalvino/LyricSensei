@@ -210,6 +210,7 @@ export default function Account() {
     }
 
     try {
+      // Read the file as data URL
       const dataUrl = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => resolve(reader.result as string);
@@ -217,8 +218,38 @@ export default function Account() {
         reader.readAsDataURL(file);
       });
       
+      // Resize and crop the image to a square
+      const resizedDataUrl = await new Promise<string>((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const size = 512; // Size of the final image
+          canvas.width = size;
+          canvas.height = size;
+          
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            reject(new Error('Could not get canvas context'));
+            return;
+          }
+          
+          // Calculate crop dimensions (crop to square from center)
+          const imgSize = Math.min(img.width, img.height);
+          const offsetX = (img.width - imgSize) / 2;
+          const offsetY = (img.height - imgSize) / 2;
+          
+          // Draw cropped and resized image
+          ctx.drawImage(img, offsetX, offsetY, imgSize, imgSize, 0, 0, size, size);
+          
+          // Convert to data URL with compression
+          resolve(canvas.toDataURL('image/jpeg', 0.85));
+        };
+        img.onerror = () => reject(new Error('Could not load image'));
+        img.src = dataUrl;
+      });
+      
       // Update form value immediately so preview shows
-      form.setValue("profileImageUrl", dataUrl);
+      form.setValue("profileImageUrl", resizedDataUrl);
     } catch (readError) {
       console.error("File read error:", readError);
       toast({
