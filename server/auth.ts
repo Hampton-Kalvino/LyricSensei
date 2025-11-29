@@ -502,7 +502,7 @@ export async function setupNewAuth(app: Express) {
 }
 
 // Middleware to check authentication (supports both session-based and header-based guest auth)
-export const isAuthenticated = (req: Request, res: Response, next: NextFunction) => {
+export const isAuthenticated = async (req: Request, res: Response, next: NextFunction) => {
   // Check for guest ID in headers (for mobile/header-based auth)
   const guestId = (req.headers as any)['x-guest-id'];
   if (guestId && typeof guestId === 'string' && guestId.startsWith('guest-')) {
