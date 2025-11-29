@@ -8,7 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Crown, Mail, Calendar, CreditCard, AlertCircle, User, Edit2, Save, Globe, LogOut, Upload } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { Link, Redirect, useLocation } from "wouter";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+import { apiRequest, queryClient, clearGuestUserId, clearAuthenticatedUserId } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useState, useRef } from "react";
 import { useTranslation } from "react-i18next";
@@ -122,10 +122,18 @@ export default function Account() {
 
   const handleLogout = async () => {
     try {
-      await fetch("/api/auth/logout", {
+      const backendUrl = !!(window as any).Capacitor ? "https://lyricsensei.com" : window.location.origin;
+      const fullUrl = !!(window as any).Capacitor ? `${backendUrl}/api/auth/logout` : "/api/auth/logout";
+      
+      await fetch(fullUrl, {
         method: "POST",
         credentials: "include",
       });
+      
+      // Clear all auth identifiers
+      clearGuestUserId();
+      clearAuthenticatedUserId();
+      
       setLocation("#/auth/login");
     } catch (error) {
       toast({
