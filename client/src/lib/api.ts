@@ -1,40 +1,21 @@
-import { Capacitor } from '@capacitor/core';
-
 const API_URL = import.meta.env.VITE_API_URL || 'https://lyricsensei.com';
 
+// Dynamically check if Capacitor is available (only in native environment)
+let isCapacitorAvailable = false;
+if (typeof window !== 'undefined') {
+  try {
+    isCapacitorAvailable = !!(window as any).Capacitor;
+  } catch {
+    isCapacitorAvailable = false;
+  }
+}
+
 async function apiRequest<T = any>(method: string, url: string, data?: any): Promise<T> {
-  const isNative = Capacitor.isNativePlatform();
+  const isNative = isCapacitorAvailable;
 
-  // Use native HTTP for mobile, fetch for web
-  if (isNative) {
-    console.log('[API Native] Request:', method, url);
+  console.log('[API] Request:', method, url, { isNative });
 
-    try {
-      const response = await fetch(`${API_URL}${url}`, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: data ? JSON.stringify(data) : undefined,
-        credentials: 'include'
-      });
-
-      console.log('[API Native] Response:', response.status);
-
-      if (!response.ok) {
-        const error = await response.json().catch(() => ({ error: 'Request failed' }));
-        throw new Error(`${response.status}: ${JSON.stringify(error)}`);
-      }
-
-      return await response.json();
-    } catch (error) {
-      console.error('[API Native] Error:', error);
-      throw error;
-    }
-  } else {
-    // Web: use regular fetch
-    console.log('[API Web] Request:', method, url);
-
+  try {
     const response = await fetch(`${API_URL}${url}`, {
       method,
       headers: {
@@ -44,7 +25,7 @@ async function apiRequest<T = any>(method: string, url: string, data?: any): Pro
       credentials: 'include'
     });
 
-    console.log('[API Web] Response:', response.status);
+    console.log('[API] Response:', response.status);
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({ error: 'Request failed' }));
@@ -52,6 +33,9 @@ async function apiRequest<T = any>(method: string, url: string, data?: any): Pro
     }
 
     return await response.json();
+  } catch (error) {
+    console.error('[API] Error:', error);
+    throw error;
   }
 }
 

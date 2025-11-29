@@ -1,5 +1,6 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
+// Only load Capacitor config when building for native, not for web deployment
 const config: CapacitorConfig = {
   appId: 'com.lyricsensei.app',
   appName: 'Lyric Sensei',
