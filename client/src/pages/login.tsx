@@ -1,11 +1,21 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
+import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { Card } from "@/components/ui/card";
 import { Mail, Lock, User, Music2, Music } from "lucide-react";
 import { useTranslation } from "react-i18next";
+
+// Get backend URL based on Capacitor environment
+function getBackendUrl() {
+  const isCapacitor = !!(window as any).Capacitor;
+  if (isCapacitor) {
+    return "https://lyricsensei.com";
+  }
+  return window.location.origin;
+}
 
 export default function Login() {
   const [isSignUp, setIsSignUp] = useState(false);
@@ -18,6 +28,7 @@ export default function Login() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const { t } = useTranslation();
+  const queryClient = useQueryClient();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -25,11 +36,14 @@ export default function Login() {
 
     try {
       const endpoint = isSignUp ? "/api/auth/signup" : "/api/auth/login";
+      const backendUrl = getBackendUrl();
+      const fullUrl = !!(window as any).Capacitor ? `${backendUrl}${endpoint}` : endpoint;
+      
       const payload = isSignUp
         ? { email, password, username, firstName, lastName }
         : { email, password };
 
-      const response = await fetch(endpoint, {
+      const response = await fetch(fullUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -51,6 +65,10 @@ export default function Login() {
         title: "Success",
         description: isSignUp ? "Account created successfully" : "Logged in successfully",
       });
+      
+      // Invalidate auth query to refetch user data and update sidebar
+      await queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      
       setLocation("/");
     } catch (error) {
       toast({
@@ -66,7 +84,10 @@ export default function Login() {
   const handleGuestMode = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch("/api/auth/guest", {
+      const backendUrl = getBackendUrl();
+      const fullUrl = !!(window as any).Capacitor ? `${backendUrl}/api/auth/guest` : "/api/auth/guest";
+      
+      const response = await fetch(fullUrl, {
         method: "POST",
         credentials: "include",
       });
@@ -79,6 +100,10 @@ export default function Login() {
         title: "Welcome!",
         description: "You're now in guest mode. You can upgrade anytime!",
       });
+      
+      // Invalidate auth query to refetch user data and update sidebar
+      await queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      
       setLocation("/");
     } catch (error) {
       toast({
