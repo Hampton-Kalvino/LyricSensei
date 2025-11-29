@@ -157,7 +157,7 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
       <SidebarFooter className="p-4 space-y-2">
-        {!isInstalled && !isNativeApp && (
+        {!isNativeApp && !isInstalled && (
           <Button
             onClick={async () => {
               console.log('[PWA] Install button clicked, hasPrompt:', hasPrompt);
