@@ -378,6 +378,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       console.log('[PASSWORD RESET] Request completed successfully');
+      console.log('[PASSWORD RESET] Reset token generated:', token.substring(0, 10) + '...');
       res.json({ success: true, message: 'Password reset link sent to your email' });
     } catch (error) {
       console.error('[PASSWORD RESET] Caught error:', error);
