@@ -11,7 +11,7 @@ import { getACRCloudClient } from "./acrcloud";
 import { fetchLyricsFromLrcLib } from "./lrclib";
 import { getTrackDetails } from "./spotify";
 import { searchITunes, searchITunesTracks } from "./itunes";
-import { generatePasswordResetEmail } from "./lib/email-templates";
+import { sendPasswordResetEmail } from "./lib/email";
 import {
   translateLyricsRequestSchema,
   recognizeSongRequestSchema,
@@ -367,37 +367,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.createPasswordResetToken(user.id, token, expiresAt);
       console.log('[PASSWORD RESET] Token saved successfully');
 
-      const resetUrl = `${process.env.FRONTEND_URL || 'https://lyricsensei.com'}/#/auth/reset-password?token=${token}`;
-      console.log(`[PASSWORD RESET] Reset link for ${email}: ${resetUrl}`);
+      console.log(`[PASSWORD RESET] Reset link for ${email}: token=${token}`);
 
-      // Send email with reset link using Resend (only attempt if Resend is configured)
+      // Send email with reset link
       try {
-        if (!process.env.REPLIT_CONNECTORS_HOSTNAME) {
-          console.warn('[PASSWORD RESET] Resend not configured (REPLIT_CONNECTORS_HOSTNAME missing)');
-        } else {
-          console.log('[PASSWORD RESET] Attempting to send email via Resend');
-          const { getUncachableResendClient } = await import('./resend-client').catch((err) => {
-            console.warn('[PASSWORD RESET] Failed to import resend-client:', err.message);
-            return { getUncachableResendClient: null };
-          });
-          
-          if (getUncachableResendClient) {
-            try {
-              const { client, fromEmail } = await getUncachableResendClient();
-              
-              await client.emails.send({
-                from: fromEmail,
-                to: email,
-                subject: 'Reset Your Lyric Sensei Password',
-                html: generatePasswordResetEmail(user.username || 'there', resetUrl),
-              });
-              
-              console.log(`[PASSWORD RESET] Email sent successfully to ${email}`);
-            } catch (sendError) {
-              console.error('[PASSWORD RESET] Failed to send email:', sendError);
-            }
-          }
-        }
+        await sendPasswordResetEmail(email, user.username || 'there', token);
       } catch (emailError) {
         console.error('[PASSWORD RESET] Email service error:', emailError);
         // Don't fail the request if email fails, but log it
