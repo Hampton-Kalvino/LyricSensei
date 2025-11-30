@@ -49,9 +49,19 @@ export async function getUncachableResendClient() {
       throw new Error('[RESEND] Resend from_email not configured in connection settings');
     }
 
+    const apiKey = connectionSettings.settings.api_key;
+    const fromEmail = connectionSettings.settings.from_email;
+
+    // Log for debugging (mask the API key for security)
+    console.log('[RESEND] Initializing client with API key:', apiKey.substring(0, 10) + '...');
+    console.log('[RESEND] From email:', fromEmail);
+
+    const resendClient = new Resend(apiKey);
+
     return {
-      client: new Resend(connectionSettings.settings.api_key),
-      fromEmail: connectionSettings.settings.from_email
+      client: resendClient,
+      fromEmail: fromEmail,
+      apiKey: apiKey
     };
   } catch (error) {
     console.error('[RESEND] Error getting Resend client:', error);
