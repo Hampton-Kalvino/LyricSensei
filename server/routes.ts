@@ -341,24 +341,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Forgot password - request password reset
   app.post('/api/auth/forgot-password', async (req: any, res) => {
     try {
+      console.log('[PASSWORD RESET] Starting forgot-password request');
       const { email } = req.body;
       
       if (!email) {
+        console.log('[PASSWORD RESET] No email provided');
         return res.status(400).json({ error: 'Email is required' });
       }
 
+      console.log('[PASSWORD RESET] Looking up user by email:', email);
       const user = await storage.getUserByEmail(email);
       if (!user) {
+        console.log('[PASSWORD RESET] User not found for email:', email);
         // Return success even if user doesn't exist (security best practice)
         return res.json({ success: true, message: 'If an account exists with this email, a reset link has been sent.' });
       }
 
+      console.log('[PASSWORD RESET] User found, generating token for user:', user.id);
       // Generate reset token (32 character hex string)
       const token = randomBytes(16).toString('hex');
       const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour expiry
 
       // Save reset token to database
+      console.log('[PASSWORD RESET] Saving reset token to database');
       await storage.createPasswordResetToken(user.id, token, expiresAt);
+      console.log('[PASSWORD RESET] Token saved successfully');
 
       const resetUrl = `${process.env.FRONTEND_URL || 'https://lyricsensei.com'}/#/auth/reset-password?token=${token}`;
       console.log(`[PASSWORD RESET] Reset link for ${email}: ${resetUrl}`);
@@ -368,6 +375,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (!process.env.REPLIT_CONNECTORS_HOSTNAME) {
           console.warn('[PASSWORD RESET] Resend not configured (REPLIT_CONNECTORS_HOSTNAME missing)');
         } else {
+          console.log('[PASSWORD RESET] Attempting to send email via Resend');
           const { getUncachableResendClient } = await import('./resend-client').catch((err) => {
             console.warn('[PASSWORD RESET] Failed to import resend-client:', err.message);
             return { getUncachableResendClient: null };
@@ -395,9 +403,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Don't fail the request if email fails, but log it
       }
 
+      console.log('[PASSWORD RESET] Request completed successfully');
       res.json({ success: true, message: 'Password reset link sent to your email' });
     } catch (error) {
-      console.error('[PASSWORD RESET] Error:', error);
+      console.error('[PASSWORD RESET] Caught error:', error);
+      console.error('[PASSWORD RESET] Error stack:', (error as any)?.stack);
+      console.error('[PASSWORD RESET] Error name:', (error as any)?.name);
+      console.error('[PASSWORD RESET] Error message:', (error as any)?.message);
       res.status(500).json({ error: 'Failed to process password reset request' });
     }
   });
