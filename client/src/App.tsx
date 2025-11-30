@@ -113,19 +113,20 @@ function Router() {
     );
   }
 
-  // Check if on a public-only route (like password reset)
-  const isOnPublicRoute = location.includes('/auth/reset-password') || 
-                          location.includes('/auth/forgot-password') ||
-                          location.includes('/pricing') ||
-                          location.includes('/terms') ||
-                          location === '/';
+  // FIXED: Check for public routes more accurately
+  const isOnPublicRoute = 
+    location.startsWith('/auth/reset-password') || 
+    location.startsWith('/auth/forgot-password') ||
+    location === '/pricing' ||
+    location === '/terms' ||
+    location === '/';
 
-  // For reset password and forgot password, show public routes regardless of auth
-  if (isOnPublicRoute && !isAuthenticated) {
+  // Show public routes for unauthenticated users on public paths
+  if (!isAuthenticated && isOnPublicRoute) {
     return <PublicRoutes />;
   }
 
-  // For unauthenticated users on other routes, show unauthenticated routes
+  // For unauthenticated users on other routes, redirect to login
   if (!isAuthenticated) {
     return <UnauthenticatedRouter />;
   }
