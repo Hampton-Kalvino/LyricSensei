@@ -53,8 +53,11 @@ export async function getUncachableResendClient() {
     const fromEmail = connectionSettings.settings.from_email;
 
     // Log for debugging (mask the API key for security)
-    console.log('[RESEND] Initializing client with API key:', apiKey.substring(0, 10) + '...');
-    console.log('[RESEND] From email:', fromEmail);
+    console.log('[RESEND] ✓ API Key found (length:', apiKey.length, 'chars)');
+    console.log('[RESEND] ✓ Masked API key:', apiKey.substring(0, 10) + '...');
+    console.log('[RESEND] ✓ From email:', fromEmail);
+    console.log('[RESEND] ⚠️  IMPORTANT: Ensure this API key has "Sending access" permission for lyricsensei.com domain');
+    console.log('[RESEND] ⚠️  If you get 403 errors, generate a new API key with proper permissions in Resend dashboard');
 
     const resendClient = new Resend(apiKey);
 

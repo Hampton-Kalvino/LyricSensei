@@ -35,11 +35,20 @@ export async function sendPasswordResetEmail(
       console.log('[Email] Password reset email sent successfully to:', email);
       return true;
     } catch (clientError: any) {
-      console.error('[Email] Resend error details:', clientError);
-      console.error('[Email] Error message:', clientError?.message);
+      console.error('[Email] ❌ RESEND EMAIL FAILED');
       console.error('[Email] Error status:', clientError?.status);
-      console.error('[Email] Error response:', clientError?.response);
-      console.error('[Email] Full error:', JSON.stringify(clientError, null, 2));
+      console.error('[Email] Error message:', clientError?.message);
+      
+      if (clientError?.status === 403) {
+        console.error('[Email] 403 FORBIDDEN - This indicates an authorization issue:');
+        console.error('[Email] - Check that your Resend API key in the Replit integration is valid');
+        console.error('[Email] - Verify the API key has "Sending access" permission for lyricsensei.com');
+        console.error('[Email] - Or use an API key with "Full access" permissions');
+        console.error('[Email] - You may need to generate a new API key in your Resend dashboard');
+      }
+      
+      console.error('[Email] Error details:', clientError);
+      console.error('[Email] Full error JSON:', JSON.stringify(clientError, null, 2));
       return false;
     }
   } catch (error) {
