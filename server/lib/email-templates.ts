@@ -45,7 +45,7 @@ export function generatePasswordResetEmail(
                 margin: 0 0 8px 0;
                 letter-spacing: -0.5px;
               ">
-                Lyric Sensei
+                lyric sensei
               </h1>
               
               <p style="
@@ -87,7 +87,7 @@ export function generatePasswordResetEmail(
                 line-height: 1.6;
                 margin: 0 0 32px 0;
               ">
-                We received a request to reset your password for your Lyric Sensei account. 
+                We received a request to reset your password for your lyric sensei account. 
                 Click the button below to create a new password.
               </p>
 
@@ -131,7 +131,7 @@ export function generatePasswordResetEmail(
                       margin: 0 0 8px 0;
                       font-weight: 600;
                     ">
-                      🔒 Security Reminder
+                      Security Reminder
                     </p>
                     <p style="
                       color: #6b7280;
@@ -205,7 +205,7 @@ export function generatePasswordResetEmail(
                 font-size: 14px;
                 margin: 0 0 16px 0;
               ">
-                © 2025 Lyric Sensei. All rights reserved.
+                © 2025 lyric sensei. All rights reserved.
               </p>
               
               <p style="
