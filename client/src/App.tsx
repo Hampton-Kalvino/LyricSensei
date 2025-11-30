@@ -40,6 +40,64 @@ function initAuth() {
 initAuth(); // Run this logic once on app load
 // --- End Guest User Initialization ---
 
+// Routes that should always be accessible (regardless of auth)
+function PublicRoutes() {
+  return (
+    <div className="flex flex-col min-h-screen" style={{ paddingTop: 'var(--safe-area-inset-top)', paddingBottom: 'var(--safe-area-inset-bottom)', paddingLeft: 'var(--safe-area-inset-left)', paddingRight: 'var(--safe-area-inset-right)' }}>
+      <div className="flex-1">
+        <Switch>
+          <Route path="/pricing" component={Pricing} />
+          <Route path="/terms" component={Terms} />
+          <Route path="/auth/login" component={Login} />
+          <Route path="/auth/forgot-password" component={ForgotPassword} />
+          <Route path="/auth/reset-password" component={ResetPassword} />
+          <Route path="/" component={Landing} />
+          <Route component={NotFound} />
+        </Switch>
+      </div>
+      <Footer />
+    </div>
+  );
+}
+
+// Routes for unauthenticated users
+function UnauthenticatedRouter() {
+  return (
+    <div className="flex flex-col min-h-screen" style={{ paddingTop: 'var(--safe-area-inset-top)', paddingBottom: 'var(--safe-area-inset-bottom)', paddingLeft: 'var(--safe-area-inset-left)', paddingRight: 'var(--safe-area-inset-right)' }}>
+      <div className="flex-1">
+        <Switch>
+          <Route path="/pricing" component={Pricing} />
+          <Route path="/terms" component={Terms} />
+          <Route path="/auth/login" component={Login} />
+          <Route path="/auth/forgot-password" component={ForgotPassword} />
+          <Route path="/" component={Landing} />
+          <Route component={NotFound} />
+        </Switch>
+      </div>
+      <Footer />
+    </div>
+  );
+}
+
+// Routes for authenticated users
+function AuthenticatedRouter() {
+  return (
+    <Switch>
+      <Route path="/pricing" component={Pricing} />
+      <Route path="/terms" component={Terms} />
+      <Route path="/auth/login" component={Login} />
+      <Route path="/" component={Home} />
+      <Route path="/library" component={Library} />
+      <Route path="/practice-stats" component={PracticeStats} />
+      <Route path="/account" component={Account} />
+      <Route path="/profile" component={Profile} />
+      <Route path="/checkout" component={Checkout} />
+      <Route path="/checkout/return" component={CheckoutReturn} />
+      <Route component={NotFound} />
+    </Switch>
+  );
+}
+
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
   const [location] = useLocation();
@@ -55,44 +113,25 @@ function Router() {
     );
   }
 
-  // For unauthenticated users, show only public routes
+  // Check if on a public-only route (like password reset)
+  const isOnPublicRoute = location.includes('/auth/reset-password') || 
+                          location.includes('/auth/forgot-password') ||
+                          location.includes('/pricing') ||
+                          location.includes('/terms') ||
+                          location === '/';
+
+  // For reset password and forgot password, show public routes regardless of auth
+  if (isOnPublicRoute && !isAuthenticated) {
+    return <PublicRoutes />;
+  }
+
+  // For unauthenticated users on other routes, show unauthenticated routes
   if (!isAuthenticated) {
-    return (
-      <div className="flex flex-col min-h-screen" style={{ paddingTop: 'var(--safe-area-inset-top)', paddingBottom: 'var(--safe-area-inset-bottom)', paddingLeft: 'var(--safe-area-inset-left)', paddingRight: 'var(--safe-area-inset-right)' }}>
-        <div className="flex-1">
-          <Switch>
-            <Route path="/pricing" component={Pricing} />
-            <Route path="/terms" component={Terms} />
-            <Route path="/auth/login" component={Login} />
-            <Route path="/auth/forgot-password" component={ForgotPassword} />
-            <Route path="/auth/reset-password" component={ResetPassword} />
-            <Route path="/" component={Landing} />
-            <Route component={NotFound} />
-          </Switch>
-        </div>
-        <Footer />
-      </div>
-    );
+    return <UnauthenticatedRouter />;
   }
 
   // For authenticated users, show all routes
-  return (
-    <Switch>
-      <Route path="/pricing" component={Pricing} />
-      <Route path="/terms" component={Terms} />
-      <Route path="/auth/login" component={Login} />
-      <Route path="/auth/forgot-password" component={ForgotPassword} />
-      <Route path="/auth/reset-password" component={ResetPassword} />
-      <Route path="/" component={Home} />
-      <Route path="/library" component={Library} />
-      <Route path="/practice-stats" component={PracticeStats} />
-      <Route path="/account" component={Account} />
-      <Route path="/profile" component={Profile} />
-      <Route path="/checkout" component={Checkout} />
-      <Route path="/checkout/return" component={CheckoutReturn} />
-      <Route component={NotFound} />
-    </Switch>
-  );
+  return <AuthenticatedRouter />;
 }
 
 function App() {
