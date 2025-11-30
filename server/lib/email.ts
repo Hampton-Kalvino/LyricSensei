@@ -20,7 +20,7 @@ export async function sendPasswordResetEmail(
       const { client, fromEmail } = await getUncachableResendClient();
       
       await client.emails.send({
-        from: fromEmail,
+        from: `Lyric Sensei <${fromEmail}>`,
         to: email,
         subject: 'Reset Your Lyric Sensei Password',
         html: generatePasswordResetEmail(userName, resetUrl),
