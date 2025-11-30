@@ -81,6 +81,8 @@ function Router() {
       <Route path="/pricing" component={Pricing} />
       <Route path="/terms" component={Terms} />
       <Route path="/auth/login" component={Login} />
+      <Route path="/auth/forgot-password" component={ForgotPassword} />
+      <Route path="/auth/reset-password" component={ResetPassword} />
       <Route path="/" component={Home} />
       <Route path="/library" component={Library} />
       <Route path="/practice-stats" component={PracticeStats} />
