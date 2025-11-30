@@ -6,9 +6,9 @@ export async function sendPasswordResetEmail(
   userName: string,
   resetToken: string
 ): Promise<boolean> {
-  // FIXED: Include hash in URL for hash routing
-  const resetUrl = `${process.env.FRONTEND_URL || 'https://lyricsensei.com'}/#/auth/reset-password?token=${resetToken}`;
-  console.log('[Email] Reset URL with hash:', resetUrl);
+  // FIXED: Token in path instead of query parameter (prevents hash router stripping)
+  const resetUrl = `${process.env.FRONTEND_URL || 'https://lyricsensei.com'}/#/auth/reset-password/${resetToken}`;
+  console.log('[Email] Reset URL with token in path:', resetUrl);
 
   try {
     if (!process.env.REPLIT_CONNECTORS_HOSTNAME) {

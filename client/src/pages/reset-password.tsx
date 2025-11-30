@@ -1,10 +1,10 @@
-import { useState, useEffect } from "react";
-import { useLocation } from "wouter";
+import { useRoute, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { Card } from "@/components/ui/card";
 import { Lock, Music, Eye, EyeOff, AlertCircle, CheckCircle } from "lucide-react";
+import { useState } from "react";
 
 function getBackendUrl() {
   const isCapacitor = !!(window as any).Capacitor;
@@ -14,54 +14,29 @@ function getBackendUrl() {
   return window.location.origin;
 }
 
-function getTokenFromUrl() {
-  if (typeof window === 'undefined') return null;
-  // Extract token from URL: /#/auth/reset-password?token=xxx
-  const search = window.location.search;
-  if (search) {
-    const params = new URLSearchParams(search);
-    return params.get('token');
-  }
-  // Fallback: try hash-based routing /#/auth/reset-password?token=xxx
-  const hash = window.location.hash;
-  const hashPart = hash.split('?')[1];
-  if (hashPart) {
-    const params = new URLSearchParams(hashPart);
-    return params.get('token');
-  }
-  return null;
-}
-
 export default function ResetPassword() {
-  const [isLoading, setIsLoading] = useState(false);
-  const [isValidating, setIsValidating] = useState(true);
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirm, setShowConfirm] = useState(false);
+  // FIXED: Get token from URL path parameter
+  const [match, params] = useRoute("/auth/reset-password/:token");
+  const token = params?.token;
+  
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [token, setToken] = useState<string | null>(null);
-  const [isValid, setIsValid] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [, setLocation] = useLocation();
   const { toast } = useToast();
 
-  useEffect(() => {
-    const tokenFromUrl = getTokenFromUrl();
-    setToken(tokenFromUrl);
-    
-    if (!tokenFromUrl) {
-      setIsValid(false);
-      setIsValidating(false);
-      return;
-    }
-
-    // For now, assume token is valid. In production, you'd validate it with the backend
-    setIsValid(true);
-    setIsValidating(false);
-  }, []);
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!token) {
+      toast({
+        title: "Invalid Link",
+        description: "This password reset link is invalid",
+        variant: "destructive",
+      });
+      return;
+    }
 
     if (password !== confirmPassword) {
       toast({
@@ -126,18 +101,7 @@ export default function ResetPassword() {
     }
   };
 
-  if (isValidating) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center space-y-4">
-          <div className="h-8 w-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto"></div>
-          <p className="text-muted-foreground">Validating reset link...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!isValid) {
+  if (!match || !token) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center px-4 py-8 bg-gradient-to-br from-primary/5 via-background to-accent/5">
         <div className="w-full max-w-md">
@@ -206,7 +170,7 @@ export default function ResetPassword() {
               </label>
               <div className="relative">
                 <Input
-                  type={showPassword ? "text" : "password"}
+                  type="password"
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -214,17 +178,6 @@ export default function ResetPassword() {
                   minLength={8}
                   data-testid="input-new-password"
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  {showPassword ? (
-                    <EyeOff className="h-4 w-4" />
-                  ) : (
-                    <Eye className="h-4 w-4" />
-                  )}
-                </button>
               </div>
               <p className="text-xs text-muted-foreground">Minimum 8 characters</p>
             </div>
@@ -236,7 +189,7 @@ export default function ResetPassword() {
               </label>
               <div className="relative">
                 <Input
-                  type={showConfirm ? "text" : "password"}
+                  type="password"
                   placeholder="••••••••"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
@@ -244,17 +197,6 @@ export default function ResetPassword() {
                   minLength={8}
                   data-testid="input-confirm-password"
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowConfirm(!showConfirm)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  {showConfirm ? (
-                    <EyeOff className="h-4 w-4" />
-                  ) : (
-                    <Eye className="h-4 w-4" />
-                  )}
-                </button>
               </div>
             </div>
 

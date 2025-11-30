@@ -50,7 +50,7 @@ function PublicRoutes() {
           <Route path="/terms" component={Terms} />
           <Route path="/auth/login" component={Login} />
           <Route path="/auth/forgot-password" component={ForgotPassword} />
-          <Route path="/auth/reset-password" component={ResetPassword} />
+          <Route path="/auth/reset-password/:token" component={ResetPassword} />
           <Route path="/" component={Landing} />
           <Route component={NotFound} />
         </Switch>
@@ -115,7 +115,7 @@ function Router() {
 
   // FIXED: Check for public routes more accurately
   const isOnPublicRoute = 
-    location.startsWith('/auth/reset-password') || 
+    location.startsWith('/auth/reset-password/') || 
     location.startsWith('/auth/forgot-password') ||
     location === '/pricing' ||
     location === '/terms' ||
