@@ -96,7 +96,7 @@ export function generatePasswordResetEmail(
                 <tr>
                   <td align="center" style="padding: 0 0 32px 0;">
                     <a 
-                      href="${resetUrl}" 
+                      href="${resetUrl.replace(/&/g, '&amp;')}" 
                       style="
                         display: inline-block;
                         background: linear-gradient(135deg, #8B5CF6 0%, #6366F1 100%);
@@ -165,7 +165,7 @@ export function generatePasswordResetEmail(
                 word-break: break-all;
               ">
                 <a 
-                  href="${resetUrl}" 
+                  href="${resetUrl.replace(/&/g, '&amp;')}" 
                   style="
                     color: #8B5CF6;
                     text-decoration: none;
