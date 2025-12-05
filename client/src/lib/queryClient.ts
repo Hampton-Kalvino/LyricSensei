@@ -133,6 +133,23 @@ export async function apiRequest<T = unknown>(
 }
 
 type UnauthorizedBehavior = "returnNull" | "throw";
+
+// Helper function to add timeout to fetch
+async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs: number = 10000): Promise<Response> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal,
+    });
+    return response;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
 export const getQueryFn: <T>(options: {
   on401: UnauthorizedBehavior;
 }) => QueryFunction<T> = 
@@ -158,11 +175,11 @@ export const getQueryFn: <T>(options: {
         headers['X-User-Id'] = authenticatedUserId;
       }
       
-      const res = await fetch(fullUrl, {
+      const res = await fetchWithTimeout(fullUrl, {
         headers,
         credentials: "include",
         mode: "cors",
-      });
+      }, 10000); // 10 second timeout
 
       console.log(`[API Response] ${res.status} ${res.statusText}`);
 
@@ -172,8 +189,16 @@ export const getQueryFn: <T>(options: {
 
       await throwIfResNotOk(res);
       return await res.json();
-    } catch (error) {
+    } catch (error: any) {
       console.error(`[API Error] GET ${fullUrl}:`, error);
+      
+      // On network errors for auth check, return null instead of hanging
+      if (unauthorizedBehavior === "returnNull" && 
+          (error.name === 'AbortError' || error.name === 'TypeError' || error.message?.includes('network'))) {
+        console.warn(`[API] Network error on auth check, treating as unauthenticated`);
+        return null;
+      }
+      
       throw error;
     }
   };
