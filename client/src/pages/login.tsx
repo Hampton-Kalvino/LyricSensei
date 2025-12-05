@@ -9,7 +9,8 @@ import { Mail, Lock, User, Music2, Music, Eye, EyeOff } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { clearGuestUserId, setAuthenticatedUserId, clearAuthenticatedUserId } from "@/lib/queryClient";
 import { Capacitor } from "@capacitor/core";
-import { loginWithFacebook, isFacebookSdkConfigured } from "@/lib/fbSdk";
+import { isFacebookSdkConfigured } from "@/lib/fbSdk";
+import { FacebookLoginButton } from "@/components/facebook-login-button";
 
 // Check if running in native mobile app (Android/iOS) vs web
 // Use Capacitor's isNativePlatform() which properly distinguishes native from web
@@ -226,14 +227,14 @@ export default function Login() {
       }
     };
 
-    const handleFacebookSuccess = (event: CustomEvent) => {
+    const onNativeFacebookSuccess = (event: CustomEvent) => {
       clearFacebookTimeout();
       const { token, userId } = event.detail;
       console.log("[Facebook] Native login success, processing token...");
       processFacebookToken(token, userId);
     };
 
-    const handleFacebookCancelled = () => {
+    const onNativeFacebookCancelled = () => {
       clearFacebookTimeout();
       console.log("[Facebook] Native login cancelled");
       setIsFacebookLoading(false);
@@ -244,7 +245,7 @@ export default function Login() {
       });
     };
 
-    const handleFacebookError = (event: CustomEvent) => {
+    const onNativeFacebookError = (event: CustomEvent) => {
       clearFacebookTimeout();
       console.error("[Facebook] Native login error:", event.detail.error);
       setIsFacebookLoading(false);
@@ -255,88 +256,77 @@ export default function Login() {
       });
     };
 
-    window.addEventListener('facebook-login-success', handleFacebookSuccess as EventListener);
-    window.addEventListener('facebook-login-cancelled', handleFacebookCancelled);
-    window.addEventListener('facebook-login-error', handleFacebookError as EventListener);
+    window.addEventListener('facebook-login-success', onNativeFacebookSuccess as EventListener);
+    window.addEventListener('facebook-login-cancelled', onNativeFacebookCancelled);
+    window.addEventListener('facebook-login-error', onNativeFacebookError as EventListener);
 
     return () => {
-      window.removeEventListener('facebook-login-success', handleFacebookSuccess as EventListener);
-      window.removeEventListener('facebook-login-cancelled', handleFacebookCancelled);
-      window.removeEventListener('facebook-login-error', handleFacebookError as EventListener);
+      window.removeEventListener('facebook-login-success', onNativeFacebookSuccess as EventListener);
+      window.removeEventListener('facebook-login-cancelled', onNativeFacebookCancelled);
+      window.removeEventListener('facebook-login-error', onNativeFacebookError as EventListener);
     };
   }, []);
 
-  const handleFacebookLogin = async () => {
-    if (isNativePlatform) {
-      // On Android/iOS, trigger native Facebook SDK login
-      setIsFacebookLoading(true);
-      
-      // Set a timeout to reset loading state if no response
-      const timeoutId = setTimeout(() => {
-        setIsFacebookLoading(false);
-        toast({
-          title: "Timeout",
-          description: "Facebook login timed out. Please try again.",
-          variant: "destructive",
-        });
-      }, 30000);
-      
-      // Store timeout ID to clear it on success/error
-      (window as any).__fbLoginTimeout = timeoutId;
-      
-      try {
-        // Access the Facebook LoginManager through the Android bridge
-        const LoginManager = (window as any).facebookLoginManager;
-        if (LoginManager) {
-          LoginManager.logInWithReadPermissions(['email', 'public_profile']);
-        } else {
-          // Native SDK should handle login via MainActivity.java
-          // The native code will dispatch events back to the WebView
-          console.log("[Facebook] Waiting for native SDK login...");
-        }
-      } catch (error) {
-        clearTimeout(timeoutId);
-        setIsFacebookLoading(false);
-        toast({
-          title: "Error",
-          description: "Failed to start Facebook login",
-          variant: "destructive",
-        });
+  // Handler for native mobile Facebook login
+  const handleNativeFacebookLogin = async () => {
+    setIsFacebookLoading(true);
+    
+    // Set a timeout to reset loading state if no response
+    const timeoutId = setTimeout(() => {
+      setIsFacebookLoading(false);
+      toast({
+        title: "Timeout",
+        description: "Facebook login timed out. Please try again.",
+        variant: "destructive",
+      });
+    }, 30000);
+    
+    // Store timeout ID to clear it on success/error
+    (window as any).__fbLoginTimeout = timeoutId;
+    
+    try {
+      // Access the Facebook LoginManager through the Android bridge
+      const LoginManager = (window as any).facebookLoginManager;
+      if (LoginManager) {
+        LoginManager.logInWithReadPermissions(['email', 'public_profile']);
+      } else {
+        // Native SDK should handle login via MainActivity.java
+        // The native code will dispatch events back to the WebView
+        console.log("[Facebook] Waiting for native SDK login...");
       }
-    } else {
-      // On web, use Facebook JavaScript SDK for popup login
-      if (!isFacebookSdkConfigured()) {
-        toast({
-          title: "Facebook Login Unavailable",
-          description: "Facebook login is not yet configured. Please use another login method.",
-          variant: "destructive",
-        });
-        return;
-      }
-      
-      setIsFacebookLoading(true);
-      try {
-        console.log("[Facebook Web] Starting JS SDK login...");
-        const response = await loginWithFacebook();
-        
-        if (response.status === 'connected' && response.authResponse) {
-          console.log("[Facebook Web] Login successful, exchanging token...");
-          await processFacebookToken(
-            response.authResponse.accessToken,
-            response.authResponse.userID
-          );
-        }
-      } catch (error: any) {
-        console.error("[Facebook Web] Login error:", error);
-        toast({
-          title: "Facebook Login Failed",
-          description: error.message || "Failed to login with Facebook",
-          variant: "destructive",
-        });
-      } finally {
-        setIsFacebookLoading(false);
-      }
+    } catch (error) {
+      clearTimeout(timeoutId);
+      setIsFacebookLoading(false);
+      toast({
+        title: "Error",
+        description: "Failed to start Facebook login",
+        variant: "destructive",
+      });
     }
+  };
+
+  // Handlers for the official Facebook Login Button widget (web)
+  const handleFacebookSuccess = (accessToken: string, userId: string) => {
+    console.log("[Facebook Web] Login button success, exchanging token...");
+    processFacebookToken(accessToken, userId);
+  };
+
+  const handleFacebookError = (error: string) => {
+    console.error("[Facebook Web] Login button error:", error);
+    toast({
+      title: "Facebook Login Failed",
+      description: error || "Failed to login with Facebook",
+      variant: "destructive",
+    });
+  };
+
+  const handleFacebookCancel = () => {
+    console.log("[Facebook Web] Login cancelled");
+    toast({
+      title: "Cancelled",
+      description: "Facebook login was cancelled",
+      variant: "default",
+    });
   };
 
   const handleTwitterLogin = () => {
@@ -520,23 +510,32 @@ export default function Login() {
               Apple
             </Button>
 
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full"
-              onClick={handleFacebookLogin}
-              disabled={isLoading || isFacebookLoading}
-              data-testid="button-facebook-login"
-            >
-              {isFacebookLoading ? (
-                <div className="h-4 w-4 mr-1 border-2 border-current border-t-transparent rounded-full animate-spin" />
-              ) : (
-                <svg className="h-4 w-4 mr-1" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
-                </svg>
-              )}
-              {isFacebookLoading ? "Connecting..." : "Facebook"}
-            </Button>
+            {isNativePlatform ? (
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                onClick={handleNativeFacebookLogin}
+                disabled={isLoading || isFacebookLoading}
+                data-testid="button-facebook-login-native"
+              >
+                {isFacebookLoading ? (
+                  <div className="h-4 w-4 mr-1 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <svg className="h-4 w-4 mr-1" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                  </svg>
+                )}
+                {isFacebookLoading ? "Connecting..." : "Facebook"}
+              </Button>
+            ) : (
+              <FacebookLoginButton
+                onSuccess={handleFacebookSuccess}
+                onError={handleFacebookError}
+                onCancel={handleFacebookCancel}
+                disabled={isLoading}
+              />
+            )}
 
             <Button
               type="button"

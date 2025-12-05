@@ -32,6 +32,12 @@ declare namespace FB {
     version: string;
   }
 
+  interface XFBML {
+    parse(element?: HTMLElement): void;
+  }
+
+  const XFBML: XFBML;
+
   function init(params: InitParams): void;
   function getLoginStatus(callback: (response: StatusResponse) => void): void;
   function login(callback: (response: StatusResponse) => void, options?: LoginOptions): void;
@@ -39,6 +45,28 @@ declare namespace FB {
 }
 
 let sdkLoadPromise: Promise<typeof FB> | null = null;
+let statusChangeCallback: ((response: FB.StatusResponse) => void) | null = null;
+
+// Set the callback function that will be called when login status changes
+export function setStatusChangeCallback(callback: (response: FB.StatusResponse) => void): void {
+  statusChangeCallback = callback;
+}
+
+// This is the callback called by the fb:login-button onlogin attribute
+// It's exposed globally so Facebook's XFBML can call it
+function checkLoginState(): void {
+  if (window.FB) {
+    window.FB.getLoginStatus((response) => {
+      console.log('[Facebook SDK] checkLoginState response:', response.status);
+      if (statusChangeCallback) {
+        statusChangeCallback(response);
+      }
+    });
+  }
+}
+
+// Expose checkLoginState globally for the fb:login-button onlogin attribute
+(window as any).checkLoginState = checkLoginState;
 
 export function loadFacebookSdk(): Promise<typeof FB> {
   if (sdkLoadPromise) {
@@ -70,10 +98,10 @@ export function loadFacebookSdk(): Promise<typeof FB> {
       window.FB.init({
         appId: appId,
         cookie: true,
-        xfbml: false,
+        xfbml: true, // Enable XFBML parsing for fb:login-button
         version: apiVersion,
       });
-      console.log('[Facebook SDK] Initialized with app ID:', appId);
+      console.log('[Facebook SDK] Initialized with app ID:', appId, '(XFBML enabled)');
       resolve(window.FB);
     };
 
@@ -98,6 +126,13 @@ export function loadFacebookSdk(): Promise<typeof FB> {
   });
 
   return sdkLoadPromise;
+}
+
+// Parse XFBML elements (like fb:login-button) in the DOM
+export function parseXFBML(element?: HTMLElement): void {
+  if (window.FB && window.FB.XFBML) {
+    window.FB.XFBML.parse(element);
+  }
 }
 
 export function getLoginStatus(): Promise<FB.StatusResponse> {
