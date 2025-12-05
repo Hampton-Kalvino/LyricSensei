@@ -8,18 +8,19 @@ import { Card } from "@/components/ui/card";
 import { Mail, Lock, User, Music2, Music, Eye, EyeOff } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { clearGuestUserId, setAuthenticatedUserId, clearAuthenticatedUserId } from "@/lib/queryClient";
+import { Capacitor } from "@capacitor/core";
+
+// Check if running in native mobile app (Android/iOS) vs web
+// Use Capacitor's isNativePlatform() which properly distinguishes native from web
+const isNativePlatform = Capacitor.isNativePlatform();
 
 // Get backend URL based on Capacitor environment
 function getBackendUrl() {
-  const isCapacitor = !!(window as any).Capacitor;
-  if (isCapacitor) {
+  if (isNativePlatform) {
     return "https://lyricsensei.com";
   }
   return window.location.origin;
 }
-
-// Check if running in Capacitor (native mobile app)
-const isCapacitor = !!(window as any).Capacitor;
 
 export default function Login() {
   const [isSignUp, setIsSignUp] = useState(false);
@@ -59,7 +60,7 @@ export default function Login() {
     try {
       const endpoint = isSignUp ? "/api/auth/signup" : "/api/auth/login";
       const backendUrl = getBackendUrl();
-      const fullUrl = !!(window as any).Capacitor ? `${backendUrl}${endpoint}` : endpoint;
+      const fullUrl = isNativePlatform ? `${backendUrl}${endpoint}` : endpoint;
       
       const payload = isSignUp
         ? { email, password, username, firstName, lastName }
@@ -116,7 +117,7 @@ export default function Login() {
     setIsLoading(true);
     try {
       const backendUrl = getBackendUrl();
-      const fullUrl = !!(window as any).Capacitor ? `${backendUrl}/api/auth/guest` : "/api/auth/guest";
+      const fullUrl = isNativePlatform ? `${backendUrl}/api/auth/guest` : "/api/auth/guest";
       
       const response = await fetch(fullUrl, {
         method: "POST",
@@ -168,7 +169,7 @@ export default function Login() {
     setIsFacebookLoading(true);
     try {
       const backendUrl = getBackendUrl();
-      const fullUrl = isCapacitor ? `${backendUrl}/api/auth/facebook/token` : "/api/auth/facebook/token";
+      const fullUrl = isNativePlatform ? `${backendUrl}/api/auth/facebook/token` : "/api/auth/facebook/token";
       
       const response = await fetch(fullUrl, {
         method: "POST",
@@ -256,7 +257,7 @@ export default function Login() {
   }, []);
 
   const handleFacebookLogin = async () => {
-    if (isCapacitor) {
+    if (isNativePlatform) {
       // On Android/iOS, trigger native Facebook SDK login
       setIsFacebookLoading(true);
       
