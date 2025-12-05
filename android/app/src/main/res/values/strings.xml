@@ -8,6 +8,8 @@
     <!-- Facebook SDK Configuration -->
     <!-- Replace YOUR_APP_ID with your Facebook App ID from developers.facebook.com -->
     <string name="facebook_app_id">YOUR_APP_ID</string>
+    <!-- fb_login_protocol_scheme should be "fb" followed by your App ID (e.g., fb1234) -->
+    <string name="fb_login_protocol_scheme">fbYOUR_APP_ID</string>
     <!-- Replace YOUR_CLIENT_TOKEN with your Facebook Client Token -->
     <string name="facebook_client_token">YOUR_CLIENT_TOKEN</string>
 </resources>

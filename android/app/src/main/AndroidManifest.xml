@@ -58,14 +58,14 @@
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="@string/facebook_app_id" />
+                <data android:scheme="@string/fb_login_protocol_scheme" />
             </intent-filter>
         </activity>
 
         <!-- Facebook Content Provider -->
         <provider
             android:name="com.facebook.FacebookContentProvider"
-            android:authorities="com.facebook.app.FacebookContentProvider@string/facebook_app_id"
+            android:authorities="com.facebook.app.FacebookContentProvider${applicationId}"
             android:exported="true" />
     </application>
 
