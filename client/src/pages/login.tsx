@@ -13,7 +13,16 @@ import { loginWithFacebook, isFacebookSdkConfigured } from "@/lib/fbSdk";
 
 // Check if running in native mobile app (Android/iOS) vs web
 // Use Capacitor's isNativePlatform() which properly distinguishes native from web
-const isNativePlatform = Capacitor.isNativePlatform();
+// Safe check that defaults to false if Capacitor is not available
+const isNativePlatform = (() => {
+  try {
+    return typeof Capacitor !== 'undefined' && 
+           typeof Capacitor.isNativePlatform === 'function' && 
+           Capacitor.isNativePlatform();
+  } catch {
+    return false;
+  }
+})();
 
 // Get backend URL based on Capacitor environment
 function getBackendUrl() {
