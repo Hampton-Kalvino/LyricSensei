@@ -462,6 +462,15 @@ export async function setupNewAuth(app: Express) {
       "/api/auth/facebook",
       passport.authenticate("facebook", { scope: ["email"] })
     );
+  } else {
+    // Fallback route when Facebook OAuth is not configured
+    app.get("/api/auth/facebook", (req: Request, res: Response) => {
+      console.log("[Facebook] OAuth not configured - missing FACEBOOK_APP_ID/FACEBOOK_APP_SECRET");
+      res.redirect("/auth/login?error=facebook_not_configured");
+    });
+  }
+  
+  if (process.env.FACEBOOK_APP_ID && process.env.FACEBOOK_APP_SECRET) {
 
     app.get(
       "/api/auth/facebook/callback",
@@ -547,6 +556,12 @@ export async function setupNewAuth(app: Express) {
         console.error("[Facebook Token] Error:", error);
         res.status(500).json({ error: "Facebook authentication failed" });
       }
+    });
+  } else {
+    // Fallback token endpoint when Facebook isn't configured
+    app.post("/api/auth/facebook/token", (req: Request, res: Response) => {
+      console.log("[Facebook Token] Not configured - missing FACEBOOK_APP_ID/FACEBOOK_APP_SECRET");
+      res.status(503).json({ error: "Facebook login is not configured on this server" });
     });
   }
 

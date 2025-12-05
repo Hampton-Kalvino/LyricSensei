@@ -36,6 +36,22 @@ export default function Login() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
 
+  // Check for error query parameter from OAuth redirects
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const error = urlParams.get('error');
+    
+    if (error === 'facebook_not_configured') {
+      toast({
+        title: "Facebook Login Unavailable",
+        description: "Facebook login is not yet configured. Please use another login method.",
+        variant: "destructive",
+      });
+      // Clean up the URL
+      window.history.replaceState({}, '', '/auth/login');
+    }
+  }, [toast]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -191,13 +207,23 @@ export default function Login() {
 
   // Listen for native Facebook SDK events (from MainActivity.java)
   useEffect(() => {
+    const clearFacebookTimeout = () => {
+      const timeoutId = (window as any).__fbLoginTimeout;
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+        delete (window as any).__fbLoginTimeout;
+      }
+    };
+
     const handleFacebookSuccess = (event: CustomEvent) => {
+      clearFacebookTimeout();
       const { token, userId } = event.detail;
       console.log("[Facebook] Native login success, processing token...");
       processFacebookToken(token, userId);
     };
 
     const handleFacebookCancelled = () => {
+      clearFacebookTimeout();
       console.log("[Facebook] Native login cancelled");
       setIsFacebookLoading(false);
       toast({
@@ -208,6 +234,7 @@ export default function Login() {
     };
 
     const handleFacebookError = (event: CustomEvent) => {
+      clearFacebookTimeout();
       console.error("[Facebook] Native login error:", event.detail.error);
       setIsFacebookLoading(false);
       toast({
@@ -232,20 +259,32 @@ export default function Login() {
     if (isCapacitor) {
       // On Android/iOS, trigger native Facebook SDK login
       setIsFacebookLoading(true);
+      
+      // Set a timeout to reset loading state if no response
+      const timeoutId = setTimeout(() => {
+        setIsFacebookLoading(false);
+        toast({
+          title: "Timeout",
+          description: "Facebook login timed out. Please try again.",
+          variant: "destructive",
+        });
+      }, 30000);
+      
+      // Store timeout ID to clear it on success/error
+      (window as any).__fbLoginTimeout = timeoutId;
+      
       try {
         // Access the Facebook LoginManager through the Android bridge
         const LoginManager = (window as any).facebookLoginManager;
         if (LoginManager) {
           LoginManager.logInWithReadPermissions(['email', 'public_profile']);
         } else {
-          // Fallback: Call native method through Capacitor
-          // The native SDK will handle this and dispatch events back
-          toast({
-            title: "Facebook Login",
-            description: "Please complete login in the Facebook app",
-          });
+          // Native SDK should handle login via MainActivity.java
+          // The native code will dispatch events back to the WebView
+          console.log("[Facebook] Waiting for native SDK login...");
         }
       } catch (error) {
+        clearTimeout(timeoutId);
         setIsFacebookLoading(false);
         toast({
           title: "Error",
@@ -255,6 +294,7 @@ export default function Login() {
       }
     } else {
       // On web, redirect to server-side OAuth flow
+      // Don't set loading state since we're navigating away
       window.location.href = "/api/auth/facebook";
     }
   };
