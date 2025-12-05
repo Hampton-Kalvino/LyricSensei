@@ -9,6 +9,7 @@ import { Mail, Lock, User, Music2, Music, Eye, EyeOff } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { clearGuestUserId, setAuthenticatedUserId, clearAuthenticatedUserId } from "@/lib/queryClient";
 import { Capacitor } from "@capacitor/core";
+import { loginWithFacebook, isFacebookSdkConfigured } from "@/lib/fbSdk";
 
 // Check if running in native mobile app (Android/iOS) vs web
 // Use Capacitor's isNativePlatform() which properly distinguishes native from web
@@ -294,9 +295,38 @@ export default function Login() {
         });
       }
     } else {
-      // On web, redirect to server-side OAuth flow
-      // Don't set loading state since we're navigating away
-      window.location.href = "/api/auth/facebook";
+      // On web, use Facebook JavaScript SDK for popup login
+      if (!isFacebookSdkConfigured()) {
+        toast({
+          title: "Facebook Login Unavailable",
+          description: "Facebook login is not yet configured. Please use another login method.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      setIsFacebookLoading(true);
+      try {
+        console.log("[Facebook Web] Starting JS SDK login...");
+        const response = await loginWithFacebook();
+        
+        if (response.status === 'connected' && response.authResponse) {
+          console.log("[Facebook Web] Login successful, exchanging token...");
+          await processFacebookToken(
+            response.authResponse.accessToken,
+            response.authResponse.userID
+          );
+        }
+      } catch (error: any) {
+        console.error("[Facebook Web] Login error:", error);
+        toast({
+          title: "Facebook Login Failed",
+          description: error.message || "Failed to login with Facebook",
+          variant: "destructive",
+        });
+      } finally {
+        setIsFacebookLoading(false);
+      }
     }
   };
 
