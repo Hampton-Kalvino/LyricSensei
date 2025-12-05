@@ -456,7 +456,7 @@ export async function setupNewAuth(app: Express) {
     );
   }
 
-  // Facebook OAuth
+  // Facebook OAuth (web flow)
   if (process.env.FACEBOOK_APP_ID && process.env.FACEBOOK_APP_SECRET) {
     app.get(
       "/api/auth/facebook",
@@ -470,6 +470,84 @@ export async function setupNewAuth(app: Express) {
         res.redirect("/");
       }
     );
+
+    // Facebook token verification (for native Android/iOS SDK login)
+    app.post("/api/auth/facebook/token", async (req: Request, res: Response) => {
+      try {
+        const { accessToken, userId } = req.body;
+
+        if (!accessToken || !userId) {
+          return res.status(400).json({ error: "Missing accessToken or userId" });
+        }
+
+        // Verify token with Facebook Graph API
+        const verifyUrl = `https://graph.facebook.com/me?fields=id,name,email,first_name,last_name,picture&access_token=${accessToken}`;
+        const fbResponse = await fetch(verifyUrl);
+
+        if (!fbResponse.ok) {
+          const errorData = await fbResponse.json();
+          console.error("[Facebook Token] Verification failed:", errorData);
+          return res.status(401).json({ error: "Invalid Facebook token" });
+        }
+
+        const profile = await fbResponse.json();
+        console.log("[Facebook Token] Verified profile:", profile.id, profile.email);
+
+        // Verify the userId matches
+        if (profile.id !== userId) {
+          return res.status(401).json({ error: "User ID mismatch" });
+        }
+
+        // Find or create user
+        let user = profile.email ? await storage.getUserByEmail(profile.email) : null;
+
+        if (!user) {
+          // Create new user from Facebook profile
+          user = await storage.createUser({
+            id: generateId(),
+            email: profile.email || `${profile.id}@facebook.com`,
+            firstName: profile.first_name,
+            lastName: profile.last_name,
+            profileImageUrl: profile.picture?.data?.url,
+            authProvider: "facebook",
+            isGuest: false,
+          });
+          console.log("[Facebook Token] Created new user:", user.id);
+        } else {
+          // Update existing user
+          if (user.authProvider !== "facebook") {
+            await storage.updateUserAuthProvider(user.id, "facebook");
+          }
+          // Update profile image if Facebook provides one
+          if (profile.picture?.data?.url && user.profileImageUrl !== profile.picture.data.url) {
+            user = await storage.updateUserProfile(user.id, {
+              profileImageUrl: profile.picture.data.url,
+            });
+          }
+          // Update name if not set
+          if (!user.firstName && profile.first_name) {
+            user = await storage.updateUserProfile(user.id, {
+              firstName: profile.first_name,
+              lastName: profile.last_name,
+            });
+          }
+          console.log("[Facebook Token] Updated existing user:", user.id);
+        }
+
+        // Log the user in (create session)
+        req.logIn(user, (err: any) => {
+          if (err) {
+            console.error("[Facebook Token] Session creation failed:", err);
+            return res.status(500).json({ error: "Session creation failed" });
+          }
+          console.log("[Facebook Token] Login successful for user:", user.id);
+          res.json({ user });
+        });
+      } catch (error) {
+        console.error("[Facebook Token] Error:", error);
+        res.status(500).json({ error: "Facebook authentication failed" });
+      }
+    });
   }
 
   // Twitter OAuth

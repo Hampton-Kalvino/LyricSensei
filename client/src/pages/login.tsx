@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -18,9 +18,13 @@ function getBackendUrl() {
   return window.location.origin;
 }
 
+// Check if running in Capacitor (native mobile app)
+const isCapacitor = !!(window as any).Capacitor;
+
 export default function Login() {
   const [isSignUp, setIsSignUp] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isFacebookLoading, setIsFacebookLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -143,12 +147,116 @@ export default function Login() {
     });
   };
 
-  const handleFacebookLogin = () => {
-    toast({
-      title: "Coming Soon",
-      description: "Facebook login will be available soon.",
-      variant: "default",
-    });
+  // Process Facebook token from native SDK
+  const processFacebookToken = async (token: string, userId: string) => {
+    setIsFacebookLoading(true);
+    try {
+      const backendUrl = getBackendUrl();
+      const fullUrl = isCapacitor ? `${backendUrl}/api/auth/facebook/token` : "/api/auth/facebook/token";
+      
+      const response = await fetch(fullUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ accessToken: token, userId }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Facebook authentication failed");
+      }
+
+      const { user } = await response.json();
+      toast({
+        title: "Success",
+        description: "Logged in with Facebook successfully",
+      });
+      
+      clearGuestUserId();
+      if (user?.id) {
+        setAuthenticatedUserId(user.id);
+      }
+      queryClient.setQueryData(["/api/auth/user"], user);
+      setLocation("/");
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Facebook login failed",
+        variant: "destructive",
+      });
+    } finally {
+      setIsFacebookLoading(false);
+    }
+  };
+
+  // Listen for native Facebook SDK events (from MainActivity.java)
+  useEffect(() => {
+    const handleFacebookSuccess = (event: CustomEvent) => {
+      const { token, userId } = event.detail;
+      console.log("[Facebook] Native login success, processing token...");
+      processFacebookToken(token, userId);
+    };
+
+    const handleFacebookCancelled = () => {
+      console.log("[Facebook] Native login cancelled");
+      setIsFacebookLoading(false);
+      toast({
+        title: "Cancelled",
+        description: "Facebook login was cancelled",
+        variant: "default",
+      });
+    };
+
+    const handleFacebookError = (event: CustomEvent) => {
+      console.error("[Facebook] Native login error:", event.detail.error);
+      setIsFacebookLoading(false);
+      toast({
+        title: "Error",
+        description: event.detail.error || "Facebook login failed",
+        variant: "destructive",
+      });
+    };
+
+    window.addEventListener('facebook-login-success', handleFacebookSuccess as EventListener);
+    window.addEventListener('facebook-login-cancelled', handleFacebookCancelled);
+    window.addEventListener('facebook-login-error', handleFacebookError as EventListener);
+
+    return () => {
+      window.removeEventListener('facebook-login-success', handleFacebookSuccess as EventListener);
+      window.removeEventListener('facebook-login-cancelled', handleFacebookCancelled);
+      window.removeEventListener('facebook-login-error', handleFacebookError as EventListener);
+    };
+  }, []);
+
+  const handleFacebookLogin = async () => {
+    if (isCapacitor) {
+      // On Android/iOS, trigger native Facebook SDK login
+      setIsFacebookLoading(true);
+      try {
+        // Access the Facebook LoginManager through the Android bridge
+        const LoginManager = (window as any).facebookLoginManager;
+        if (LoginManager) {
+          LoginManager.logInWithReadPermissions(['email', 'public_profile']);
+        } else {
+          // Fallback: Call native method through Capacitor
+          // The native SDK will handle this and dispatch events back
+          toast({
+            title: "Facebook Login",
+            description: "Please complete login in the Facebook app",
+          });
+        }
+      } catch (error) {
+        setIsFacebookLoading(false);
+        toast({
+          title: "Error",
+          description: "Failed to start Facebook login",
+          variant: "destructive",
+        });
+      }
+    } else {
+      // On web, redirect to server-side OAuth flow
+      window.location.href = "/api/auth/facebook";
+    }
   };
 
   const handleTwitterLogin = () => {
@@ -337,13 +445,17 @@ export default function Login() {
               variant="outline"
               className="w-full"
               onClick={handleFacebookLogin}
-              disabled={isLoading}
+              disabled={isLoading || isFacebookLoading}
               data-testid="button-facebook-login"
             >
-              <svg className="h-4 w-4 mr-1" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
-              </svg>
-              Facebook
+              {isFacebookLoading ? (
+                <div className="h-4 w-4 mr-1 border-2 border-current border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <svg className="h-4 w-4 mr-1" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                </svg>
+              )}
+              {isFacebookLoading ? "Connecting..." : "Facebook"}
             </Button>
 
             <Button
