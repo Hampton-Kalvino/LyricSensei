@@ -40,6 +40,9 @@ dependencies {
     androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
     androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
     implementation project(':capacitor-cordova-android-plugins')
+    
+    // Facebook SDK for OAuth
+    implementation 'com.facebook.android:facebook-android-sdk:latest.release'
 }
 
 apply from: 'capacitor.build.gradle'
