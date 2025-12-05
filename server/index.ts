@@ -70,7 +70,7 @@ app.use((req, res, next) => {
   }
 
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS, HEAD');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept, Origin, X-Requested-With, x-guest-id');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept, Origin, X-Requested-With, x-guest-id, x-user-id');
   res.setHeader('Access-Control-Max-Age', '86400');
 
   if (req.method === 'OPTIONS') {
