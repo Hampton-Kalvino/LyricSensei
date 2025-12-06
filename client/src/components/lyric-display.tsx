@@ -1374,13 +1374,6 @@ export function LyricDisplay({
   // Check if on mobile native platform
   const isMobile = Capacitor.isNativePlatform();
 
-  // Debug logging for banner state
-  useEffect(() => {
-    if (isMobile && isPracticeMode) {
-      console.log('[Banner Debug] showScoreBanner:', showScoreBanner, 'lastScore:', lastScore, 'isPracticeListening:', isPracticeListening);
-    }
-  }, [isMobile, isPracticeMode, showScoreBanner, lastScore, isPracticeListening]);
-
   return (
     <Card className="p-6 h-[600px] overflow-hidden flex flex-col relative">
       {/* Fixed/Sticky Practice Banners for Mobile - renders at top of viewport */}
