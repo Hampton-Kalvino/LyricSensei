@@ -1,5 +1,6 @@
+import { useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { getQueryFn, apiRequest, setGuestUserId, clearGuestUserId } from "@/lib/queryClient";
+import { getQueryFn, apiRequest, setGuestUserId, clearGuestUserId, setAuthenticatedUserId, clearAuthenticatedUserId } from "@/lib/queryClient";
 
 interface AuthUser {
   id: string;
@@ -22,6 +23,16 @@ export function useAuth() {
     queryFn: getQueryFn({ on401: "returnNull" }),
     retry: false,
   });
+
+  // Sync authenticated user ID for mobile header-based auth
+  useEffect(() => {
+    if (user && !user.isGuest && user.id) {
+      setAuthenticatedUserId(user.id);
+      console.log('[Auth] Set authenticated user ID:', user.id);
+    } else if (!user) {
+      clearAuthenticatedUserId();
+    }
+  }, [user]);
 
   async function loginAsGuest() {
     try {

@@ -814,14 +814,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const validated = recognizeSongRequestSchema.parse(req.body);
       
-      // Check for guest ID in headers (for mobile/header-based auth)
+      // Check for guest ID or authenticated user ID in headers (for mobile/header-based auth)
+      // Mobile apps can't use session cookies due to cross-origin restrictions
       const guestId = (req.headers as any)['x-guest-id'];
-      if (!guestId && !req.isAuthenticated()) {
+      const mobileUserId = (req.headers as any)['x-user-id'];
+      
+      // Auth check: allow if any of these are present
+      const hasValidAuth = guestId || mobileUserId || req.isAuthenticated();
+      if (!hasValidAuth) {
         return res.status(401).json({ error: "Authentication required" });
       }
 
-      // Get user ID (works for both guest and authenticated users)
-      const userId = guestId || (req.user as any).id || (req.user as any).claims?.sub;
+      // Get user ID (priority: session > mobile header > guest)
+      let userId = guestId;
+      if (req.isAuthenticated() && req.user) {
+        userId = (req.user as any).id || (req.user as any).claims?.sub;
+      } else if (mobileUserId) {
+        // Verify mobile user exists in database for security
+        const mobileUser = await storage.getUser(mobileUserId);
+        if (mobileUser) {
+          userId = mobileUserId;
+        } else if (!guestId) {
+          return res.status(401).json({ error: "Invalid authentication" });
+        }
+      }
       
       // Use ACRCloud for real song recognition
       try {
