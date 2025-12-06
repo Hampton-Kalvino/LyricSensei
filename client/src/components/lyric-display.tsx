@@ -1374,58 +1374,65 @@ export function LyricDisplay({
   // Check if on mobile native platform
   const isMobile = Capacitor.isNativePlatform();
 
+  // Debug logging for banner state
+  useEffect(() => {
+    if (isMobile && isPracticeMode) {
+      console.log('[Banner Debug] showScoreBanner:', showScoreBanner, 'lastScore:', lastScore, 'isPracticeListening:', isPracticeListening);
+    }
+  }, [isMobile, isPracticeMode, showScoreBanner, lastScore, isPracticeListening]);
+
   return (
     <Card className="p-6 h-[600px] overflow-hidden flex flex-col relative">
       {/* Fixed/Sticky Practice Banners for Mobile - renders at top of viewport */}
-      {isMobile && isPracticeMode && (isPracticeListening || (showScoreBanner && lastScore !== null)) && (
+      {/* Listening Banner - Mobile Fixed - separate from score banner */}
+      {isMobile && isPracticeMode && isPracticeListening && (
         <div className="fixed top-0 left-0 right-0 z-[100] p-3 bg-background/95 backdrop-blur-sm border-b shadow-lg">
-          {/* Listening Banner - Mobile Fixed */}
-          {isPracticeListening && (
-            <div className="p-3 bg-primary/15 border-2 border-primary/50 rounded-md flex items-center justify-center gap-2 animate-pulse" data-testid="banner-listening-mobile">
-              <Mic className="h-5 w-5 text-primary" />
-              <p className="text-sm font-semibold text-primary">
-                Speak now...
-              </p>
-            </div>
-          )}
+          <div className="p-3 bg-primary/15 border-2 border-primary/50 rounded-md flex items-center justify-center gap-2 animate-pulse" data-testid="banner-listening-mobile">
+            <Mic className="h-5 w-5 text-primary" />
+            <p className="text-sm font-semibold text-primary">
+              Speak now...
+            </p>
+          </div>
+        </div>
+      )}
 
-          {/* Score Banner - Mobile Fixed */}
-          {showScoreBanner && lastScore !== null && !isPracticeListening && (
-            <div className={cn(
-              "p-4 rounded-md border-2 flex items-center justify-center gap-3 transition-all",
-              lastScore >= 80 
-                ? "bg-green-500/20 border-green-500 text-green-700 dark:text-green-300" 
-                : lastScore >= 60
-                ? "bg-yellow-500/20 border-yellow-500 text-yellow-700 dark:text-yellow-300"
-                : "bg-red-500/20 border-red-500 text-red-700 dark:text-red-300"
-            )} data-testid="banner-score-mobile">
-              {lastScore >= 80 ? (
-                <>
-                  <Check className="h-6 w-6" />
-                  <div className="text-center">
-                    <p className="text-lg font-bold">Great Job! {lastScore}% Accurate</p>
-                    <p className="text-sm">Keep it up!</p>
-                  </div>
-                </>
-              ) : lastScore >= 60 ? (
-                <>
-                  <AlertCircle className="h-6 w-6" />
-                  <div className="text-center">
-                    <p className="text-lg font-bold">Almost there! {lastScore}% Accurate</p>
-                    <p className="text-sm">Try again for better accuracy</p>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <AlertCircle className="h-6 w-6" />
-                  <div className="text-center">
-                    <p className="text-lg font-bold">{lastScore}% - Keep Practicing</p>
-                    <p className="text-sm">Listen carefully and try again</p>
-                  </div>
-                </>
-              )}
-            </div>
-          )}
+      {/* Score Banner - Mobile Fixed - completely separate render */}
+      {isMobile && isPracticeMode && showScoreBanner && lastScore !== null && !isPracticeListening && (
+        <div className="fixed top-0 left-0 right-0 z-[100] p-3 bg-background/95 backdrop-blur-sm border-b shadow-lg">
+          <div className={cn(
+            "p-4 rounded-md border-2 flex items-center justify-center gap-3 transition-all",
+            lastScore > 50 
+              ? "bg-green-500/20 border-green-500 text-green-700 dark:text-green-300" 
+              : lastScore >= 30
+              ? "bg-yellow-500/20 border-yellow-500 text-yellow-700 dark:text-yellow-300"
+              : "bg-red-500/20 border-red-500 text-red-700 dark:text-red-300"
+          )} data-testid="banner-score-mobile">
+            {lastScore > 50 ? (
+              <>
+                <Check className="h-6 w-6" />
+                <div className="text-center">
+                  <p className="text-lg font-bold">Great Job! {lastScore}% Accurate</p>
+                  <p className="text-sm">Keep it up!</p>
+                </div>
+              </>
+            ) : lastScore >= 30 ? (
+              <>
+                <AlertCircle className="h-6 w-6" />
+                <div className="text-center">
+                  <p className="text-lg font-bold">Almost there! {lastScore}% Accurate</p>
+                  <p className="text-sm">Try again for better accuracy</p>
+                </div>
+              </>
+            ) : (
+              <>
+                <AlertCircle className="h-6 w-6" />
+                <div className="text-center">
+                  <p className="text-lg font-bold">{lastScore}% - Keep Practicing</p>
+                  <p className="text-sm">Listen carefully and try again</p>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       )}
 
@@ -1442,13 +1449,13 @@ export function LyricDisplay({
       {!isMobile && isPracticeMode && showScoreBanner && lastScore !== null && (
         <div className={cn(
           "mb-3 p-4 rounded-md border-2 flex items-center justify-center gap-3 transition-all",
-          lastScore >= 80 
+          lastScore > 50 
             ? "bg-green-500/20 border-green-500 text-green-700 dark:text-green-300" 
-            : lastScore >= 60
+            : lastScore >= 30
             ? "bg-yellow-500/20 border-yellow-500 text-yellow-700 dark:text-yellow-300"
             : "bg-red-500/20 border-red-500 text-red-700 dark:text-red-300"
         )} data-testid="banner-score">
-          {lastScore >= 80 ? (
+          {lastScore > 50 ? (
             <>
               <Check className="h-6 w-6" />
               <div className="text-center">
@@ -1456,7 +1463,7 @@ export function LyricDisplay({
                 <p className="text-sm">Keep it up!</p>
               </div>
             </>
-          ) : lastScore >= 60 ? (
+          ) : lastScore >= 30 ? (
             <>
               <AlertCircle className="h-6 w-6" />
               <div className="text-center">

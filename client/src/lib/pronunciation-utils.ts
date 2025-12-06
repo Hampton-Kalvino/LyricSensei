@@ -203,8 +203,9 @@ export function calculateAccuracy(expected: string, actual: string): number {
  * Get accuracy tier based on score
  */
 export function getAccuracyTier(score: number): 'success' | 'close' | 'retry' {
-  if (score >= 0.8) return 'success';
-  if (score >= 0.6) return 'close';
+  // >50% is considered OK/success per user request
+  if (score > 0.5) return 'success';
+  if (score >= 0.3) return 'close';
   return 'retry';
 }
 
@@ -212,12 +213,12 @@ export function getAccuracyTier(score: number): 'success' | 'close' | 'retry' {
  * Get feedback message based on accuracy
  */
 export function getAccuracyFeedback(score: number): { title: string; description: string } {
-  if (score >= 0.8) {
+  if (score > 0.5) {
     return {
       title: "Excellent!",
       description: `${Math.round(score * 100)}% accurate. Great pronunciation!`
     };
-  } else if (score >= 0.6) {
+  } else if (score >= 0.3) {
     return {
       title: "Almost there!",
       description: `${Math.round(score * 100)}% accurate. Keep practicing!`
