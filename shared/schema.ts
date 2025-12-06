@@ -391,10 +391,12 @@ export const comments = pgTable("comments", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   songId: varchar("song_id").notNull().references(() => songs.id, { onDelete: 'cascade' }),
   userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  parentId: varchar("parent_id"),
   text: text("text").notNull(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 }, (table) => ({
   songIdx: index("IDX_comment_song").on(table.songId),
+  parentIdx: index("IDX_comment_parent").on(table.parentId),
 }));
 
 export const insertCommentSchema = createInsertSchema(comments).omit({
@@ -414,4 +416,5 @@ export interface CommentWithUser extends Comment {
     lastName: string | null;
     profileImageUrl: string | null;
   };
+  replies?: CommentWithUser[];
 }

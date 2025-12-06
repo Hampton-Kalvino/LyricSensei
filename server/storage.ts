@@ -828,12 +828,13 @@ export class DatabaseStorage implements IStorage {
     return newComment;
   }
 
-  async getSongComments(songId: string, limit: number = 50): Promise<CommentWithUser[]> {
+  async getSongComments(songId: string, limit: number = 100): Promise<CommentWithUser[]> {
     const result = await db
       .select({
         id: comments.id,
         songId: comments.songId,
         userId: comments.userId,
+        parentId: comments.parentId,
         text: comments.text,
         createdAt: comments.createdAt,
         user: {
@@ -847,13 +848,14 @@ export class DatabaseStorage implements IStorage {
       .from(comments)
       .leftJoin(users, eq(comments.userId, users.id))
       .where(eq(comments.songId, songId))
-      .orderBy(desc(comments.createdAt))
+      .orderBy(comments.createdAt)
       .limit(limit);
 
-    return result.map(row => ({
+    const allComments: CommentWithUser[] = result.map(row => ({
       id: row.id,
       songId: row.songId,
       userId: row.userId,
+      parentId: row.parentId,
       text: row.text,
       createdAt: row.createdAt,
       user: row.user || {
@@ -863,7 +865,29 @@ export class DatabaseStorage implements IStorage {
         lastName: null,
         profileImageUrl: null,
       },
+      replies: [],
     }));
+
+    const commentMap = new Map<string, CommentWithUser>();
+    const topLevelComments: CommentWithUser[] = [];
+
+    for (const comment of allComments) {
+      commentMap.set(comment.id, comment);
+    }
+
+    for (const comment of allComments) {
+      if (comment.parentId && commentMap.has(comment.parentId)) {
+        const parent = commentMap.get(comment.parentId)!;
+        if (!parent.replies) parent.replies = [];
+        parent.replies.push(comment);
+      } else {
+        topLevelComments.push(comment);
+      }
+    }
+
+    return topLevelComments.sort((a, b) => 
+      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
   }
 
   async deleteComment(commentId: string, userId: string): Promise<void> {
