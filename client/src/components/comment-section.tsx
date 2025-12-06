@@ -134,10 +134,10 @@ export function CommentSection({ songId, className }: CommentSectionProps) {
   const isGuest = !user || user.isGuest;
 
   return (
-    <Card className={cn("p-4", className)}>
+    <Card className={cn("p-4", className)} data-testid="comment-section">
       <div className="flex items-center gap-2 mb-4">
         <MessageCircle className="h-5 w-5 text-primary" />
-        <h3 className="font-semibold text-sm">Comments</h3>
+        <h3 className="font-semibold text-sm" data-testid="text-comments-heading">Comments</h3>
         {comments.length > 0 && (
           <span className="text-xs text-muted-foreground">({comments.length})</span>
         )}
@@ -240,10 +240,10 @@ export function CommentSection({ songId, className }: CommentSectionProps) {
                 </Avatar>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-medium text-sm truncate">
+                    <span className="font-medium text-sm truncate" data-testid={`text-comment-author-${comment.id}`}>
                       {getUserDisplayName(comment)}
                     </span>
-                    <span className="text-xs text-muted-foreground">
+                    <span className="text-xs text-muted-foreground" data-testid={`text-comment-time-${comment.id}`}>
                       {formatTimeAgo(comment.createdAt.toString())}
                     </span>
                     {user && user.id === comment.userId && !user.isGuest && (
@@ -259,7 +259,7 @@ export function CommentSection({ songId, className }: CommentSectionProps) {
                       </Button>
                     )}
                   </div>
-                  <p className="text-sm text-foreground/90 mt-1 whitespace-pre-wrap break-words">
+                  <p className="text-sm text-foreground/90 mt-1 whitespace-pre-wrap break-words" data-testid={`text-comment-content-${comment.id}`}>
                     {comment.text}
                   </p>
                 </div>

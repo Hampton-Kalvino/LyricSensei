@@ -10,6 +10,7 @@ import { LyricDisplay } from "@/components/lyric-display";
 import { RecognitionHistory } from "@/components/recognition-history";
 import { SongSearch } from "@/components/song-search";
 import { ShareMenu } from "@/components/share-menu";
+import { CommentSection } from "@/components/comment-section";
 import { useSwipeable } from "react-swipeable";
 import {
   Sheet,
@@ -590,8 +591,9 @@ export function MobileLayout({
 
           {/* Album Info Tab - Full Width */}
           <div className="w-full h-full flex-shrink-0 overflow-y-auto scrollbar-hide">
-            <div className="w-full p-4">
+            <div className="w-full p-4 space-y-4">
               <SongMetadata song={currentSong} />
+              <CommentSection songId={currentSong.id} />
             </div>
           </div>
         </div>

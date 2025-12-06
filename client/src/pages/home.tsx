@@ -12,6 +12,7 @@ import { PremiumBanner } from "@/components/premium-banner";
 import { VideoAdModal } from "@/components/video-ad-modal";
 import { PWAInstallPrompt } from "@/components/pwa-install-prompt";
 import { SongSearch } from "@/components/song-search";
+import { CommentSection } from "@/components/comment-section";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -704,6 +705,7 @@ export default function Home() {
               isActivePlayback={isPlayingRecognizedSong}
               onLineClick={handleLineClick}
             />
+            {currentSongId && <CommentSection songId={currentSongId} className="mt-6" />}
           </>
         ) : (
           <div className="flex flex-col items-center justify-center h-[600px] bg-card rounded-lg border">
