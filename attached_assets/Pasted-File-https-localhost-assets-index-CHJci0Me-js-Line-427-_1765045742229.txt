@@ -1,0 +1,12 @@
+File: https://localhost/assets/index-CHJci0Me.js - Line 427 - Msg: [Capacitor Speech] partialResults event: {"matches":["Creole","Creo","Credo","creejo","Freehold"]}
+2025-12-06 12:28:00.759 21836-21836 Capacitor/Console       com.lyricsensei.app                  I  File: https://localhost/assets/index-CHJci0Me.js - Line 427 - Msg: [Capacitor Speech] 🎤 Heard: Creole
+2025-12-06 12:28:00.824 21836-21836 Capacitor/Console       com.lyricsensei.app                  I  File: https://localhost/assets/index-CHJci0Me.js - Line 427 - Msg: [Capacitor Speech] Got transcript, processing early: Creole
+2025-12-06 12:28:25.879 21836-21836 Capacitor/Console       com.lyricsensei.app                  I  File: https://localhost/assets/index-CHJci0Me.js - Line 427 - Msg: [BUTTON CLICK] Stop button clicked - stopping recording
+2025-12-06 12:28:25.879 21836-21836 Capacitor/Console       com.lyricsensei.app                  I  File: https://localhost/assets/index-CHJci0Me.js - Line 427 - Msg: [STOP] stopPracticeListening called
+2025-12-06 12:28:25.879 21836-21836 Capacitor/Console       com.lyricsensei.app                  I  File: https://localhost/assets/index-CHJci0Me.js - Line 427 - Msg: [Capacitor Speech] Manual stop triggered
+2025-12-06 12:28:27.161 21836-21836 Capacitor/Console       com.lyricsensei.app                  I  File: https://localhost/assets/index-CHJci0Me.js - Line 427 - Msg: [BUTTON CLICK] Stop button clicked - stopping recording
+2025-12-06 12:28:27.161 21836-21836 Capacitor/Console       com.lyricsensei.app                  I  File: https://localhost/assets/index-CHJci0Me.js - Line 427 - Msg: [STOP] stopPracticeListening called
+2025-12-06 12:28:27.161 21836-21836 Capacitor/Console       com.lyricsensei.app                  I  File: https://localhost/assets/index-CHJci0Me.js - Line 427 - Msg: [Capacitor Speech] Manual stop triggered
+2025-12-06 12:28:27.865 21836-21836 Capacitor/Console       com.lyricsensei.app                  I  File: https://localhost/assets/index-CHJci0Me.js - Line 427 - Msg: [BUTTON CLICK] Stop button clicked - stopping recording
+2025-12-06 12:28:27.865 21836-21836 Capacitor/Console       com.lyricsensei.app                  I  File: https://localhost/assets/index-CHJci0Me.js - Line 427 - Msg: [STOP] stopPracticeListening called
+2025-12-06 12:28:27.866 21836-21836 Capacitor/Console       com.lyricsensei.app                  I  File: https://localhost/assets/index-CHJci0Me.js - Line 427 - Msg: [Capacitor Speech] Manual stop triggered

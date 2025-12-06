@@ -625,26 +625,37 @@ export function LyricDisplay({
 
   // Stop practice listening - for the Stop button on mobile
   const stopPracticeListening = useCallback(async () => {
-    console.log('[STOP] stopPracticeListening called');
+    console.log('[STOP] stopPracticeListening called, hasRef:', !!practiceRecognitionRef.current);
+    
+    // Try to stop via the ref first (this triggers proper finalization)
     if (practiceRecognitionRef.current) {
       try {
-        // Await the async stop so processResult can finish
         await practiceRecognitionRef.current.stop();
-        console.log('[STOP] Recognition stopped and processed successfully');
+        console.log('[STOP] Recognition stopped via ref');
       } catch (e) {
         console.log('[STOP] Recognition stop error:', e);
       }
-      practiceRecognitionRef.current = null;
     }
+    
+    // Also explicitly stop Capacitor as backup (in case ref was cleared)
+    if (Capacitor.isNativePlatform()) {
+      try {
+        await CapacitorSpeechRecognition.stop();
+        console.log('[STOP] Capacitor plugin stopped');
+      } catch (e) {
+        // May already be stopped
+      }
+    }
+    
+    // Force cleanup state
+    practiceRecognitionRef.current = null;
     practiceListeningRef.current = false;
-    // Always reset listening state as a fallback (processResult should also do this)
-    setTimeout(() => {
-      setIsPracticeListening(false);
-    }, 100);
+    setIsPracticeListening(false);
+    console.log('[STOP] State reset complete');
   }, []);
 
   // Toggle Practice Mode
-  const togglePracticeMode = useCallback((index: number, phoneticGuide: string) => {
+  const togglePracticeMode = useCallback((index: number, phoneticGuide: string, originalLyric?: string) => {
     // ALWAYS save stats when exiting/switching practice mode
     savePracticeStats();
     
@@ -667,10 +678,20 @@ export function LyricDisplay({
       }
       
       // Enter practice mode (or switch to different line)
-      const words = tokenizePhoneticWords(phoneticGuide);
+      const phoneticWords = tokenizePhoneticWords(phoneticGuide);
+      
+      // Tokenize original lyric for comparison (split on whitespace, remove punctuation but keep all script letters)
+      const originalWords = originalLyric 
+        ? originalLyric.trim().split(/\s+/).map(w => 
+            w.normalize('NFD')  // Decompose accented chars
+             .replace(/[\u0300-\u036f]/g, '')  // Remove diacritics for comparison
+             .replace(/[.,!?;:'"()[\]{}@#$%^&*+=<>\/\\|`~]/g, '')  // Remove punctuation, keep all letters
+             .toLowerCase()
+          ).filter(w => w.length > 0)
+        : [];
       
       // Ensure we have words to practice
-      if (words.length === 0) {
+      if (phoneticWords.length === 0) {
         toast({
           title: "No Words Found",
           description: "Unable to split phonetics into words for practice.",
@@ -685,9 +706,10 @@ export function LyricDisplay({
       setIsPracticeMode(true);
       setPracticeLineIndex(index);
       setCurrentWordIndex(0);
-      setWordStates(words.map(word => ({
+      setWordStates(phoneticWords.map((word, i) => ({
         word,
-        status: 'pending',
+        originalWord: originalWords[i] || word, // Fallback to phonetic if no original
+        status: 'pending' as const,
         attempts: 0,
         bestScore: 0
       })));
@@ -722,10 +744,11 @@ export function LyricDisplay({
 
         // Capture current session and values
         const sessionId = practiceSessionRef.current;
-        const expectedWord = wordStates[wordIndex].word;
+        const phoneticWord = wordStates[wordIndex].word;
+        const originalWord = wordStates[wordIndex].originalWord || phoneticWord;
         const totalWords = wordStates.length;
 
-        console.log('[Practice Word] Starting recognition for word:', expectedWord);
+        console.log('[Practice Word] Starting recognition - phonetic:', phoneticWord, 'original:', originalWord);
         console.log('[Practice Word] Setting isPracticeListening to TRUE');
 
         // ===== FIX #2: Set state AND ref together =====
@@ -742,11 +765,11 @@ export function LyricDisplay({
         console.log('[Practice Word] Platform:', isNative ? 'Native' : 'Web');
 
         if (isNative) {
-          // Use Capacitor for mobile
-          await handleCapacitorSpeech(expectedWord, wordIndex, sessionId, bannerStartTime, totalWords);
+          // Use Capacitor for mobile - pass original word for matching
+          await handleCapacitorSpeech(originalWord, wordIndex, sessionId, bannerStartTime, totalWords);
         } else {
-          // Use Web Speech API for web
-          handleWebSpeech(expectedWord, wordIndex, sessionId, bannerStartTime, totalWords);
+          // Use Web Speech API for web - pass original word for matching
+          handleWebSpeech(originalWord, wordIndex, sessionId, bannerStartTime, totalWords);
         }
       }, [wordStates, toast]);
 
@@ -1070,6 +1093,101 @@ export function LyricDisplay({
     bannerStartTime: number,
     totalWords: number
   ) => {
+    // Track state locally to ensure cleanup
+    let finalTranscript = '';
+    let speechProcessed = false;
+    let listenerHandle: any = null;
+    let isCleanedUp = false;
+
+    // Cleanup function - ensures state is always reset
+    const cleanup = () => {
+      if (isCleanedUp) return;
+      isCleanedUp = true;
+      console.log('[Capacitor Speech] 🧹 Cleanup called');
+      
+      // Remove listener
+      if (listenerHandle) {
+        try {
+          listenerHandle.remove();
+        } catch (e) {
+          console.log('[Capacitor Speech] Listener cleanup error:', e);
+        }
+        listenerHandle = null;
+      }
+      
+      // Stop recognition only on native platform
+      if (Capacitor.isNativePlatform()) {
+        CapacitorSpeechRecognition.stop().catch(() => {});
+      }
+      
+      // Reset state immediately
+      practiceListeningRef.current = false;
+      practiceRecognitionRef.current = null;
+      setIsPracticeListening(false);
+    };
+
+    // Finalize attempt - show score and update state
+    const finalizeAttempt = (transcript: string) => {
+      if (speechProcessed) {
+        console.log('[Capacitor Speech] Already processed, skipping finalize');
+        return;
+      }
+      speechProcessed = true;
+      
+      console.log('[Capacitor Speech] 📊 Finalizing attempt with transcript:', transcript);
+      
+      const cleanTranscript = (transcript || '').toLowerCase().trim();
+      let accuracyPercentage = 0;
+      let tier: 'success' | 'close' | 'retry' = 'retry';
+      
+      if (cleanTranscript) {
+        const accuracy = calculateAccuracy(expectedWord, cleanTranscript);
+        accuracyPercentage = Math.round(accuracy * 100);
+        tier = getAccuracyTier(accuracy);
+        console.log(`[Capacitor Speech] 🎯 Accuracy: ${accuracyPercentage}% (${tier})`);
+      } else {
+        console.log('[Capacitor Speech] No speech detected, score = 0');
+      }
+
+      // Update word states
+      setWordStates(prev => {
+        if (wordIndex >= prev.length) return prev;
+        const updated = [...prev];
+        const status = tier === 'close' ? 'retry' : tier;
+        updated[wordIndex] = {
+          ...updated[wordIndex],
+          status,
+          attempts: updated[wordIndex].attempts + 1,
+          bestScore: Math.max(updated[wordIndex].bestScore, accuracyPercentage / 100)
+        };
+        return updated;
+      });
+
+      // Show score banner - do this SYNCHRONOUSLY before cleanup
+      console.log('[Capacitor Speech] 🎨 Setting score banner:', accuracyPercentage);
+      setLastScore(accuracyPercentage);
+      setShowScoreBanner(true);
+
+      // Clear previous banner timeout
+      if (scoreBannerTimeoutRef.current) clearTimeout(scoreBannerTimeoutRef.current);
+      scoreBannerTimeoutRef.current = setTimeout(() => {
+        setShowScoreBanner(false);
+        setLastScore(null);
+      }, 3000);
+
+      // Auto-advance on success
+      if (tier === 'success' && wordIndex < totalWords - 1) {
+        setTimeout(() => {
+          if (sessionId === practiceSessionRef.current) {
+            setCurrentWordIndex(wordIndex + 1);
+          }
+        }, 1000);
+      }
+
+      // Cleanup after showing score
+      cleanup();
+    };
+
     try {
       // Check permission
       const hasPermission = await CapacitorSpeechRecognition.checkPermissions();
@@ -1077,8 +1195,7 @@ export function LyricDisplay({
       if (hasPermission.speechRecognition !== 'granted') {
         const result = await CapacitorSpeechRecognition.requestPermissions();
         if (result.speechRecognition !== 'granted') {
-          practiceListeningRef.current = false;
-          setIsPracticeListening(false);
+          cleanup();
           toast({ title: "Permission Denied", description: "Microphone access required", variant: "destructive" });
           return;
         }
@@ -1087,124 +1204,25 @@ export function LyricDisplay({
       // Check availability
       const available = await CapacitorSpeechRecognition.available();
       if (!available.available) {
-        practiceListeningRef.current = false;
-        setIsPracticeListening(false);
+        cleanup();
         toast({ title: "Not Available", description: "Speech recognition unavailable on this device", variant: "destructive" });
         return;
       }
 
-      let finalTranscript = '';
-      let speechProcessed = false;
-      let listenerCleanup: (() => void) | null = null;
-      
-      // Process recognition result
-      const processResult = (transcript: string) => {
-        console.log('[Capacitor Speech] processResult called with:', transcript, 'speechProcessed:', speechProcessed, 'sessionMatch:', sessionId === practiceSessionRef.current);
-        if (speechProcessed || sessionId !== practiceSessionRef.current) {
-          console.log('[Capacitor Speech] processResult BLOCKED - already processed or session mismatch');
-          return;
-        }
-        speechProcessed = true;
-        
-        console.log('[Capacitor Speech] Processing result:', transcript);
-        
-        if (transcript) {
-          const cleanTranscript = transcript.toLowerCase().trim();
-          const accuracy = calculateAccuracy(expectedWord, cleanTranscript);
-          const accuracyPercentage = Math.round(accuracy * 100);
-          const tier = getAccuracyTier(accuracy);
-
-          console.log(`[Capacitor Speech] 🎯 Accuracy: ${accuracyPercentage}% (${tier}) - SETTING SCORE BANNER`);
-
-          setWordStates(prev => {
-            if (wordIndex >= prev.length) return prev;
-            const updated = [...prev];
-            const status = tier === 'close' ? 'retry' : tier;
-            updated[wordIndex] = {
-              ...updated[wordIndex],
-              status,
-              attempts: updated[wordIndex].attempts + 1,
-              bestScore: Math.max(updated[wordIndex].bestScore, accuracy)
-            };
-            return updated;
-          });
-
-          console.log('[Capacitor Speech] Setting lastScore:', accuracyPercentage, 'showScoreBanner: true');
-          setLastScore(accuracyPercentage);
-          setShowScoreBanner(true);
-
-          if (scoreBannerTimeoutRef.current) clearTimeout(scoreBannerTimeoutRef.current);
-          scoreBannerTimeoutRef.current = setTimeout(() => {
-            setShowScoreBanner(false);
-            setLastScore(null);
-          }, 3000);
-
-          if (tier === 'success' && wordIndex < totalWords - 1) {
-            setTimeout(() => {
-              if (sessionId === practiceSessionRef.current) {
-                setCurrentWordIndex(wordIndex + 1);
-              }
-            }, 1000);
-          }
-        } else {
-          console.log('[Capacitor Speech] No speech detected');
-          setLastScore(0);
-          setShowScoreBanner(true);
-          setWordStates(prev => {
-            if (wordIndex >= prev.length) return prev;
-            const updated = [...prev];
-            updated[wordIndex] = {
-              ...updated[wordIndex],
-              status: 'retry',
-              attempts: updated[wordIndex].attempts + 1
-            };
-            return updated;
-          });
-          
-          if (scoreBannerTimeoutRef.current) clearTimeout(scoreBannerTimeoutRef.current);
-          scoreBannerTimeoutRef.current = setTimeout(() => {
-            setShowScoreBanner(false);
-            setLastScore(null);
-          }, 3000);
-        }
-
-        // Reset listening state
-        const elapsed = Date.now() - bannerStartTime;
-        const remainingTime = Math.max(0, 2000 - elapsed);
-        
-        if (listeningResetTimeoutRef.current) clearTimeout(listeningResetTimeoutRef.current);
-        listeningResetTimeoutRef.current = setTimeout(() => {
-          if (sessionId === practiceSessionRef.current) {
-            practiceListeningRef.current = false;
-            setIsPracticeListening(false);
-            practiceRecognitionRef.current = null;
-            listeningResetTimeoutRef.current = null;
-          }
-        }, remainingTime);
-      };
-      
-      // Listen for partial results - accumulate them
-      const listener = await CapacitorSpeechRecognition.addListener('partialResults', (data: any) => {
-        console.log('[Capacitor Speech] partialResults event:', JSON.stringify(data));
-        if (data.matches && data.matches.length > 0) {
+      // Listen for partial results
+      listenerHandle = await CapacitorSpeechRecognition.addListener('partialResults', (data: any) => {
+        console.log('[Capacitor Speech] partialResults:', JSON.stringify(data));
+        if (data.matches && data.matches.length > 0 && !speechProcessed) {
           finalTranscript = data.matches[0];
           console.log('[Capacitor Speech] 🎤 Heard:', finalTranscript);
         }
       });
-      
-      listenerCleanup = () => listener.remove();
 
-      // Store a cleanup function in the ref so Stop button can call it
+      // Store cleanup function in ref so Stop button can call it
       practiceRecognitionRef.current = {
         stop: async () => {
-          console.log('[Capacitor Speech] Manual stop triggered');
-          try {
-            await CapacitorSpeechRecognition.stop();
-          } catch (e) {
-            console.log('[Capacitor Speech] Stop error:', e);
-          }
-          if (listenerCleanup) listenerCleanup();
-          processResult(finalTranscript);
+          console.log('[Capacitor Speech] 🛑 Manual stop triggered');
+          finalizeAttempt(finalTranscript);
         }
       };
 
@@ -1217,42 +1235,34 @@ export function LyricDisplay({
         popup: false,
       });
 
-      console.log('[Capacitor Speech] ✅ Started listening - speak now!');
+      console.log('[Capacitor Speech] ✅ Started listening');
 
-      // Wait for speech with shorter intervals, checking for early completion
+      // Wait for speech with timeout
       let elapsed = 0;
-      const maxWait = 5000; // 5 seconds max
+      const maxWait = 5000;
       const checkInterval = 500;
       
-      while (elapsed < maxWait && !speechProcessed) {
+      while (elapsed < maxWait && !speechProcessed && !isCleanedUp) {
         await new Promise(resolve => setTimeout(resolve, checkInterval));
         elapsed += checkInterval;
         
-        // If we got any transcript (even 1-2 chars like "yo"), process it early
-        if (finalTranscript && finalTranscript.length >= 1) {
-          console.log('[Capacitor Speech] Got transcript, processing early:', finalTranscript);
-          break;
+        // Process early if we got any transcript
+        if (finalTranscript && finalTranscript.length >= 1 && !speechProcessed) {
+          console.log('[Capacitor Speech] Got transcript, processing:', finalTranscript);
+          finalizeAttempt(finalTranscript);
+          return;
         }
       }
 
-      // Stop recognition if not already stopped
-      if (!speechProcessed) {
-        try {
-          await CapacitorSpeechRecognition.stop();
-        } catch (e) {
-          console.log('[Capacitor Speech] Stop error (may already be stopped):', e);
-        }
-        if (listenerCleanup) listenerCleanup();
-        
-        console.log('[Capacitor Speech] Final transcript after wait:', finalTranscript);
-        processResult(finalTranscript);
+      // Timeout reached - finalize with whatever we have
+      if (!speechProcessed && !isCleanedUp) {
+        console.log('[Capacitor Speech] Timeout, finalizing with:', finalTranscript || '(empty)');
+        finalizeAttempt(finalTranscript);
       }
 
     } catch (error: any) {
       console.error('[Capacitor Speech] Error:', error);
-      practiceListeningRef.current = false;
-      practiceRecognitionRef.current = null;
-      setIsPracticeListening(false);
+      cleanup();
       toast({ title: "Recognition Failed", description: error?.message || "Unknown error", variant: "destructive" });
     }
   }, [calculateAccuracy, getAccuracyTier, setWordStates, setLastScore, setShowScoreBanner, setCurrentWordIndex, setIsPracticeListening, toast]);
@@ -1531,7 +1541,7 @@ export function LyricDisplay({
                                 variant="ghost"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  togglePracticeMode(index, translation.phoneticGuide);
+                                  togglePracticeMode(index, translation.phoneticGuide, line.text);
                                 }}
                                 className="h-8 w-8"
                                 data-testid={`button-practice-mode-${index}`}
@@ -1576,7 +1586,7 @@ export function LyricDisplay({
                               variant="ghost"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                togglePracticeMode(index, translation.phoneticGuide);
+                                togglePracticeMode(index, translation.phoneticGuide, line.text);
                               }}
                               className="h-6 w-6"
                               data-testid="button-exit-practice"
