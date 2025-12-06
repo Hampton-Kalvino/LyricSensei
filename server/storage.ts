@@ -1,5 +1,5 @@
-import type { Song, LyricLine, Translation, User, UpsertUser, InsertSong, InsertLyric, InsertTranslationsCache, RecognitionHistory, InsertRecognitionHistory, UserFavorite, InsertUserFavorite, PracticeStats, InsertPracticeStats, PracticeStatsWithSong, PronunciationAssessment, InsertPronunciationAssessment, PracticeSessionCache, InsertPracticeSessionCache, AzureUsageLedger, InsertAzureUsageLedger, PasswordResetToken } from "@shared/schema";
-import { songs, lyrics, translationsCache, users, recognitionHistory, userFavorites, practiceStats, pronunciationAssessments, practiceSessionCache, azureUsageLedger, passwordResetTokens } from "@shared/schema";
+import type { Song, LyricLine, Translation, User, UpsertUser, InsertSong, InsertLyric, InsertTranslationsCache, RecognitionHistory, InsertRecognitionHistory, UserFavorite, InsertUserFavorite, PracticeStats, InsertPracticeStats, PracticeStatsWithSong, PronunciationAssessment, InsertPronunciationAssessment, PracticeSessionCache, InsertPracticeSessionCache, AzureUsageLedger, InsertAzureUsageLedger, PasswordResetToken, Comment, InsertComment, CommentWithUser } from "@shared/schema";
+import { songs, lyrics, translationsCache, users, recognitionHistory, userFavorites, practiceStats, pronunciationAssessments, practiceSessionCache, azureUsageLedger, passwordResetTokens, comments } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, sql, gte, lte } from "drizzle-orm";
 
@@ -70,6 +70,11 @@ export interface IStorage {
   recordAzureUsage(usage: InsertAzureUsageLedger): Promise<AzureUsageLedger>;
   getUserUsageForPeriod(userId: string, feature: string, billingWindowStart: Date): Promise<number>;
   getUserUsageStats(userId: string, feature: string): Promise<{ currentPeriodUsage: number; billingWindowStart: Date }>;
+  
+  // Comments
+  addComment(comment: InsertComment): Promise<Comment>;
+  getSongComments(songId: string, limit?: number): Promise<CommentWithUser[]>;
+  deleteComment(commentId: string, userId: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -815,6 +820,56 @@ export class DatabaseStorage implements IStorage {
       currentPeriodUsage: usage,
       billingWindowStart,
     };
+  }
+
+  // Comments
+  async addComment(comment: InsertComment): Promise<Comment> {
+    const [newComment] = await db.insert(comments).values(comment).returning();
+    return newComment;
+  }
+
+  async getSongComments(songId: string, limit: number = 50): Promise<CommentWithUser[]> {
+    const result = await db
+      .select({
+        id: comments.id,
+        songId: comments.songId,
+        userId: comments.userId,
+        text: comments.text,
+        createdAt: comments.createdAt,
+        user: {
+          id: users.id,
+          username: users.username,
+          firstName: users.firstName,
+          lastName: users.lastName,
+          profileImageUrl: users.profileImageUrl,
+        },
+      })
+      .from(comments)
+      .leftJoin(users, eq(comments.userId, users.id))
+      .where(eq(comments.songId, songId))
+      .orderBy(desc(comments.createdAt))
+      .limit(limit);
+
+    return result.map(row => ({
+      id: row.id,
+      songId: row.songId,
+      userId: row.userId,
+      text: row.text,
+      createdAt: row.createdAt,
+      user: row.user || {
+        id: row.userId,
+        username: null,
+        firstName: null,
+        lastName: null,
+        profileImageUrl: null,
+      },
+    }));
+  }
+
+  async deleteComment(commentId: string, userId: string): Promise<void> {
+    await db.delete(comments).where(
+      and(eq(comments.id, commentId), eq(comments.userId, userId))
+    );
   }
 }
 
