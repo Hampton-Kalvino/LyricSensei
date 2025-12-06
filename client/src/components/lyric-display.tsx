@@ -1226,16 +1226,33 @@ export function LyricDisplay({
         }
       };
 
-      // Start listening
+      // Detect language from translations (use first translation's sourceLanguage)
+      const detectedLang = translations.length > 0 ? translations[0]?.sourceLanguage : 'en';
+      const speechLangMap: Record<string, string> = {
+        'en': 'en-US',
+        'es': 'es-ES',
+        'fr': 'fr-FR',
+        'de': 'de-DE',
+        'ja': 'ja-JP',
+        'ko': 'ko-KR',
+        'zh': 'zh-CN',
+        'pt': 'pt-BR',
+        'it': 'it-IT',
+        'ru': 'ru-RU',
+      };
+      const speechLang = speechLangMap[detectedLang || 'en'] || 'en-US';
+      console.log('[Capacitor Speech] 🌐 Using language:', speechLang, 'detected from:', detectedLang);
+
+      // Start listening with correct language
       await CapacitorSpeechRecognition.start({
-        language: 'en-US',
+        language: speechLang,
         maxResults: 5,
         prompt: '',
         partialResults: true,
         popup: false,
       });
 
-      console.log('[Capacitor Speech] ✅ Started listening');
+      console.log('[Capacitor Speech] ✅ Started listening for', speechLang);
 
       // Wait for speech with timeout
       let elapsed = 0;
@@ -1265,7 +1282,7 @@ export function LyricDisplay({
       cleanup();
       toast({ title: "Recognition Failed", description: error?.message || "Unknown error", variant: "destructive" });
     }
-  }, [calculateAccuracy, getAccuracyTier, setWordStates, setLastScore, setShowScoreBanner, setCurrentWordIndex, setIsPracticeListening, toast]);
+  }, [calculateAccuracy, getAccuracyTier, setWordStates, setLastScore, setShowScoreBanner, setCurrentWordIndex, setIsPracticeListening, toast, translations]);
 
   if (isLoading) {
     return (
