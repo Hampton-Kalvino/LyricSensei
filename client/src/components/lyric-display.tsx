@@ -25,6 +25,7 @@ import {
 import { Capacitor } from '@capacitor/core';
 import { TextToSpeech } from '@capacitor-community/text-to-speech';
 import { SpeechRecognition as CapacitorSpeechRecognition } from '@capacitor-community/speech-recognition';
+import { convertToIPA } from '@/lib/phonetic-converter';
 
 type EmphasisMode = 'original' | 'translation' | 'phonetic';
 
@@ -354,6 +355,7 @@ export function LyricDisplay({
   }, [isActivePlayback, currentLineIndex, isUserScrolling]); // Only trigger on playback changes, NOT manual scroll
 
   // Text-to-Speech function - Hybrid: Capacitor for native, Web Speech for web
+  // Now with IPA conversion for accurate phonetic pronunciation
   const speakPhonetic = useCallback(async (phoneticText: string, index: number) => {
     const isNative = Capacitor.isNativePlatform();
     console.log(`▶️ SPEECH (${isNative ? 'Native' : 'Web'}): Called with phoneticText:`, phoneticText);
@@ -368,15 +370,33 @@ export function LyricDisplay({
       return;
     }
 
-    // PRONUNCIATION IMPROVEMENT: Clean phonetic text for TTS
-    const cleanText = phoneticText
-      .replace(/-([a-z])/gi, '$1')      // Remove hyphens within syllables
-      .replace(/\b([a-z])\1+\b/gi, '$1') // Remove repeated letters
+    // Detect language from translations for proper TTS voice selection
+    const detectedLang = translations.length > 0 ? translations[0]?.sourceLanguage : 'en';
+    const speechLangMap: Record<string, string> = {
+      'en': 'en-US',
+      'es': 'es-ES',
+      'fr': 'fr-FR',
+      'de': 'de-DE',
+      'ja': 'ja-JP',
+      'ko': 'ko-KR',
+      'zh': 'zh-CN',
+      'pt': 'pt-BR',
+      'it': 'it-IT',
+      'ru': 'ru-RU',
+    };
+    const speechLang = speechLangMap[detectedLang || 'en'] || 'en-US';
+    console.log('🌐 SPEECH: Detected language:', detectedLang, '→', speechLang);
+
+    // Convert phonetic text to IPA for accurate pronunciation
+    const ipaText = convertToIPA(phoneticText, speechLang);
+    console.log('🔤 SPEECH: Phonetic:', phoneticText);
+    console.log('🔤 SPEECH: IPA:', ipaText);
+
+    // Clean the IPA text for TTS
+    const cleanText = ipaText
       .replace(/,\s*/g, ', ')           // Normalize commas with spaces
       .replace(/\s+/g, ' ')             // Normalize multiple spaces
       .trim();
-
-    console.log('🧹 SPEECH: Cleaned text:', cleanText);
 
     if (!cleanText) {
       toast({
@@ -409,7 +429,7 @@ export function LyricDisplay({
         await TextToSpeech.stop();
         await TextToSpeech.speak({
           text: cleanText,
-          lang: 'en-US',
+          lang: speechLang,
           rate: 0.65,
           pitch: 1.0,
           volume: 1.0,
@@ -476,22 +496,24 @@ export function LyricDisplay({
       }
 
       const utterance = new SpeechSynthesisUtterance(cleanText);
-      utterance.lang = 'en-US';
+      utterance.lang = speechLang;
       utterance.rate = 0.65;
       utterance.pitch = 1.0;
       utterance.volume = 1.0;
 
-      const englishVoice = voices.find(v => 
-        v.lang.startsWith('en') && (
+      // Find a voice matching the detected language
+      const langCode = speechLang.slice(0, 2);
+      const preferredVoice = voices.find(v => 
+        v.lang.startsWith(langCode) && (
           v.name.includes('Google') || 
           v.name.includes('Natural') ||
-          v.name.includes('US') ||
           v.name.includes('Female')
         )
-      ) || voices.find(v => v.lang.startsWith('en'));
+      ) || voices.find(v => v.lang.startsWith(langCode));
       
-      if (englishVoice) {
-        utterance.voice = englishVoice;
+      if (preferredVoice) {
+        utterance.voice = preferredVoice;
+        console.log('🔊 SPEECH: Using voice:', preferredVoice.name);
       }
 
       utterance.onend = () => {
@@ -524,7 +546,7 @@ export function LyricDisplay({
       window.speechSynthesis.speak(utterance);
     }
     
-  }, [selectedPhoneticIndex, isSpeaking, toast]);
+  }, [selectedPhoneticIndex, isSpeaking, toast, translations]);
 
   // Helper to save practice stats
   const savePracticeStats = useCallback(() => {
