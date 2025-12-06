@@ -38,10 +38,11 @@ I prefer iterative development with clear communication on significant changes. 
     - **Lyric Sync Detection**: Differentiates between accurately synced and estimated lyrics.
     - **User Profile Management**: Allows customization of username, country, name, and profile picture.
     - **Practice Stats Tracking**: Tracks pronunciation progress with accuracy metrics and achievements.
+    - **Comments System**: Users can leave comments on songs with profile pictures displayed. Guest users are prompted to login/signup to participate.
 
 ### System Design Choices
 - **API Endpoints**: RESTful API for all core functionalities.
-- **Data Model**: Includes `Song`, `LyricLine`, `Translation`, `RecognitionResult`, `RecognitionHistory`, `UserFavorites`, `PracticeStats`, `password_reset_tokens`, and an extended `User` model.
+- **Data Model**: Includes `Song`, `LyricLine`, `Translation`, `RecognitionResult`, `RecognitionHistory`, `UserFavorites`, `PracticeStats`, `Comment`, `password_reset_tokens`, and an extended `User` model.
 - **Environment Variables**: Used for secure configurations.
 - **Lyric Timing & Scrolling**: Absolute time positioning and container-based scrolling with IntersectionObserver.
 - **Album Artwork**: Fetched from Spotify API with fallback.
