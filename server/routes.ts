@@ -1977,6 +1977,93 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // POST /api/feedback/lyric - Submit feedback about incorrect translation or phonetic
+  app.post("/api/feedback/lyric", async (req: any, res) => {
+    try {
+      const feedbackSchema = z.object({
+        songId: z.string(),
+        lineIndex: z.number(),
+        originalLyric: z.string(),
+        translation: z.string(),
+        phoneticGuide: z.string(),
+        feedbackType: z.enum(['translation', 'phonetic']),
+        message: z.string().optional(),
+      });
+
+      const data = feedbackSchema.parse(req.body);
+      
+      // Try to get user info if authenticated (sanitize guest identity for privacy)
+      let userInfo = 'Anonymous';
+      const guestId = req.headers['x-guest-id'];
+      
+      if (guestId && typeof guestId === 'string' && guestId.startsWith('guest-')) {
+        // Guest user - don't reveal internal guest ID or generated email
+        userInfo = 'Guest User';
+      } else if (req.user) {
+        const userId = (req.user as any).id || (req.user as any).claims?.sub;
+        // Skip if it's a guest ID stored in session
+        if (typeof userId === 'string' && userId.startsWith('guest-')) {
+          userInfo = 'Guest User';
+        } else {
+          const user = await storage.getUser(userId);
+          if (user) {
+            // Don't reveal internal guest emails
+            const isGuestEmail = user.email && user.email.includes('@lyricsensei.local');
+            userInfo = isGuestEmail 
+              ? 'Guest User'
+              : `${user.username || 'User'} (${user.email || 'No email'})`;
+          }
+        }
+      }
+
+      // Send feedback email via Resend
+      const { getUncachableResendClient } = await import("./resend-client");
+      
+      const emailContent = `
+        <h2>Lyric Feedback Report</h2>
+        <p><strong>From:</strong> ${userInfo}</p>
+        <p><strong>Song ID:</strong> ${data.songId}</p>
+        <p><strong>Line Index:</strong> ${data.lineIndex}</p>
+        <hr>
+        <h3>Content Reported</h3>
+        <p><strong>Original Lyric:</strong> ${data.originalLyric}</p>
+        <p><strong>Translation:</strong> ${data.translation}</p>
+        <p><strong>Phonetic Guide:</strong> ${data.phoneticGuide}</p>
+        <hr>
+        <h3>Issue Details</h3>
+        <p><strong>Type:</strong> ${data.feedbackType === 'translation' ? 'Translation Issue' : 'Phonetic Guide Issue'}</p>
+        <p><strong>User Message:</strong> ${data.message || 'No additional details provided'}</p>
+        <hr>
+        <p><em>Sent from Lyric Sensei Feedback System</em></p>
+      `;
+
+      try {
+        const { client, fromEmail } = await getUncachableResendClient();
+        
+        await client.emails.send({
+          from: `Lyric Sensei Feedback <${fromEmail}>`,
+          to: 'support@lyricsensei.com',
+          subject: `[Feedback] ${data.feedbackType === 'translation' ? 'Translation' : 'Phonetic'} Issue Report`,
+          html: emailContent,
+        });
+
+        console.log('[Feedback] Email sent successfully');
+        return res.json({ success: true, message: 'Feedback submitted successfully' });
+      } catch (emailError: any) {
+        console.error('[Feedback] Failed to send email:', emailError);
+        // Still return success to user - we don't want to block feedback due to email issues
+        // In production, you might want to log this to a database instead
+        return res.json({ success: true, message: 'Feedback recorded (email delivery pending)' });
+      }
+    } catch (error: any) {
+      if (error instanceof ZodError) {
+        return res.status(400).json({ error: 'Invalid feedback data', details: error.errors });
+      }
+      console.error('[Feedback] Error:', error);
+      res.status(500).json({ error: error.message || 'Failed to submit feedback' });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;

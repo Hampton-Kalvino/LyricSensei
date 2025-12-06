@@ -6,7 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
-import { Music, Languages, Volume2, AlertCircle, Speaker, Mic, Check, X, GraduationCap, SkipForward } from "lucide-react";
+import { Music, Languages, Volume2, AlertCircle, Speaker, Mic, Check, X, GraduationCap, SkipForward, Flag } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -94,6 +98,64 @@ export function LyricDisplay({
       return apiRequest("POST", "/api/practice-stats", { songId, totalAttempts, successfulAttempts });
     },
   });
+
+  // Feedback dialog state
+  const [feedbackDialogOpen, setFeedbackDialogOpen] = useState(false);
+  const [feedbackLineIndex, setFeedbackLineIndex] = useState<number>(-1);
+  const [feedbackType, setFeedbackType] = useState<'translation' | 'phonetic'>('translation');
+  const [feedbackMessage, setFeedbackMessage] = useState('');
+
+  // Feedback mutation
+  const sendFeedbackMutation = useMutation({
+    mutationFn: async (data: {
+      songId: string;
+      lineIndex: number;
+      originalLyric: string;
+      translation: string;
+      phoneticGuide: string;
+      feedbackType: 'translation' | 'phonetic';
+      message: string;
+    }) => {
+      return apiRequest('POST', '/api/feedback/lyric', data);
+    },
+    onSuccess: () => {
+      toast({
+        title: "Feedback sent",
+        description: "Thank you for helping improve our translations!",
+      });
+      setFeedbackDialogOpen(false);
+      setFeedbackMessage('');
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to send feedback",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const openFeedbackDialog = (lineIndex: number) => {
+    setFeedbackLineIndex(lineIndex);
+    setFeedbackDialogOpen(true);
+  };
+
+  const handleSubmitFeedback = () => {
+    if (!songId || feedbackLineIndex < 0) return;
+    
+    const lyric = lyrics[feedbackLineIndex];
+    const translation = translations.find(t => t.originalText === lyric.text);
+    
+    sendFeedbackMutation.mutate({
+      songId,
+      lineIndex: feedbackLineIndex,
+      originalLyric: lyric?.text || '',
+      translation: translation?.translatedText || '',
+      phoneticGuide: translation?.phoneticGuide || '',
+      feedbackType,
+      message: feedbackMessage,
+    });
+  };
 
   // currentTime is already the absolute position in the song (set from previewOffsetSeconds on recognition)
   // No need to add offset again - just use currentTime directly
@@ -1379,6 +1441,20 @@ export function LyricDisplay({
                                 <GraduationCap className="h-4 w-4" />
                               </Button>
                             )}
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openFeedbackDialog(index);
+                              }}
+                              className="h-8 w-8 text-muted-foreground hover:text-orange-500"
+                              data-testid={`button-feedback-${index}`}
+                              title="Report incorrect translation or phonetic"
+                              aria-label="Report feedback"
+                            >
+                              <Flag className="h-4 w-4" />
+                            </Button>
                           </div>
                         </div>
                       )}
@@ -1525,6 +1601,87 @@ export function LyricDisplay({
         })}
         <div className="h-80" />
       </div>
+
+      {/* Feedback Dialog */}
+      <Dialog open={feedbackDialogOpen} onOpenChange={setFeedbackDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Flag className="h-5 w-5 text-orange-500" />
+              Report Incorrect Content
+            </DialogTitle>
+            <DialogDescription>
+              Help us improve by reporting errors in translations or pronunciation guides.
+            </DialogDescription>
+          </DialogHeader>
+          
+          {feedbackLineIndex >= 0 && lyrics[feedbackLineIndex] && (
+            <div className="space-y-4">
+              <div className="p-3 rounded-lg bg-muted/50 text-sm space-y-1">
+                <p className="font-medium">{lyrics[feedbackLineIndex]?.text}</p>
+                {translations.find(t => t.originalText === lyrics[feedbackLineIndex]?.text)?.translatedText && (
+                  <p className="text-muted-foreground">
+                    {translations.find(t => t.originalText === lyrics[feedbackLineIndex]?.text)?.translatedText}
+                  </p>
+                )}
+                {translations.find(t => t.originalText === lyrics[feedbackLineIndex]?.text)?.phoneticGuide && (
+                  <p className="font-mono text-xs text-muted-foreground">
+                    {translations.find(t => t.originalText === lyrics[feedbackLineIndex]?.text)?.phoneticGuide}
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label>What's incorrect?</Label>
+                <RadioGroup 
+                  value={feedbackType} 
+                  onValueChange={(v) => setFeedbackType(v as 'translation' | 'phonetic')}
+                  className="flex gap-4"
+                  data-testid="radio-group-feedback-type"
+                >
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="translation" id="translation" data-testid="radio-feedback-translation" />
+                    <Label htmlFor="translation" className="font-normal cursor-pointer">Translation</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="phonetic" id="phonetic" data-testid="radio-feedback-phonetic" />
+                    <Label htmlFor="phonetic" className="font-normal cursor-pointer">Phonetic guide</Label>
+                  </div>
+                </RadioGroup>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="feedback-message">Details (optional)</Label>
+                <Textarea
+                  id="feedback-message"
+                  placeholder="Describe the issue or provide the correct version..."
+                  value={feedbackMessage}
+                  onChange={(e) => setFeedbackMessage(e.target.value)}
+                  className="min-h-[80px]"
+                  data-testid="textarea-feedback-message"
+                />
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              onClick={() => setFeedbackDialogOpen(false)}
+              data-testid="button-cancel-feedback"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSubmitFeedback}
+              disabled={sendFeedbackMutation.isPending}
+              data-testid="button-submit-feedback"
+            >
+              {sendFeedbackMutation.isPending ? "Sending..." : "Submit Feedback"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
