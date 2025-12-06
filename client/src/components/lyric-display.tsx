@@ -25,7 +25,6 @@ import {
 import { Capacitor } from '@capacitor/core';
 import { TextToSpeech } from '@capacitor-community/text-to-speech';
 import { SpeechRecognition as CapacitorSpeechRecognition } from '@capacitor-community/speech-recognition';
-import { convertToIPA } from '@/lib/phonetic-converter';
 
 type EmphasisMode = 'original' | 'translation' | 'phonetic';
 
@@ -355,16 +354,21 @@ export function LyricDisplay({
   }, [isActivePlayback, currentLineIndex, isUserScrolling]); // Only trigger on playback changes, NOT manual scroll
 
   // Text-to-Speech function - Hybrid: Capacitor for native, Web Speech for web
-  // Now with IPA conversion for accurate phonetic pronunciation
-  const speakPhonetic = useCallback(async (phoneticText: string, index: number) => {
+  // Speaks ORIGINAL text in source language for accurate pronunciation
+  // When clicking "Listen" on a phonetic guide, we speak the original text, not the phonetic
+  const speakPhonetic = useCallback(async (phoneticText: string, index: number, originalText?: string) => {
     const isNative = Capacitor.isNativePlatform();
-    console.log(`▶️ SPEECH (${isNative ? 'Native' : 'Web'}): Called with phoneticText:`, phoneticText);
+    console.log(`▶️ SPEECH (${isNative ? 'Native' : 'Web'}): Called with phoneticText:`, phoneticText, 'originalText:', originalText);
     
-    // Validate input
-    if (!phoneticText || phoneticText.trim() === '' || phoneticText === '—') {
+    // We can speak if we have EITHER original text OR phonetic text
+    // Prefer original text for accurate pronunciation
+    const hasPhonetic = phoneticText && phoneticText.trim() !== '' && phoneticText !== '—';
+    const hasOriginal = originalText && originalText.trim() !== '';
+    
+    if (!hasPhonetic && !hasOriginal) {
       toast({
-        title: "No Phonetics",
-        description: "Phonetic guide is not available for this line.",
+        title: "No Text Available",
+        description: "No text available to speak for this line.",
         variant: "destructive",
       });
       return;
@@ -387,13 +391,14 @@ export function LyricDisplay({
     const speechLang = speechLangMap[detectedLang || 'en'] || 'en-US';
     console.log('🌐 SPEECH: Detected language:', detectedLang, '→', speechLang);
 
-    // Convert phonetic text to IPA for accurate pronunciation
-    const ipaText = convertToIPA(phoneticText, speechLang);
-    console.log('🔤 SPEECH: Phonetic:', phoneticText);
-    console.log('🔤 SPEECH: IPA:', ipaText);
+    // CRITICAL: Speak the ORIGINAL text in the source language
+    // TTS engines pronounce native text correctly - phonetic guides are for human reading
+    // If original text is provided, use it; otherwise fall back to phonetic (less ideal)
+    const textToSpeak = originalText || phoneticText;
+    console.log('🔊 SPEECH: Will speak:', textToSpeak, 'in language:', speechLang);
 
-    // Clean the IPA text for TTS
-    const cleanText = ipaText
+    // Clean the text for TTS
+    const cleanText = textToSpeak
       .replace(/,\s*/g, ', ')           // Normalize commas with spaces
       .replace(/\s+/g, ' ')             // Normalize multiple spaces
       .trim();
@@ -702,15 +707,19 @@ export function LyricDisplay({
       // Enter practice mode (or switch to different line)
       const phoneticWords = tokenizePhoneticWords(phoneticGuide);
       
-      // Tokenize original lyric for comparison (split on whitespace, remove punctuation but keep all script letters)
-      const originalWords = originalLyric 
-        ? originalLyric.trim().split(/\s+/).map(w => 
-            w.normalize('NFD')  // Decompose accented chars
-             .replace(/[\u0300-\u036f]/g, '')  // Remove diacritics for comparison
-             .replace(/[.,!?;:'"()[\]{}@#$%^&*+=<>\/\\|`~]/g, '')  // Remove punctuation, keep all letters
-             .toLowerCase()
-          ).filter(w => w.length > 0)
+      // Split original lyric into words - keep BOTH raw (for TTS) and normalized (for comparison)
+      // Use the SAME splitting logic as tokenizePhoneticWords for alignment
+      const originalWordTokens = originalLyric 
+        ? originalLyric.trim().split(/\s+/).map(w => {
+            // Raw word: remove leading/trailing punctuation but keep accents intact for TTS
+            const rawWord = w.replace(/^[.,!?;:'"()[\]{}@#$%^&*+=<>\/\\|`~¿¡]+/, '')
+                             .replace(/[.,!?;:'"()[\]{}@#$%^&*+=<>\/\\|`~¿¡]+$/, '');
+            return rawWord;
+          }).filter(w => w.length > 0)
         : [];
+      
+      console.log('[Practice Mode] Phonetic words:', phoneticWords.length, phoneticWords);
+      console.log('[Practice Mode] Original words:', originalWordTokens.length, originalWordTokens);
       
       // Ensure we have words to practice
       if (phoneticWords.length === 0) {
@@ -730,7 +739,9 @@ export function LyricDisplay({
       setCurrentWordIndex(0);
       setWordStates(phoneticWords.map((word, i) => ({
         word,
-        originalWord: originalWords[i] || word, // Fallback to phonetic if no original
+        // originalWord stores the RAW text (with accents) for TTS pronunciation
+        // calculateAccuracy normalizes both inputs for comparison
+        originalWord: originalWordTokens[i] || word, // Fallback to phonetic if no original
         status: 'pending' as const,
         attempts: 0,
         bestScore: 0
@@ -1618,7 +1629,7 @@ export function LyricDisplay({
                               variant="ghost"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                speakPhonetic(translation.phoneticGuide, index);
+                                speakPhonetic(translation.phoneticGuide, index, line.text);
                               }}
                               className={cn(
                                 "h-8 w-8 transition-all",
@@ -1729,10 +1740,10 @@ export function LyricDisplay({
                               variant="outline"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                speakPhonetic(wordStates[currentWordIndex].word, index);
+                                speakPhonetic(wordStates[currentWordIndex].word, index, wordStates[currentWordIndex].originalWord);
                               }}
                               data-testid="button-practice-listen"
-                              aria-label={`Listen to pronunciation of ${wordStates[currentWordIndex].word}`}
+                              aria-label={`Listen to pronunciation of ${wordStates[currentWordIndex].originalWord || wordStates[currentWordIndex].word}`}
                             >
                               <Speaker className="h-4 w-4 mr-1" />
                               Listen
