@@ -1,0 +1,15 @@
+Line 595 - Msg: [AudioConverter] Audio decoded successfully
+2025-12-06 14:32:33.403 16737-16737 Capacitor/Console       com.lyricsensei.app                  I  File: https://localhost/assets/index-llV3TEI5.js - Line 595 - Msg: [AudioConverter] Sample rate: 48000
+2025-12-06 14:32:33.403 16737-16737 Capacitor/Console       com.lyricsensei.app                  I  File: https://localhost/assets/index-llV3TEI5.js - Line 595 - Msg: [AudioConverter] Duration: 11.88
+2025-12-06 14:32:33.404 16737-16737 Capacitor/Console       com.lyricsensei.app                  I  File: https://localhost/assets/index-llV3TEI5.js - Line 595 - Msg: [AudioConverter] Number of channels: 1
+2025-12-06 14:32:33.410 16737-16737 Capacitor/Console       com.lyricsensei.app                  I  File: https://localhost/assets/index-llV3TEI5.js - Line 595 - Msg: [AudioConverter] Audio levels OK, no normalization needed. Max: 0.550
+2025-12-06 14:32:33.419 16737-16737 Capacitor/Console       com.lyricsensei.app                  I  File: https://localhost/assets/index-llV3TEI5.js - Line 595 - Msg: [AudioConverter] Created WAV: 1 channels, 48000Hz, 570240 samples
+2025-12-06 14:32:33.421 16737-16737 Capacitor/Console       com.lyricsensei.app                  I  File: https://localhost/assets/index-llV3TEI5.js - Line 595 - Msg: [AudioConverter] Converted to WAV, size: 1140524
+2025-12-06 14:32:33.428 16737-16737 Capacitor/Console       com.lyricsensei.app                  I  File: https://localhost/assets/index-llV3TEI5.js - Line 595 - Msg: [Lyrics] Found lyrics, stopping poll
+2025-12-06 14:32:33.433 16737-16737 Capacitor/Console       com.lyricsensei.app                  I  File: https://localhost/assets/index-llV3TEI5.js - Line 48 - Msg: [API Request] POST https://lyricsensei.com/api/recognize
+2025-12-06 14:32:33.455 16737-16737 Capacitor/Console       com.lyricsensei.app                  I  File: https://localhost/assets/index-llV3TEI5.js - Line 595 - Msg: [Lyrics] Found lyrics, stopping poll
+2025-12-06 14:32:35.349 16737-16737 Capacitor/Console       com.lyricsensei.app                  I  File: https://localhost/assets/index-llV3TEI5.js - Line 48 - Msg: [API Response] 500 
+2025-12-06 14:32:35.349 16737-16737 Capacitor/Console       com.lyricsensei.app                  E  File: https://localhost/assets/index-llV3TEI5.js - Line 48 - Msg: [API Error] POST https://lyricsensei.com/api/recognize: Error: 500: {"error":"Failed to recognize song. Please try again."}
+2025-12-06 14:32:35.363 16737-16737 Capacitor/Console       com.lyricsensei.app                  I  File: https://localhost/assets/index-llV3TEI5.js - Line 595 - Msg: [Lyrics] Found lyrics, stopping poll
+2025-12-06 14:32:40.385 16737-16737 Capacitor/Console       com.lyricsensei.app                  I  File: https://localhost/assets/index-llV3TEI5.js - Line 595 - Msg: [Lyrics] Found lyrics, stopping poll
+2025-12-06 14:32:45.388 16737-16737 Capacitor/Console       com.lyricsensei.app                  I  File: https://localhost/assets/index-llV3TEI5.js - Line 595 - Msg: [Lyrics] Found lyrics, stopping poll
