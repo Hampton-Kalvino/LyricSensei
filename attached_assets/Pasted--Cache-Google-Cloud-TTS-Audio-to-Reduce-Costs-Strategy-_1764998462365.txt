@@ -1,0 +1,588 @@
+# 💰 Cache Google Cloud TTS Audio to Reduce Costs
+
+## Strategy Overview
+
+Google Cloud TTS costs $4 per 1 million characters. With caching, you only pay once per unique phonetic text.
+
+**Example savings:**
+- Without cache: 1000 users × 100 words = 100,000 requests = ~$0.40
+- With cache: 100 unique words = 100 requests = ~$0.004 (100x cheaper!)
+
+---
+
+## ✅ Solution 1: Database Cache (Recommended)
+
+Store generated audio in your database.
+
+### Database Schema
+
+```typescript
+// server/db/schema.ts
+
+export const ttsCache = pgTable('tts_cache', {
+  id: serial('id').primaryKey(),
+  phoneticText: text('phonetic_text').notNull().unique(),
+  language: text('language').notNull().default('en-US'),
+  audioData: text('audio_data').notNull(), // Base64 encoded audio
+  audioFormat: text('audio_format').notNull().default('mp3'),
+  ipaText: text('ipa_text'), // Store IPA conversion
+  createdAt: timestamp('created_at').defaultNow(),
+  accessCount: integer('access_count').default(0),
+  lastAccessedAt: timestamp('last_accessed_at').defaultNow()
+});
+
+// Composite index for fast lookups
+// CREATE INDEX idx_tts_cache_lookup ON tts_cache(phonetic_text, language);
+```
+
+### Backend Implementation
+
+```typescript
+// server/lib/tts-cache.ts
+
+import { db } from '../db';
+import { ttsCache } from '../db/schema';
+import { eq, and } from 'drizzle-orm';
+import textToSpeech from '@google-cloud/text-to-speech';
+import { convertToIPA } from './phonetic-converter';
+
+const client = new textToSpeech.TextToSpeechClient({
+  keyFilename: process.env.GOOGLE_APPLICATION_CREDENTIALS
+});
+
+export async function getOrGeneratePhoneticAudio(
+  phoneticText: string,
+  language: string = 'en-US'
+): Promise<Buffer> {
+  // 1. Check cache first
+  const cached = await db.query.ttsCache.findFirst({
+    where: and(
+      eq(ttsCache.phoneticText, phoneticText),
+      eq(ttsCache.language, language)
+    )
+  });
+
+  if (cached) {
+    console.log('[TTS Cache] HIT:', phoneticText);
+    
+    // Update access stats
+    await db
+      .update(ttsCache)
+      .set({
+        accessCount: cached.accessCount + 1,
+        lastAccessedAt: new Date()
+      })
+      .where(eq(ttsCache.id, cached.id));
+
+    // Return cached audio
+    return Buffer.from(cached.audioData, 'base64');
+  }
+
+  console.log('[TTS Cache] MISS:', phoneticText);
+
+  // 2. Generate new audio
+  const audioBuffer = await generatePhoneticAudio(phoneticText, language);
+
+  // 3. Store in cache
+  await db.insert(ttsCache).values({
+    phoneticText,
+    language,
+    audioData: audioBuffer.toString('base64'),
+    audioFormat: 'mp3',
+    ipaText: convertToIPA(phoneticText),
+    accessCount: 1
+  });
+
+  console.log('[TTS Cache] Stored:', phoneticText);
+
+  return audioBuffer;
+}
+
+async function generatePhoneticAudio(
+  phoneticText: string,
+  language: string
+): Promise<Buffer> {
+  const ipaText = convertToIPA(phoneticText);
+
+  const ssml = `
+    <speak>
+      <phoneme alphabet="ipa" ph="${ipaText}">
+        ${phoneticText}
+      </phoneme>
+    </speak>
+  `;
+
+  const [response] = await client.synthesizeSpeech({
+    input: { ssml },
+    voice: {
+      languageCode: language,
+      name: `${language}-Wavenet-D`
+    },
+    audioConfig: {
+      audioEncoding: 'MP3',
+      speakingRate: 0.75,
+      pitch: 0
+    }
+  });
+
+  return Buffer.from(response.audioContent as Uint8Array);
+}
+```
+
+### API Route
+
+```typescript
+// server/routes.ts
+
+app.post('/api/tts/phonetic', async (req, res) => {
+  try {
+    const { phoneticText, language = 'en-US' } = req.body;
+
+    if (!phoneticText) {
+      return res.status(400).json({ error: 'phoneticText required' });
+    }
+
+    // Get from cache or generate
+    const audioBuffer = await getOrGeneratePhoneticAudio(phoneticText, language);
+
+    // Set cache headers for browser caching too
+    res.set({
+      'Content-Type': 'audio/mpeg',
+      'Content-Length': audioBuffer.length,
+      'Cache-Control': 'public, max-age=31536000', // 1 year
+      'ETag': `"${phoneticText}-${language}"`
+    });
+
+    res.send(audioBuffer);
+
+  } catch (error) {
+    console.error('[TTS] Error:', error);
+    res.status(500).json({ error: 'Failed to generate audio' });
+  }
+});
+```
+
+---
+
+## ✅ Solution 2: File System Cache
+
+Store audio files on disk (cheaper than database for large files).
+
+```typescript
+// server/lib/tts-file-cache.ts
+
+import fs from 'fs/promises';
+import path from 'path';
+import crypto from 'crypto';
+
+const CACHE_DIR = path.join(__dirname, '../../tts-cache');
+
+// Ensure cache directory exists
+await fs.mkdir(CACHE_DIR, { recursive: true });
+
+export async function getOrGeneratePhoneticAudio(
+  phoneticText: string,
+  language: string = 'en-US'
+): Promise<Buffer> {
+  // Generate cache key (hash of text + language)
+  const cacheKey = crypto
+    .createHash('md5')
+    .update(`${phoneticText}-${language}`)
+    .digest('hex');
+
+  const cacheFile = path.join(CACHE_DIR, `${cacheKey}.mp3`);
+
+  // 1. Check if file exists
+  try {
+    const audioBuffer = await fs.readFile(cacheFile);
+    console.log('[TTS Cache] HIT:', phoneticText);
+    
+    // Update last accessed time
+    await fs.utimes(cacheFile, new Date(), new Date());
+    
+    return audioBuffer;
+    
+  } catch (error) {
+    console.log('[TTS Cache] MISS:', phoneticText);
+  }
+
+  // 2. Generate new audio
+  const audioBuffer = await generatePhoneticAudio(phoneticText, language);
+
+  // 3. Save to file
+  await fs.writeFile(cacheFile, audioBuffer);
+
+  // 4. Store metadata in database
+  await db.insert(ttsCache).values({
+    phoneticText,
+    language,
+    cacheKey,
+    filePath: cacheFile,
+    createdAt: new Date()
+  });
+
+  return audioBuffer;
+}
+```
+
+### Serve Cached Files Directly
+
+```typescript
+// server/routes.ts
+
+app.get('/api/tts/cached/:cacheKey', async (req, res) => {
+  const { cacheKey } = req.params;
+  const filePath = path.join(CACHE_DIR, `${cacheKey}.mp3`);
+
+  try {
+    const stat = await fs.stat(filePath);
+    
+    res.set({
+      'Content-Type': 'audio/mpeg',
+      'Content-Length': stat.size,
+      'Cache-Control': 'public, max-age=31536000',
+      'ETag': cacheKey
+    });
+
+    const stream = createReadStream(filePath);
+    stream.pipe(res);
+
+  } catch (error) {
+    res.status(404).send('Audio not found');
+  }
+});
+```
+
+---
+
+## ✅ Solution 3: CDN + Object Storage (Production Scale)
+
+For production apps, use S3 or Cloudflare R2.
+
+```typescript
+// server/lib/tts-cdn-cache.ts
+
+import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
+
+const s3 = new S3Client({
+  region: process.env.AWS_REGION,
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!
+  }
+});
+
+const BUCKET_NAME = 'lyricsensei-tts-cache';
+const CDN_URL = 'https://cdn.lyricsensei.com/tts';
+
+export async function getOrGeneratePhoneticAudio(
+  phoneticText: string,
+  language: string = 'en-US'
+): Promise<string> {
+  const cacheKey = crypto
+    .createHash('md5')
+    .update(`${phoneticText}-${language}`)
+    .digest('hex');
+
+  const s3Key = `phonetics/${language}/${cacheKey}.mp3`;
+  const cdnUrl = `${CDN_URL}/${s3Key}`;
+
+  // 1. Check if exists in S3
+  try {
+    await s3.send(new GetObjectCommand({
+      Bucket: BUCKET_NAME,
+      Key: s3Key
+    }));
+
+    console.log('[TTS Cache] HIT (CDN):', phoneticText);
+    return cdnUrl; // Return CDN URL instead of buffer
+
+  } catch (error) {
+    console.log('[TTS Cache] MISS:', phoneticText);
+  }
+
+  // 2. Generate audio
+  const audioBuffer = await generatePhoneticAudio(phoneticText, language);
+
+  // 3. Upload to S3
+  await s3.send(new PutObjectCommand({
+    Bucket: BUCKET_NAME,
+    Key: s3Key,
+    Body: audioBuffer,
+    ContentType: 'audio/mpeg',
+    CacheControl: 'public, max-age=31536000',
+    Metadata: {
+      phoneticText,
+      language,
+      ipaText: convertToIPA(phoneticText)
+    }
+  }));
+
+  console.log('[TTS Cache] Uploaded to CDN:', cdnUrl);
+
+  // 4. Store reference in database
+  await db.insert(ttsCache).values({
+    phoneticText,
+    language,
+    cdnUrl,
+    cacheKey,
+    createdAt: new Date()
+  });
+
+  return cdnUrl;
+}
+```
+
+### Frontend Usage (CDN)
+
+```typescript
+// client/src/lib/phonetic-player.ts
+
+async function playPhonetic(phoneticText: string, language: string) {
+  // Get CDN URL (cached or newly generated)
+  const response = await fetch('/api/tts/phonetic', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ phoneticText, language })
+  });
+
+  const { url } = await response.json(); // CDN URL
+
+  // Play from CDN (browsers will cache this automatically)
+  const audio = new Audio(url);
+  await audio.play();
+}
+```
+
+---
+
+## ✅ Solution 4: Pre-warming Cache
+
+Generate audio for all phonetics ahead of time:
+
+```typescript
+// server/scripts/prewarm-tts-cache.ts
+
+import { db } from '../db';
+import { lyrics } from '../db/schema';
+import { getOrGeneratePhoneticAudio } from '../lib/tts-cache';
+
+async function prewarmCache() {
+  console.log('[TTS] Pre-warming cache...');
+
+  // Get all unique phonetic texts from database
+  const allLyrics = await db.select({
+    phoneticGuide: lyrics.phoneticGuide,
+    language: lyrics.sourceLanguage
+  }).from(lyrics);
+
+  const uniquePhonetics = new Set<string>();
+  
+  for (const lyric of allLyrics) {
+    if (lyric.phoneticGuide) {
+      // Split by spaces/newlines to get individual words
+      const words = lyric.phoneticGuide.split(/\s+/);
+      words.forEach(word => uniquePhonetics.add(word));
+    }
+  }
+
+  console.log(`[TTS] Found ${uniquePhonetics.size} unique phonetic texts`);
+
+  let cached = 0;
+  let generated = 0;
+
+  for (const phonetic of uniquePhonetics) {
+    try {
+      const existed = await db.query.ttsCache.findFirst({
+        where: eq(ttsCache.phoneticText, phonetic)
+      });
+
+      if (existed) {
+        cached++;
+      } else {
+        await getOrGeneratePhoneticAudio(phonetic, 'fr-FR');
+        generated++;
+        console.log(`[TTS] Generated ${generated}/${uniquePhonetics.size}: ${phonetic}`);
+      }
+
+      // Rate limit to avoid API throttling
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+    } catch (error) {
+      console.error(`[TTS] Failed for "${phonetic}":`, error);
+    }
+  }
+
+  console.log(`[TTS] Complete! Cached: ${cached}, Generated: ${generated}`);
+}
+
+// Run: node dist/scripts/prewarm-tts-cache.js
+prewarmCache();
+```
+
+Run this script nightly or after adding new songs:
+
+```bash
+npm run prewarm-tts-cache
+```
+
+---
+
+## ✅ Solution 5: Tiered Caching
+
+Combine multiple cache layers:
+
+```typescript
+// server/lib/tts-tiered-cache.ts
+
+export async function getPhoneticAudio(
+  phoneticText: string,
+  language: string
+): Promise<Buffer> {
+  // Layer 1: In-memory cache (fastest)
+  const memCached = memoryCache.get(`${phoneticText}-${language}`);
+  if (memCached) {
+    console.log('[TTS] Memory cache HIT');
+    return memCached;
+  }
+
+  // Layer 2: Database cache
+  const dbCached = await db.query.ttsCache.findFirst({
+    where: and(
+      eq(ttsCache.phoneticText, phoneticText),
+      eq(ttsCache.language, language)
+    )
+  });
+
+  if (dbCached) {
+    console.log('[TTS] Database cache HIT');
+    const buffer = Buffer.from(dbCached.audioData, 'base64');
+    
+    // Store in memory for next time
+    memoryCache.set(`${phoneticText}-${language}`, buffer, 3600); // 1 hour
+    
+    return buffer;
+  }
+
+  // Layer 3: Generate from Google TTS
+  console.log('[TTS] Generating from API');
+  const audioBuffer = await generatePhoneticAudio(phoneticText, language);
+
+  // Store in both caches
+  memoryCache.set(`${phoneticText}-${language}`, audioBuffer, 3600);
+  
+  await db.insert(ttsCache).values({
+    phoneticText,
+    language,
+    audioData: audioBuffer.toString('base64')
+  });
+
+  return audioBuffer;
+}
+```
+
+---
+
+## 📊 Cache Performance Metrics
+
+Add analytics to track cache effectiveness:
+
+```typescript
+// server/lib/tts-cache.ts
+
+export async function getCacheStats() {
+  const stats = await db
+    .select({
+      totalEntries: count(),
+      totalAccesses: sum(ttsCache.accessCount),
+      avgAccessCount: avg(ttsCache.accessCount)
+    })
+    .from(ttsCache);
+
+  const cacheSize = await db
+    .select({
+      totalSize: sum(length(ttsCache.audioData))
+    })
+    .from(ttsCache);
+
+  return {
+    entries: stats[0].totalEntries,
+    totalAccesses: stats[0].totalAccesses,
+    avgAccessPerEntry: stats[0].avgAccessCount,
+    totalSizeMB: (cacheSize[0].totalSize || 0) / 1024 / 1024,
+    hitRate: calculateHitRate()
+  };
+}
+
+// Track hits/misses
+let cacheHits = 0;
+let cacheMisses = 0;
+
+function calculateHitRate() {
+  const total = cacheHits + cacheMisses;
+  return total > 0 ? (cacheHits / total * 100).toFixed(2) : 0;
+}
+```
+
+---
+
+## 💰 Cost Savings Calculator
+
+```typescript
+// Estimate savings
+const uniquePhonetics = 500; // Different words/phrases
+const avgRequestsPerPhonetic = 1000; // Users requesting same word
+const avgCharsPerPhonetic = 20;
+
+// Without caching:
+const totalRequests = uniquePhonetics * avgRequestsPerPhonetic; // 500,000
+const totalChars = totalRequests * avgCharsPerPhonetic; // 10,000,000
+const costWithoutCache = (totalChars / 1000000) * 4; // $40
+
+// With caching:
+const cachedRequests = uniquePhonetics; // Only 500
+const cachedChars = cachedRequests * avgCharsPerPhonetic; // 10,000
+const costWithCache = (cachedChars / 1000000) * 4; // $0.04
+
+console.log('Savings:', costWithoutCache - costWithCache); // $39.96 (99.9% reduction!)
+```
+
+---
+
+## 🎯 Recommended Implementation
+
+**Use Database Cache + Pre-warming:**
+
+1. **Database cache** for all generated audio
+2. **Pre-warm** cache with all existing phonetics
+3. **Browser caching** with proper headers
+4. **CDN** (optional) for production scale
+
+```typescript
+// Complete flow:
+1. User clicks "Listen"
+2. Frontend requests: POST /api/tts/phonetic
+3. Backend checks database cache
+4. If miss: Generate with Google TTS and cache
+5. If hit: Return cached audio (free!)
+6. Browser caches response for 1 year
+```
+
+**Result: ~99% cost reduction after initial cache warm-up!** 💰✨
+
+---
+
+## 🚀 Quick Start
+
+```bash
+# 1. Add cache table to database
+npm run db:push
+
+# 2. Pre-warm cache for existing phonetics
+npm run prewarm-tts-cache
+
+# 3. Deploy with caching enabled
+# Future requests will be nearly free!
+```
+
+**Your TTS costs will drop from ~$40/month to ~$0.40/month!** 🎉

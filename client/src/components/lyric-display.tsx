@@ -637,8 +637,10 @@ export function LyricDisplay({
       practiceRecognitionRef.current = null;
     }
     practiceListeningRef.current = false;
-    // Don't reset isPracticeListening here - let processResult handle it
-    // setIsPracticeListening(false); // Removed - processResult will do this
+    // Always reset listening state as a fallback (processResult should also do this)
+    setTimeout(() => {
+      setIsPracticeListening(false);
+    }, 100);
   }, []);
 
   // Toggle Practice Mode
@@ -871,6 +873,7 @@ export function LyricDisplay({
                 if (sessionId === practiceSessionRef.current) {
                   // ===== FIX #4: Reset ref when done =====
                   practiceListeningRef.current = false;
+                  practiceRecognitionRef.current = null; // Clear ref to allow new practice
                   setIsPracticeListening(false);
                   listeningResetTimeoutRef.current = null;
                 }
@@ -889,6 +892,7 @@ export function LyricDisplay({
 
           // ===== FIX #5: Reset ref on error =====
           practiceListeningRef.current = false;
+          practiceRecognitionRef.current = null; // Clear ref to allow retry
 
           if (maxListeningTimeoutRef.current) {
             clearTimeout(maxListeningTimeoutRef.current);
@@ -967,6 +971,7 @@ export function LyricDisplay({
           // No speech detected at all
           console.log('[Practice Word] No speech detected, processing immediately');
           practiceListeningRef.current = false;
+          practiceRecognitionRef.current = null; // Clear ref to allow retry
           
           if (recognitionHandledRef.current) {
             console.log('[Practice Word] Already handled by onresult/onerror');
@@ -991,6 +996,7 @@ export function LyricDisplay({
             if (sessionId === practiceSessionRef.current && !recognitionHandledRef.current) {
               console.log('[Practice Word] Fallback timeout: resetting listening state');
               practiceListeningRef.current = false;
+              practiceRecognitionRef.current = null; // Clear ref to allow retry
               setIsPracticeListening(false);
               listeningResetTimeoutRef.current = null;
 
@@ -1035,6 +1041,7 @@ export function LyricDisplay({
               console.log('[Practice Word] Maximum listening timeout reached (10s)');
               // ===== FIX #7: Reset ref on timeout =====
               practiceListeningRef.current = false;
+              practiceRecognitionRef.current = null; // Clear ref to allow retry
               recognition.stop();
             }
           }, 10000);
@@ -1044,6 +1051,7 @@ export function LyricDisplay({
 
           // ===== FIX #8: Reset ref on start failure =====
           practiceListeningRef.current = false;
+          practiceRecognitionRef.current = null; // Clear ref to allow retry
           setIsPracticeListening(false);
 
           toast({
@@ -1220,8 +1228,8 @@ export function LyricDisplay({
         await new Promise(resolve => setTimeout(resolve, checkInterval));
         elapsed += checkInterval;
         
-        // If we got a substantial transcript, process it early
-        if (finalTranscript && finalTranscript.length > 2) {
+        // If we got any transcript (even 1-2 chars like "yo"), process it early
+        if (finalTranscript && finalTranscript.length >= 1) {
           console.log('[Capacitor Speech] Got transcript, processing early:', finalTranscript);
           break;
         }
