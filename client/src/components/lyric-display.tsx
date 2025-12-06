@@ -623,6 +623,22 @@ export function LyricDisplay({
     practiceSessionRef.current++; // Invalidate any pending callbacks
   }, []);
 
+  // Stop practice listening - for the Stop button on mobile
+  const stopPracticeListening = useCallback(() => {
+    console.log('[STOP] stopPracticeListening called');
+    if (practiceRecognitionRef.current) {
+      try {
+        practiceRecognitionRef.current.stop();
+        console.log('[STOP] Recognition stopped successfully');
+      } catch (e) {
+        console.log('[STOP] Recognition already stopped:', e);
+      }
+      practiceRecognitionRef.current = null;
+    }
+    practiceListeningRef.current = false;
+    setIsPracticeListening(false);
+  }, []);
+
   // Toggle Practice Mode
   const togglePracticeMode = useCallback((index: number, phoneticGuide: string) => {
     // ALWAYS save stats when exiting/switching practice mode
@@ -1568,13 +1584,16 @@ export function LyricDisplay({
                               variant={isPracticeListening ? "destructive" : "default"}
                               onClick={(e) => {
                                 e.stopPropagation();
-                                console.log('[BUTTON CLICK] Speak button clicked! currentWordIndex:', currentWordIndex, 'wordStates:', wordStates);
-                                console.log('[BUTTON CLICK] practiceWord function:', practiceWord);
-                                practiceWord(currentWordIndex);
+                                if (isPracticeListening) {
+                                  console.log('[BUTTON CLICK] Stop button clicked - stopping recording');
+                                  stopPracticeListening();
+                                } else {
+                                  console.log('[BUTTON CLICK] Speak button clicked! currentWordIndex:', currentWordIndex, 'wordStates:', wordStates);
+                                  practiceWord(currentWordIndex);
+                                }
                               }}
-                              disabled={isPracticeListening}
                               data-testid="button-practice-record"
-                              aria-label={`Record pronunciation of ${wordStates[currentWordIndex].word}`}
+                              aria-label={isPracticeListening ? "Stop recording" : `Record pronunciation of ${wordStates[currentWordIndex].word}`}
                               className={cn(isPracticeListening && "animate-pulse")}
                             >
                               <Mic className="h-4 w-4 mr-1" />
