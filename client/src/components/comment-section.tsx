@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { MessageCircle, Send, Trash2, User, LogIn } from "lucide-react";
+import { MessageCircle, Send, Trash2, User, LogIn, Reply, X } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -26,6 +26,7 @@ export function CommentSection({ songId, className }: CommentSectionProps) {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const [commentText, setCommentText] = useState("");
+  const [replyingTo, setReplyingTo] = useState<CommentWithUser | null>(null);
 
   const { data: comments = [], isLoading: isLoadingComments } = useQuery<CommentWithUser[]>({
     queryKey: ['/api/comments', songId],
@@ -38,15 +39,16 @@ export function CommentSection({ songId, className }: CommentSectionProps) {
   });
 
   const addCommentMutation = useMutation({
-    mutationFn: async (text: string) => {
-      return apiRequest('POST', `/api/comments/${songId}`, { text });
+    mutationFn: async ({ text, parentId }: { text: string; parentId?: string }) => {
+      return apiRequest('POST', `/api/comments/${songId}`, { text, parentId });
     },
     onSuccess: () => {
       setCommentText("");
+      setReplyingTo(null);
       queryClient.invalidateQueries({ queryKey: ['/api/comments', songId] });
       toast({
-        title: "Comment posted",
-        description: "Your comment has been added successfully.",
+        title: replyingTo ? "Reply posted" : "Comment posted",
+        description: replyingTo ? "Your reply has been added." : "Your comment has been added.",
       });
     },
     onError: (error: any) => {
@@ -99,7 +101,22 @@ export function CommentSection({ songId, className }: CommentSectionProps) {
       return;
     }
     
-    addCommentMutation.mutate(commentText.trim());
+    addCommentMutation.mutate({ 
+      text: commentText.trim(), 
+      parentId: replyingTo?.id 
+    });
+  };
+
+  const handleReply = (comment: CommentWithUser) => {
+    if (!user || user.isGuest) {
+      toast({
+        title: "Login required",
+        description: "Please sign in to reply to comments.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setReplyingTo(comment);
   };
 
   const formatTimeAgo = (dateString: string) => {
@@ -132,6 +149,63 @@ export function CommentSection({ songId, className }: CommentSectionProps) {
   };
 
   const isGuest = !user || user.isGuest;
+
+  const renderComment = (comment: CommentWithUser, isReply: boolean = false) => (
+    <div 
+      key={comment.id} 
+      className={cn("flex gap-3 group", isReply && "ml-8 mt-3")}
+      data-testid={`comment-${comment.id}`}
+    >
+      <Avatar className={cn("flex-shrink-0", isReply ? "h-7 w-7" : "h-9 w-9")}>
+        <AvatarImage src={comment.user.profileImageUrl || undefined} />
+        <AvatarFallback className="bg-primary/10 text-primary text-xs">
+          {getUserInitials(comment)}
+        </AvatarFallback>
+      </Avatar>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className={cn("font-medium truncate", isReply ? "text-xs" : "text-sm")} data-testid={`text-comment-author-${comment.id}`}>
+            {getUserDisplayName(comment)}
+          </span>
+          <span className="text-xs text-muted-foreground" data-testid={`text-comment-time-${comment.id}`}>
+            {formatTimeAgo(comment.createdAt.toString())}
+          </span>
+          {user && user.id === comment.userId && !user.isGuest && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+              onClick={() => deleteCommentMutation.mutate(comment.id)}
+              disabled={deleteCommentMutation.isPending}
+              data-testid={`button-delete-comment-${comment.id}`}
+            >
+              <Trash2 className="h-3 w-3 text-muted-foreground hover:text-destructive" />
+            </Button>
+          )}
+        </div>
+        <p className={cn("text-foreground/90 mt-1 whitespace-pre-wrap break-words", isReply ? "text-xs" : "text-sm")} data-testid={`text-comment-content-${comment.id}`}>
+          {comment.text}
+        </p>
+        {!isReply && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 px-2 mt-1 text-xs text-muted-foreground hover:text-foreground"
+            onClick={() => handleReply(comment)}
+            data-testid={`button-reply-${comment.id}`}
+          >
+            <Reply className="h-3 w-3 mr-1" />
+            Reply
+          </Button>
+        )}
+        {comment.replies && comment.replies.length > 0 && (
+          <div className="mt-2 space-y-2 border-l-2 border-border/50 pl-2">
+            {comment.replies.map((reply) => renderComment(reply, true))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
 
   return (
     <Card className={cn("p-4", className)} data-testid="comment-section">
@@ -168,6 +242,24 @@ export function CommentSection({ songId, className }: CommentSectionProps) {
         </div>
       ) : (
         <form onSubmit={handleSubmit} className="mb-4">
+          {replyingTo && (
+            <div className="flex items-center gap-2 mb-2 p-2 bg-muted/50 rounded-md">
+              <Reply className="h-4 w-4 text-muted-foreground" />
+              <span className="text-xs text-muted-foreground flex-1">
+                Replying to <span className="font-medium text-foreground">{getUserDisplayName(replyingTo)}</span>
+              </span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6"
+                onClick={() => setReplyingTo(null)}
+                data-testid="button-cancel-reply"
+              >
+                <X className="h-3 w-3" />
+              </Button>
+            </div>
+          )}
           <div className="flex gap-3">
             <Avatar className="h-9 w-9 flex-shrink-0">
               <AvatarImage src={user?.profileImageUrl || undefined} />
@@ -180,7 +272,7 @@ export function CommentSection({ songId, className }: CommentSectionProps) {
               <Textarea
                 value={commentText}
                 onChange={(e) => setCommentText(e.target.value)}
-                placeholder="Share your thoughts about this song..."
+                placeholder={replyingTo ? "Write a reply..." : "Share your thoughts about this song..."}
                 className="min-h-[80px] resize-none text-sm"
                 maxLength={500}
                 data-testid="input-comment"
@@ -197,7 +289,7 @@ export function CommentSection({ songId, className }: CommentSectionProps) {
                   data-testid="button-submit-comment"
                 >
                   <Send className="h-4 w-4" />
-                  {addCommentMutation.isPending ? "Posting..." : "Post"}
+                  {addCommentMutation.isPending ? "Posting..." : replyingTo ? "Reply" : "Post"}
                 </Button>
               </div>
             </div>
@@ -226,45 +318,7 @@ export function CommentSection({ songId, className }: CommentSectionProps) {
       ) : (
         <ScrollArea className="max-h-[400px]">
           <div className="space-y-4 pr-2">
-            {comments.map((comment) => (
-              <div 
-                key={comment.id} 
-                className="flex gap-3 group"
-                data-testid={`comment-${comment.id}`}
-              >
-                <Avatar className="h-9 w-9 flex-shrink-0">
-                  <AvatarImage src={comment.user.profileImageUrl || undefined} />
-                  <AvatarFallback className="bg-primary/10 text-primary text-xs">
-                    {getUserInitials(comment)}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-medium text-sm truncate" data-testid={`text-comment-author-${comment.id}`}>
-                      {getUserDisplayName(comment)}
-                    </span>
-                    <span className="text-xs text-muted-foreground" data-testid={`text-comment-time-${comment.id}`}>
-                      {formatTimeAgo(comment.createdAt.toString())}
-                    </span>
-                    {user && user.id === comment.userId && !user.isGuest && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
-                        onClick={() => deleteCommentMutation.mutate(comment.id)}
-                        disabled={deleteCommentMutation.isPending}
-                        data-testid={`button-delete-comment-${comment.id}`}
-                      >
-                        <Trash2 className="h-3 w-3 text-muted-foreground hover:text-destructive" />
-                      </Button>
-                    )}
-                  </div>
-                  <p className="text-sm text-foreground/90 mt-1 whitespace-pre-wrap break-words" data-testid={`text-comment-content-${comment.id}`}>
-                    {comment.text}
-                  </p>
-                </div>
-              </div>
-            ))}
+            {comments.map((comment) => renderComment(comment))}
           </div>
         </ScrollArea>
       )}
