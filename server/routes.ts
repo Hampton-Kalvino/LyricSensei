@@ -1922,11 +1922,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // Validate comment text
-      const schema = insertCommentSchema.pick({ text: true });
-      const { text } = schema.parse(req.body);
+      // Validate comment text and optional parentId
+      const { text, parentId } = req.body;
       
-      if (!text || text.trim().length === 0) {
+      if (!text || typeof text !== 'string' || text.trim().length === 0) {
         return res.status(400).json({ error: 'Comment text is required' });
       }
       
@@ -1938,6 +1937,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         songId,
         userId,
         text: text.trim(),
+        parentId: parentId || null,
       });
       
       // Return comment with user info
