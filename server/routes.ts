@@ -18,6 +18,7 @@ import {
   updateUserProfileSchema,
   manualSelectSongSchema,
   updatePracticeStatsSchema,
+  insertCommentSchema,
   type RecognitionResult,
   type User,
 } from "@shared/schema";
@@ -1886,6 +1887,93 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error('[Pronunciation] Usage stats error:', error);
       res.status(500).json({ error: error.message || 'Failed to fetch usage stats' });
+    }
+  });
+
+  // ============ COMMENTS API ============
+
+  // GET /api/comments/:songId - Get comments for a song
+  app.get("/api/comments/:songId", async (req, res) => {
+    try {
+      const { songId } = req.params;
+      const limit = parseInt(req.query.limit as string) || 50;
+      
+      const comments = await storage.getSongComments(songId, limit);
+      
+      return res.json(comments);
+    } catch (error: any) {
+      console.error('[Comments] Fetch error:', error);
+      res.status(500).json({ error: error.message || 'Failed to fetch comments' });
+    }
+  });
+
+  // POST /api/comments/:songId - Add a comment to a song
+  app.post("/api/comments/:songId", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = (req.user as any).id || (req.user as any).claims?.sub;
+      const { songId } = req.params;
+      
+      // Check if user is a guest
+      const user = await storage.getUser(userId);
+      if (!user || user.isGuest) {
+        return res.status(401).json({ 
+          error: 'Guest users cannot post comments',
+          requiresLogin: true 
+        });
+      }
+      
+      // Validate comment text
+      const schema = insertCommentSchema.pick({ text: true });
+      const { text } = schema.parse(req.body);
+      
+      if (!text || text.trim().length === 0) {
+        return res.status(400).json({ error: 'Comment text is required' });
+      }
+      
+      if (text.length > 500) {
+        return res.status(400).json({ error: 'Comment must be 500 characters or less' });
+      }
+      
+      const comment = await storage.addComment({
+        songId,
+        userId,
+        text: text.trim(),
+      });
+      
+      // Return comment with user info
+      const commentWithUser = {
+        ...comment,
+        user: {
+          id: user.id,
+          username: user.username,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          profileImageUrl: user.profileImageUrl,
+        },
+      };
+      
+      return res.status(201).json(commentWithUser);
+    } catch (error: any) {
+      if (error instanceof ZodError) {
+        return res.status(400).json({ error: 'Invalid comment data', details: error.errors });
+      }
+      console.error('[Comments] Add error:', error);
+      res.status(500).json({ error: error.message || 'Failed to add comment' });
+    }
+  });
+
+  // DELETE /api/comments/:commentId - Delete a comment
+  app.delete("/api/comments/:commentId", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = (req.user as any).id || (req.user as any).claims?.sub;
+      const { commentId } = req.params;
+      
+      await storage.deleteComment(commentId, userId);
+      
+      return res.status(204).send();
+    } catch (error: any) {
+      console.error('[Comments] Delete error:', error);
+      res.status(500).json({ error: error.message || 'Failed to delete comment' });
     }
   });
 
