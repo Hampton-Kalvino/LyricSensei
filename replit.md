@@ -26,7 +26,8 @@ I prefer iterative development with clear communication on significant changes. 
 - **Pronunciation Assessment**: Azure Speech Services for scoring, utilizing a hybrid cost model (browser Web Speech API for free, hybrid browser/Azure for premium) and smart caching.
 - **Social Media Sharing**: Native mobile share sheet for Instagram, Facebook, Twitter, WhatsApp, Telegram via Web Share API and Capacitor.Share API. Desktop web share dialogs. Generates visual story cards with `html-to-image` and Canvas fallback.
 - **Native App (Capacitor)**: Hybrid web/native app for Android and iOS using Capacitor for native speech APIs and app store distribution. Uses `@capacitor-community/text-to-speech` and `@capacitor-community/speech-recognition`.
-- **Speech Recognition**: Dual-platform implementation using Web Speech API on browsers and native Capacitor speech recognition on mobile.
+- **Speech Recognition**: Dual-platform implementation using Web Speech API on browsers and native Capacitor speech recognition on mobile. Auto-detects language from translations for proper locale selection.
+- **Text-to-Speech (TTS)**: Speaks ORIGINAL lyrics (with accents) in the source language instead of phonetic guides. Language auto-detected from translations for proper voice selection. Supports Spanish, French, German, Japanese, Korean, Chinese, Portuguese, Italian, Russian voices.
 - **Core Features**:
     - **Song Recognition**: Real-time ACRCloud integration with history tracking.
     - **Song Metadata**: Displays artwork, title, artist, album, duration, language with streaming links.
