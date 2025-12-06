@@ -31,9 +31,7 @@ export function CommentSection({ songId, className }: CommentSectionProps) {
   const { data: comments = [], isLoading: isLoadingComments } = useQuery<CommentWithUser[]>({
     queryKey: ['/api/comments', songId],
     queryFn: async () => {
-      const response = await fetch(`/api/comments/${songId}`);
-      if (!response.ok) throw new Error("Failed to fetch comments");
-      return response.json();
+      return apiRequest<CommentWithUser[]>('GET', `/api/comments/${songId}`);
     },
     enabled: !!songId,
   });
