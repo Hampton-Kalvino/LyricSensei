@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Music2, Menu, Info, Music, Heart, Globe, Search, Mic } from "lucide-react";
+import { Music2, Menu, Info, Music, Heart, Globe, Search, Mic, MessageCircle } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -51,7 +51,7 @@ interface MobileLayoutProps {
   onToggleFavorite?: (songId: string, isFavorite: boolean) => void;
 }
 
-type ActivePanel = 'menu' | 'lyrics' | 'info';
+type ActivePanel = 'menu' | 'lyrics' | 'info' | 'comments';
 
 export function MobileLayout({
   currentSong,
@@ -108,10 +108,12 @@ export function MobileLayout({
   const handleSwipeLeft = () => {
     if (activePanel === 'menu') setActivePanel('lyrics');
     else if (activePanel === 'lyrics') setActivePanel('info');
+    else if (activePanel === 'info') setActivePanel('comments');
   };
 
   const handleSwipeRight = () => {
-    if (activePanel === 'info') setActivePanel('lyrics');
+    if (activePanel === 'comments') setActivePanel('info');
+    else if (activePanel === 'info') setActivePanel('lyrics');
     else if (activePanel === 'lyrics') setActivePanel('menu');
   };
 
@@ -275,7 +277,8 @@ export function MobileLayout({
   const activeTabIndex = {
     'menu': 0,
     'lyrics': 1,
-    'info': 2
+    'info': 2,
+    'comments': 3
   }[activePanel];
 
   return (
@@ -321,6 +324,19 @@ export function MobileLayout({
             title={t('mobile.albumInfo')}
           >
             <Info className="w-5 h-5" />
+          </button>
+          <button
+            onClick={() => setActivePanel('comments')}
+            className={cn(
+              "p-2 rounded-lg transition-colors",
+              activePanel === 'comments' 
+                ? "bg-primary text-primary-foreground" 
+                : "text-muted-foreground hover:bg-muted"
+            )}
+            data-testid="button-panel-comments"
+            title={t('mobile.comments')}
+          >
+            <MessageCircle className="w-5 h-5" />
           </button>
         </div>
       )}
@@ -551,6 +567,20 @@ export function MobileLayout({
                   <Info className="w-4 h-4" />
                   <span>{t('mobile.albumInfo')}</span>
                 </button>
+                <button
+                  onClick={() => setActivePanel('comments')}
+                  className={cn(
+                    "flex-1 py-2.5 text-sm font-medium border-b-2 transition-colors",
+                    "flex items-center justify-center gap-1.5",
+                    activePanel === 'comments' 
+                      ? "border-primary text-primary bg-primary/5" 
+                      : "border-transparent text-muted-foreground hover:text-foreground"
+                  )}
+                  data-testid="button-panel-comments"
+                >
+                  <MessageCircle className="w-4 h-4" />
+                  <span>{t('mobile.comments')}</span>
+                </button>
               </div>
             </>
           )}
@@ -593,6 +623,12 @@ export function MobileLayout({
           <div className="w-full h-full flex-shrink-0 overflow-y-auto scrollbar-hide">
             <div className="w-full p-4 space-y-4">
               <SongMetadata song={currentSong} />
+            </div>
+          </div>
+
+          {/* Comments Tab - Full Width */}
+          <div className="w-full h-full flex-shrink-0 overflow-y-auto scrollbar-hide">
+            <div className="w-full p-4">
               <CommentSection songId={currentSong.id} />
             </div>
           </div>
