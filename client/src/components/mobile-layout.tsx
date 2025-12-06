@@ -614,6 +614,7 @@ export function MobileLayout({
               lyrics={lyrics}
               translations={translations}
               currentTime={currentTime}
+              songId={currentSong.id}
               onLineClick={onTimeSeek}
               hasSyncedLyrics={currentSong.hasSyncedLyrics ?? false}
             />

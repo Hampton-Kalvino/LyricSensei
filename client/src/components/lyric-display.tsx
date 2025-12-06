@@ -141,10 +141,40 @@ export function LyricDisplay({
   };
 
   const handleSubmitFeedback = () => {
-    if (!songId || feedbackLineIndex < 0) return;
+    console.log('[Feedback] handleSubmitFeedback called', { songId, feedbackLineIndex });
+    
+    if (!songId) {
+      console.error('[Feedback] No songId available');
+      toast({
+        title: "Error",
+        description: "Unable to submit feedback - song not identified",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (feedbackLineIndex < 0) {
+      console.error('[Feedback] Invalid line index:', feedbackLineIndex);
+      toast({
+        title: "Error", 
+        description: "Unable to submit feedback - no line selected",
+        variant: "destructive",
+      });
+      return;
+    }
     
     const lyric = lyrics[feedbackLineIndex];
     const translation = translations.find(t => t.originalText === lyric.text);
+    
+    console.log('[Feedback] Submitting feedback:', {
+      songId,
+      lineIndex: feedbackLineIndex,
+      originalLyric: lyric?.text,
+      translation: translation?.translatedText,
+      phoneticGuide: translation?.phoneticGuide,
+      feedbackType,
+      message: feedbackMessage,
+    });
     
     sendFeedbackMutation.mutate({
       songId,
