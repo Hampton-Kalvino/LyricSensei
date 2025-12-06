@@ -311,8 +311,11 @@ export default function Home() {
     }
   }, [currentSongId]);
 
+  // Recording duration in seconds - increased for better recognition accuracy
+  const RECORDING_DURATION = 12;
+  
   const handleStartListening = async () => {
-    console.log('[Recognition] Shazam-style quick recognition starting (3-5 seconds)');
+    console.log(`[Recognition] High-quality recognition starting (${RECORDING_DURATION} seconds)`);
     
     try {
       if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
@@ -325,21 +328,22 @@ export default function Home() {
       // Show helpful message
       toast({
         title: "Listening...",
-        description: "Keep music playing for best results",
+        description: `Recording ${RECORDING_DURATION} seconds for best results`,
       });
       
-      // Improved audio constraints to avoid Bluetooth disconnect
+      // High-quality audio constraints for better music recognition
+      // Use 'ideal' for stereo/sample rate to gracefully fall back on devices with limited capabilities
       const stream = await navigator.mediaDevices.getUserMedia({ 
         audio: {
-          channelCount: 1,
-          sampleRate: 44100,
-          echoCancellation: false,  // Disable to preserve audio quality for recognition
-          noiseSuppression: false,  // Disable to preserve original audio
-          autoGainControl: false,   // Disable to prevent audio routing changes
+          channelCount: { ideal: 2 },    // Prefer stereo, fall back to mono if unavailable
+          sampleRate: { ideal: 48000 },  // Prefer high sample rate, fall back if unavailable
+          echoCancellation: false,       // Don't cancel music
+          noiseSuppression: false,       // Don't suppress the song
+          autoGainControl: false,        // Don't adjust volume dynamically
         } 
       });
       
-      console.log('[Recognition] Microphone accessed, recording 5 seconds of audio');
+      console.log(`[Recognition] Microphone accessed, recording ${RECORDING_DURATION} seconds of high-quality audio`);
       audioChunksRef.current = [];
       
       // Determine MIME type
@@ -351,9 +355,10 @@ export default function Home() {
         }
       }
       
+      // Create MediaRecorder with higher bitrate for better audio quality
       const mediaRecorder = mimeType 
-        ? new MediaRecorder(stream, { mimeType })
-        : new MediaRecorder(stream);
+        ? new MediaRecorder(stream, { mimeType, audioBitsPerSecond: 128000 })
+        : new MediaRecorder(stream, { audioBitsPerSecond: 128000 });
       
       mediaRecorderRef.current = mediaRecorder;
       
@@ -423,7 +428,7 @@ export default function Home() {
             
             recognizeMutation.mutate({
               audioData: base64Audio,
-              duration: 5,
+              duration: RECORDING_DURATION,
             });
           };
         } catch (error) {
@@ -448,13 +453,13 @@ export default function Home() {
         setRecognitionProgress(prev => Math.min(prev + 3, 25));
       }, 500);
       
-      // Auto-stop after 5 seconds (instead of 10) to minimize music interruption
+      // Auto-stop after RECORDING_DURATION seconds for higher quality recognition
       recognitionTimeoutRef.current = setTimeout(() => {
         if (mediaRecorderRef.current?.state === 'recording') {
           mediaRecorderRef.current.stop();
           setIsListening(false);
         }
-      }, 5000);
+      }, RECORDING_DURATION * 1000);
       
     } catch (error: any) {
       setIsListening(false);
