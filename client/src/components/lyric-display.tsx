@@ -624,19 +624,21 @@ export function LyricDisplay({
   }, []);
 
   // Stop practice listening - for the Stop button on mobile
-  const stopPracticeListening = useCallback(() => {
+  const stopPracticeListening = useCallback(async () => {
     console.log('[STOP] stopPracticeListening called');
     if (practiceRecognitionRef.current) {
       try {
-        practiceRecognitionRef.current.stop();
-        console.log('[STOP] Recognition stopped successfully');
+        // Await the async stop so processResult can finish
+        await practiceRecognitionRef.current.stop();
+        console.log('[STOP] Recognition stopped and processed successfully');
       } catch (e) {
-        console.log('[STOP] Recognition already stopped:', e);
+        console.log('[STOP] Recognition stop error:', e);
       }
       practiceRecognitionRef.current = null;
     }
     practiceListeningRef.current = false;
-    setIsPracticeListening(false);
+    // Don't reset isPracticeListening here - let processResult handle it
+    // setIsPracticeListening(false); // Removed - processResult will do this
   }, []);
 
   // Toggle Practice Mode
@@ -1089,7 +1091,11 @@ export function LyricDisplay({
       
       // Process recognition result
       const processResult = (transcript: string) => {
-        if (speechProcessed || sessionId !== practiceSessionRef.current) return;
+        console.log('[Capacitor Speech] processResult called with:', transcript, 'speechProcessed:', speechProcessed, 'sessionMatch:', sessionId === practiceSessionRef.current);
+        if (speechProcessed || sessionId !== practiceSessionRef.current) {
+          console.log('[Capacitor Speech] processResult BLOCKED - already processed or session mismatch');
+          return;
+        }
         speechProcessed = true;
         
         console.log('[Capacitor Speech] Processing result:', transcript);
@@ -1100,7 +1106,7 @@ export function LyricDisplay({
           const accuracyPercentage = Math.round(accuracy * 100);
           const tier = getAccuracyTier(accuracy);
 
-          console.log(`[Capacitor Speech] 🎯 Accuracy: ${accuracyPercentage}% (${tier})`);
+          console.log(`[Capacitor Speech] 🎯 Accuracy: ${accuracyPercentage}% (${tier}) - SETTING SCORE BANNER`);
 
           setWordStates(prev => {
             if (wordIndex >= prev.length) return prev;
@@ -1115,6 +1121,7 @@ export function LyricDisplay({
             return updated;
           });
 
+          console.log('[Capacitor Speech] Setting lastScore:', accuracyPercentage, 'showScoreBanner: true');
           setLastScore(accuracyPercentage);
           setShowScoreBanner(true);
 
