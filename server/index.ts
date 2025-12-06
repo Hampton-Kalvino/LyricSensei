@@ -131,6 +131,26 @@ app.use((req, res, next) => {
   next();
 });
 
+// --- CACHE CONTROL HEADERS ---
+// Prevent white screen after republish by ensuring HTML is revalidated
+app.use((req, res, next) => {
+  // For HTML pages and root - always revalidate to get fresh builds
+  if (req.path === '/' || req.path.endsWith('.html') || !req.path.includes('.')) {
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+  }
+  // For hashed static assets (JS, CSS with hash in filename) - cache for 1 year
+  else if (req.path.match(/\.(js|css)$/) && req.path.match(/-[a-zA-Z0-9]{8}\./)) {
+    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+  }
+  // For other static assets (images, fonts) - cache for 1 day with revalidation
+  else if (req.path.match(/\.(png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$/)) {
+    res.setHeader('Cache-Control', 'public, max-age=86400, must-revalidate');
+  }
+  next();
+});
+
 // Register your API routes
 (async () => {
   const server = await registerRoutes(app);
