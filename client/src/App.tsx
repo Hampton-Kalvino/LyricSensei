@@ -30,11 +30,16 @@ import { AdSense } from "@/components/ad-sense";
 import "@/i18n/config";
 
 // --- Guest User Initialization ---
-// On app startup, check for stored guest ID
+// On app startup, check for stored guest ID or create one
 function initAuth() {
   const storedGuestId = localStorage.getItem('guestUserId');
   if (storedGuestId) {
     setGuestUserId(storedGuestId);
+  } else {
+    // Auto-create guest ID for new users so they can use the app immediately
+    const newGuestId = `guest-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    setGuestUserId(newGuestId);
+    console.log('[Auth] Auto-created guest ID:', newGuestId);
   }
 }
 initAuth(); // Run this logic once on app load
