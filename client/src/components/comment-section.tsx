@@ -229,7 +229,7 @@ export function CommentSection({ songId, className }: CommentSectionProps) {
             </div>
             <Button
               size="sm"
-              onClick={() => setLocation("/login")}
+              onClick={() => setLocation("/auth/login")}
               className="gap-2"
               data-testid="button-login-to-comment"
             >
