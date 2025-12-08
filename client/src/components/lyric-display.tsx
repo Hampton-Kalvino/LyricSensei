@@ -1133,13 +1133,16 @@ export function LyricDisplay({
     let listenerHandle: any = null;
     let isCleanedUp = false;
 
+    // Track additional listeners
+    let listeningStateHandle: any = null;
+    
     // Cleanup function - ensures state is always reset
     const cleanup = () => {
       if (isCleanedUp) return;
       isCleanedUp = true;
       console.log('[Capacitor Speech] 🧹 Cleanup called');
       
-      // Remove listener
+      // Remove listeners
       if (listenerHandle) {
         try {
           listenerHandle.remove();
@@ -1147,6 +1150,15 @@ export function LyricDisplay({
           console.log('[Capacitor Speech] Listener cleanup error:', e);
         }
         listenerHandle = null;
+      }
+      
+      if (listeningStateHandle) {
+        try {
+          listeningStateHandle.remove();
+        } catch (e) {
+          console.log('[Capacitor Speech] listeningState cleanup error:', e);
+        }
+        listeningStateHandle = null;
       }
       
       // Stop recognition only on native platform
@@ -1243,14 +1255,49 @@ export function LyricDisplay({
         return;
       }
 
-      // Listen for partial results
-      listenerHandle = await CapacitorSpeechRecognition.addListener('partialResults', (data: any) => {
-        console.log('[Capacitor Speech] partialResults:', JSON.stringify(data));
-        if (data.matches && data.matches.length > 0 && !speechProcessed) {
-          finalTranscript = data.matches[0];
+      // Listen for partial results - must be set up BEFORE starting recognition
+      console.log('[Capacitor Speech] Setting up listeners...');
+      
+      // Handler function for processing speech results
+      const handleSpeechResult = (data: any, source: string) => {
+        console.log(`[Capacitor Speech] 📥 ${source} event:`, JSON.stringify(data));
+        if (speechProcessed) return;
+        
+        let transcript = '';
+        if (data.matches && data.matches.length > 0) {
+          transcript = data.matches[0];
+        } else if (data.value) {
+          transcript = data.value;
+        } else if (typeof data === 'string') {
+          transcript = data;
+        }
+        
+        if (transcript && transcript.length > 0) {
+          finalTranscript = transcript;
           console.log('[Capacitor Speech] 🎤 Heard:', finalTranscript);
         }
+      };
+      
+      // Primary listener for partialResults
+      listenerHandle = await CapacitorSpeechRecognition.addListener('partialResults', (data: any) => {
+        handleSpeechResult(data, 'partialResults');
       });
+      
+      // Also add listeningState listener to catch when speech ends
+      try {
+        listeningStateHandle = await CapacitorSpeechRecognition.addListener('listeningState', (data: any) => {
+          console.log('[Capacitor Speech] listeningState:', JSON.stringify(data));
+          // If listening stopped and we have a transcript, finalize
+          if (data.status === 'stopped' && finalTranscript && !speechProcessed) {
+            console.log('[Capacitor Speech] Listening stopped, finalizing...');
+            finalizeAttempt(finalTranscript);
+          }
+        });
+      } catch (e) {
+        console.log('[Capacitor Speech] listeningState listener not available');
+      }
+      
+      console.log('[Capacitor Speech] ✅ Listeners attached');
 
       // Store cleanup function in ref so Stop button can call it
       practiceRecognitionRef.current = {
@@ -1288,10 +1335,10 @@ export function LyricDisplay({
 
       console.log('[Capacitor Speech] ✅ Started listening for', speechLang);
 
-      // Wait for speech with timeout
+      // Wait for speech with timeout (increased for Android reliability)
       let elapsed = 0;
-      const maxWait = 5000;
-      const checkInterval = 500;
+      const maxWait = 8000; // Increased from 5s to 8s for better detection
+      const checkInterval = 300; // Check more frequently
       
       while (elapsed < maxWait && !speechProcessed && !isCleanedUp) {
         await new Promise(resolve => setTimeout(resolve, checkInterval));
