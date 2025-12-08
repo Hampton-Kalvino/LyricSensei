@@ -1325,12 +1325,13 @@ export function LyricDisplay({
       console.log('[Capacitor Speech] 🌐 Using language:', speechLang, 'detected from:', detectedLang);
 
       // Start listening with correct language
+      // Use popup: true for more reliable audio capture on Android
       await CapacitorSpeechRecognition.start({
         language: speechLang,
         maxResults: 5,
-        prompt: '',
+        prompt: 'Say the word...',
         partialResults: true,
-        popup: false,
+        popup: true,  // Android native popup is more reliable for audio capture
       });
 
       console.log('[Capacitor Speech] ✅ Started listening for', speechLang);
