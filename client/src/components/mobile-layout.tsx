@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Music2, Menu, Info, Music, Heart, Globe, Search, Mic, MessageCircle } from "lucide-react";
+import { Music2, Menu, Info, Music, Heart, Globe, Search, Mic, MessageCircle, Plus, Loader2, Check } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,6 +12,9 @@ import { SongSearch } from "@/components/song-search";
 import { ShareMenu } from "@/components/share-menu";
 import { CommentSection } from "@/components/comment-section";
 import { useSwipeable } from "react-swipeable";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useAuth } from "@/hooks/useAuth";
 import {
   Sheet,
   SheetContent,
@@ -20,10 +23,18 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import type { Playlist } from "@shared/schema";
 import type { Song, LyricLine, Translation, LanguageCode, RecognitionResult } from "@shared/schema";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
@@ -75,9 +86,43 @@ export function MobileLayout({
 }: MobileLayoutProps) {
   const { t } = useTranslation();
   const { toast } = useToast();
+  const { user } = useAuth();
   const [activePanel, setActivePanel] = useState<ActivePanel>('lyrics');
   const [showLanguageSheet, setShowLanguageSheet] = useState(false);
   const [isLandscape, setIsLandscape] = useState(window.innerHeight < window.innerWidth);
+  const [showPlaylistDialog, setShowPlaylistDialog] = useState(false);
+  const [addingToPlaylistId, setAddingToPlaylistId] = useState<string | null>(null);
+  
+  const { data: playlists = [] } = useQuery<Playlist[]>({
+    queryKey: ["/api/playlists"],
+    enabled: !!user && showPlaylistDialog,
+  });
+  
+  const addToPlaylistMutation = useMutation({
+    mutationFn: async (playlistId: string) => {
+      if (!currentSong) throw new Error("No song selected");
+      setAddingToPlaylistId(playlistId);
+      return apiRequest("POST", `/api/playlists/${playlistId}/songs`, { songId: currentSong.id });
+    },
+    onSuccess: () => {
+      toast({
+        title: "Added to playlist",
+        description: `"${currentSong?.title}" was added to the playlist`,
+      });
+      setShowPlaylistDialog(false);
+      queryClient.invalidateQueries({ queryKey: ["/api/playlists"] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+    onSettled: () => {
+      setAddingToPlaylistId(null);
+    },
+  });
 
   useEffect(() => {
     const handleOrientationChange = () => {
@@ -414,6 +459,50 @@ export function MobileLayout({
                     size="sm"
                     className="h-8 w-8 flex-shrink-0"
                   />
+                  {!!user && (
+                    <Dialog open={showPlaylistDialog} onOpenChange={setShowPlaylistDialog}>
+                      <DialogTrigger asChild>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-8 w-8 flex-shrink-0"
+                          data-testid="button-add-to-playlist-header"
+                        >
+                          <Plus className="h-4 w-4" />
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="max-w-sm">
+                        <DialogHeader>
+                          <DialogTitle>Add to Playlist</DialogTitle>
+                        </DialogHeader>
+                        <div className="space-y-2 max-h-64 overflow-y-auto">
+                          {playlists.length === 0 ? (
+                            <p className="text-sm text-muted-foreground text-center py-4">
+                              No playlists yet. Create one in the Playlists section.
+                            </p>
+                          ) : (
+                            playlists.map((playlist) => (
+                              <Button
+                                key={playlist.id}
+                                variant="outline"
+                                className="w-full justify-between"
+                                onClick={() => addToPlaylistMutation.mutate(playlist.id)}
+                                disabled={addToPlaylistMutation.isPending}
+                                data-testid={`button-playlist-${playlist.id}`}
+                              >
+                                <span className="truncate">{playlist.name}</span>
+                                {addingToPlaylistId === playlist.id ? (
+                                  <Loader2 className="h-4 w-4 animate-spin shrink-0" />
+                                ) : (
+                                  <Check className="h-4 w-4 shrink-0 opacity-0" />
+                                )}
+                              </Button>
+                            ))
+                          )}
+                        </div>
+                      </DialogContent>
+                    </Dialog>
+                  )}
                   {onToggleFavorite && (
                     <Button
                       size="icon"
@@ -483,6 +572,50 @@ export function MobileLayout({
                     size="icon"
                     className="h-9 w-9"
                   />
+                  {!!user && (
+                    <Dialog open={showPlaylistDialog} onOpenChange={setShowPlaylistDialog}>
+                      <DialogTrigger asChild>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-9 w-9 flex-shrink-0"
+                          data-testid="button-add-to-playlist-header"
+                        >
+                          <Plus className="h-4 w-4" />
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="max-w-sm">
+                        <DialogHeader>
+                          <DialogTitle>Add to Playlist</DialogTitle>
+                        </DialogHeader>
+                        <div className="space-y-2 max-h-64 overflow-y-auto">
+                          {playlists.length === 0 ? (
+                            <p className="text-sm text-muted-foreground text-center py-4">
+                              No playlists yet. Create one in the Playlists section.
+                            </p>
+                          ) : (
+                            playlists.map((playlist) => (
+                              <Button
+                                key={playlist.id}
+                                variant="outline"
+                                className="w-full justify-between"
+                                onClick={() => addToPlaylistMutation.mutate(playlist.id)}
+                                disabled={addToPlaylistMutation.isPending}
+                                data-testid={`button-playlist-${playlist.id}`}
+                              >
+                                <span className="truncate">{playlist.name}</span>
+                                {addingToPlaylistId === playlist.id ? (
+                                  <Loader2 className="h-4 w-4 animate-spin shrink-0" />
+                                ) : (
+                                  <Check className="h-4 w-4 shrink-0 opacity-0" />
+                                )}
+                              </Button>
+                            ))
+                          )}
+                        </div>
+                      </DialogContent>
+                    </Dialog>
+                  )}
                   {onToggleFavorite && (
                     <Button
                       size="icon"

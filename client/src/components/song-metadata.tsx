@@ -1,22 +1,14 @@
-import { useState } from "react";
-import { Music2, Heart, Share2, Plus, Check, Loader2 } from "lucide-react";
+import { Music2, Heart, Share2 } from "lucide-react";
 import { SiSpotify, SiApplemusic, SiTidal, SiYoutubemusic } from "react-icons/si";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { generateStoryImage } from "@/lib/story-generator";
-import type { Song, Playlist } from "@shared/schema";
+import type { Song } from "@shared/schema";
 
 interface SongMetadataProps {
   song: Song;
@@ -58,40 +50,6 @@ export function SongMetadata({ song }: SongMetadataProps) {
   const { user } = useAuth();
   const { toast } = useToast();
   const links = generatePlatformLinks(song);
-  const [showPlaylistDialog, setShowPlaylistDialog] = useState(false);
-  const [addingToPlaylistId, setAddingToPlaylistId] = useState<string | null>(null);
-  
-  // Fetch user's playlists
-  const { data: playlists = [] } = useQuery<Playlist[]>({
-    queryKey: ["/api/playlists"],
-    enabled: !!user && showPlaylistDialog,
-  });
-  
-  // Add song to playlist mutation
-  const addToPlaylistMutation = useMutation({
-    mutationFn: async (playlistId: string) => {
-      setAddingToPlaylistId(playlistId);
-      return apiRequest("POST", `/api/playlists/${playlistId}/songs`, { songId: song.id });
-    },
-    onSuccess: () => {
-      toast({
-        title: "Added to playlist",
-        description: `"${song.title}" was added to the playlist`,
-      });
-      setShowPlaylistDialog(false);
-      queryClient.invalidateQueries({ queryKey: ["/api/playlists"] });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-    onSettled: () => {
-      setAddingToPlaylistId(null);
-    },
-  });
   
   // Check if song is favorited
   const { data: favoriteData } = useQuery<{ isFavorite: boolean }>({
@@ -261,55 +219,9 @@ export function SongMetadata({ song }: SongMetadataProps) {
           )}
         </div>
         <div className="w-full">
-          <div className="flex items-center justify-center gap-2">
-            <h2 className="text-2xl font-semibold" data-testid="text-song-title">
-              {song.title}
-            </h2>
-            {!!user && (
-              <Dialog open={showPlaylistDialog} onOpenChange={setShowPlaylistDialog}>
-                <DialogTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 shrink-0"
-                    data-testid="button-add-to-playlist"
-                  >
-                    <Plus className="h-5 w-5" />
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-sm">
-                  <DialogHeader>
-                    <DialogTitle>Add to Playlist</DialogTitle>
-                  </DialogHeader>
-                  <div className="space-y-2 max-h-64 overflow-y-auto">
-                    {playlists.length === 0 ? (
-                      <p className="text-sm text-muted-foreground text-center py-4">
-                        No playlists yet. Create one in the Playlists section.
-                      </p>
-                    ) : (
-                      playlists.map((playlist) => (
-                        <Button
-                          key={playlist.id}
-                          variant="outline"
-                          className="w-full justify-between"
-                          onClick={() => addToPlaylistMutation.mutate(playlist.id)}
-                          disabled={addToPlaylistMutation.isPending}
-                          data-testid={`button-playlist-${playlist.id}`}
-                        >
-                          <span className="truncate">{playlist.name}</span>
-                          {addingToPlaylistId === playlist.id ? (
-                            <Loader2 className="h-4 w-4 animate-spin shrink-0" />
-                          ) : (
-                            <Check className="h-4 w-4 shrink-0 opacity-0" />
-                          )}
-                        </Button>
-                      ))
-                    )}
-                  </div>
-                </DialogContent>
-              </Dialog>
-            )}
-          </div>
+          <h2 className="text-2xl font-semibold" data-testid="text-song-title">
+            {song.title}
+          </h2>
           <p className="text-lg text-muted-foreground mt-1" data-testid="text-song-artist">
             {song.artist}
           </p>
