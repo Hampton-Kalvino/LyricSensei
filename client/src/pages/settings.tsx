@@ -6,7 +6,7 @@ import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Volume2, VolumeX, Music, ArrowLeft } from "lucide-react";
+import { Volume2, VolumeX, Music, ArrowLeft, Check, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { 
   getSfxSettings, 
@@ -140,7 +140,7 @@ export default function Settings() {
                   className="flex-1"
                   data-testid="button-test-success"
                 >
-                  <span className="text-green-500 mr-2">&#10003;</span>
+                  <Check className="h-4 w-4 text-green-500 mr-2" />
                   {t('settings.successSound', 'Success')}
                 </Button>
                 <Button
@@ -150,7 +150,7 @@ export default function Settings() {
                   className="flex-1"
                   data-testid="button-test-error"
                 >
-                  <span className="text-red-500 mr-2">&#10007;</span>
+                  <X className="h-4 w-4 text-red-500 mr-2" />
                   {t('settings.errorSound', 'Try Again')}
                 </Button>
               </div>
