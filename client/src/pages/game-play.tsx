@@ -1,59 +1,88 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Link, useParams, useLocation } from "wouter";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Link, useParams } from "wouter";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useTranslation } from "react-i18next";
-import { ArrowLeft, Zap, Flame, Shuffle, Play, Pause, RotateCcw, Trophy, Clock, Target, Check, X, Volume2 } from "lucide-react";
+import { ArrowLeft, Zap, Flame, Shuffle, Play, RotateCcw, Trophy, Clock, Check, X } from "lucide-react";
 import { playSuccessChime, playErrorBuzzer } from "@/lib/audio-sfx";
 import type { GameType, GameSession } from "@shared/schema";
 
-const GAME_DURATION = 60000; // 60 seconds for speed round
-const WORDS_PER_GAME = 10;
+const GAME_DURATION = 60000;
+const LINES_PER_GAME = 10;
+const MAX_SCORE = 100;
+const POINTS_PER_LINE = MAX_SCORE / LINES_PER_GAME;
 
-const SAMPLE_WORDS = [
-  { original: "Hello", phonetic: "heh-LOH", language: "en" },
-  { original: "Bonjour", phonetic: "bohn-ZHOOR", language: "fr" },
-  { original: "Hola", phonetic: "OH-lah", language: "es" },
-  { original: "Guten Tag", phonetic: "GOO-ten tahk", language: "de" },
-  { original: "Ciao", phonetic: "CHOW", language: "it" },
-  { original: "Konnichiwa", phonetic: "kohn-nee-chee-WAH", language: "ja" },
-  { original: "Annyeong", phonetic: "ahn-NYUHNG", language: "ko" },
-  { original: "Ni hao", phonetic: "nee HOW", language: "zh" },
-  { original: "Obrigado", phonetic: "oh-bree-GAH-doo", language: "pt" },
-  { original: "Spasibo", phonetic: "spah-SEE-bah", language: "ru" },
-  { original: "Gracias", phonetic: "GRAH-see-ahs", language: "es" },
-  { original: "Merci", phonetic: "mehr-SEE", language: "fr" },
-  { original: "Danke", phonetic: "DAHN-keh", language: "de" },
-  { original: "Arigato", phonetic: "ah-ree-GAH-toh", language: "ja" },
-  { original: "Xie xie", phonetic: "syeh-SYEH", language: "zh" },
-];
+interface WordMatchLine {
+  id: string;
+  original: string;
+  translation: string;
+  songTitle: string;
+  songArtist: string;
+}
 
-interface GameState {
-  status: 'idle' | 'playing' | 'paused' | 'finished';
+interface MatchGameState {
+  status: 'idle' | 'loading' | 'playing' | 'finished';
+  score: number;
+  correctMatches: number;
+  totalAttempts: number;
+  lines: WordMatchLine[];
+  shuffledTranslations: Array<{ id: string; translation: string; matched: boolean }>;
+  currentOriginalIndex: number;
+  selectedTranslationId: string | null;
+  feedback: 'correct' | 'wrong' | null;
+  startTime?: number;
+}
+
+interface SpeedGameState {
+  status: 'idle' | 'playing' | 'finished';
   score: number;
   streak: number;
   bestStreak: number;
   timeRemaining: number;
   currentWordIndex: number;
-  words: typeof SAMPLE_WORDS;
-  attempts: Array<{ word: string; correct: boolean; accuracy?: number }>;
+  words: Array<{ original: string; phonetic: string }>;
+  attempts: Array<{ word: string; correct: boolean }>;
   startTime?: number;
 }
+
+const SAMPLE_WORDS = [
+  { original: "Hello", phonetic: "heh-LOH" },
+  { original: "Bonjour", phonetic: "bohn-ZHOOR" },
+  { original: "Hola", phonetic: "OH-lah" },
+  { original: "Guten Tag", phonetic: "GOO-ten tahk" },
+  { original: "Ciao", phonetic: "CHOW" },
+  { original: "Konnichiwa", phonetic: "kohn-nee-chee-WAH" },
+  { original: "Annyeong", phonetic: "ahn-NYUHNG" },
+  { original: "Ni hao", phonetic: "nee HOW" },
+  { original: "Obrigado", phonetic: "oh-bree-GAH-doo" },
+  { original: "Spasibo", phonetic: "spah-SEE-bah" },
+];
 
 export default function GamePlayPage() {
   const { t } = useTranslation();
   const { toast } = useToast();
   const { gameType } = useParams<{ gameType: string }>();
-  const [, setLocation] = useLocation();
   const [sessionId, setSessionId] = useState<string | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
-  const [gameState, setGameState] = useState<GameState>({
+  const [matchState, setMatchState] = useState<MatchGameState>({
+    status: 'idle',
+    score: 0,
+    correctMatches: 0,
+    totalAttempts: 0,
+    lines: [],
+    shuffledTranslations: [],
+    currentOriginalIndex: 0,
+    selectedTranslationId: null,
+    feedback: null,
+  });
+
+  const [speedState, setSpeedState] = useState<SpeedGameState>({
     status: 'idle',
     score: 0,
     streak: 0,
@@ -62,6 +91,12 @@ export default function GamePlayPage() {
     currentWordIndex: 0,
     words: [],
     attempts: [],
+  });
+
+  const { data: wordMatchLines, refetch: refetchLines } = useQuery<WordMatchLine[]>({
+    queryKey: ['/api/games/word-match-lines', 'en', LINES_PER_GAME],
+    queryFn: () => apiRequest<WordMatchLine[]>('GET', `/api/games/word-match-lines?targetLanguage=en&count=${LINES_PER_GAME}`),
+    enabled: false,
   });
 
   const createSessionMutation = useMutation({
@@ -84,55 +119,115 @@ export default function GamePlayPage() {
     },
   });
 
-  const shuffleWords = useCallback(() => {
-    const shuffled = [...SAMPLE_WORDS].sort(() => Math.random() - 0.5);
-    return shuffled.slice(0, WORDS_PER_GAME);
-  }, []);
-
-  const startGame = useCallback(() => {
+  const startWordMatchGame = useCallback(async () => {
+    setMatchState(prev => ({ ...prev, status: 'loading' }));
     createSessionMutation.mutate();
-    setGameState({
+    
+    const result = await refetchLines();
+    const lines = result.data || [];
+    
+    if (lines.length === 0) {
+      toast({ 
+        title: t('games.noLinesAvailable', 'No lyrics available'),
+        description: t('games.listenToSongsFirst', 'Listen to some songs first to play this game!'),
+        variant: 'destructive'
+      });
+      setMatchState(prev => ({ ...prev, status: 'idle' }));
+      return;
+    }
+
+    const shuffled = [...lines].map(l => ({ id: l.id, translation: l.translation, matched: false }))
+      .sort(() => Math.random() - 0.5);
+
+    setMatchState({
+      status: 'playing',
+      score: 0,
+      correctMatches: 0,
+      totalAttempts: 0,
+      lines,
+      shuffledTranslations: shuffled,
+      currentOriginalIndex: 0,
+      selectedTranslationId: null,
+      feedback: null,
+      startTime: Date.now(),
+    });
+  }, [refetchLines, createSessionMutation, toast, t]);
+
+  const startSpeedGame = useCallback(() => {
+    createSessionMutation.mutate();
+    const shuffled = [...SAMPLE_WORDS].sort(() => Math.random() - 0.5).slice(0, LINES_PER_GAME);
+    
+    setSpeedState({
       status: 'playing',
       score: 0,
       streak: 0,
       bestStreak: 0,
       timeRemaining: GAME_DURATION,
       currentWordIndex: 0,
-      words: shuffleWords(),
+      words: shuffled,
       attempts: [],
       startTime: Date.now(),
     });
-  }, [shuffleWords, createSessionMutation]);
+  }, [createSessionMutation]);
 
-  const endGame = useCallback(() => {
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-      timerRef.current = null;
-    }
+  const handleTranslationSelect = useCallback((translationId: string) => {
+    if (matchState.status !== 'playing' || matchState.feedback) return;
     
-    setGameState(prev => {
-      const totalCorrect = prev.attempts.filter(a => a.correct).length;
-      const accuracyPct = prev.attempts.length > 0 
-        ? (totalCorrect / prev.attempts.length) * 100 
-        : 0;
-      const durationMs = prev.startTime ? Date.now() - prev.startTime : 0;
+    const currentLine = matchState.lines[matchState.currentOriginalIndex];
+    const isCorrect = currentLine.id === translationId;
 
-      completeSessionMutation.mutate({
-        score: prev.score,
-        accuracyPct,
-        bestStreak: prev.bestStreak,
-        wordsCompleted: prev.attempts.length,
-        durationMs,
+    if (isCorrect) {
+      playSuccessChime();
+    } else {
+      playErrorBuzzer();
+    }
+
+    setMatchState(prev => ({
+      ...prev,
+      selectedTranslationId: translationId,
+      feedback: isCorrect ? 'correct' : 'wrong',
+      score: isCorrect ? prev.score + POINTS_PER_LINE : prev.score,
+      correctMatches: isCorrect ? prev.correctMatches + 1 : prev.correctMatches,
+      totalAttempts: prev.totalAttempts + 1,
+    }));
+
+    setTimeout(() => {
+      setMatchState(prev => {
+        const newTranslations = prev.shuffledTranslations.map(t => 
+          t.id === currentLine.id ? { ...t, matched: true } : t
+        );
+        const nextIndex = prev.currentOriginalIndex + 1;
+        
+        if (nextIndex >= prev.lines.length) {
+          const durationMs = prev.startTime ? Date.now() - prev.startTime : 0;
+          const accuracyPct = prev.totalAttempts > 0 ? (prev.correctMatches / prev.totalAttempts) * 100 : 0;
+          
+          completeSessionMutation.mutate({
+            score: Math.round(prev.score),
+            accuracyPct,
+            bestStreak: prev.correctMatches,
+            wordsCompleted: prev.lines.length,
+            durationMs,
+          });
+          
+          return { ...prev, status: 'finished', shuffledTranslations: newTranslations, feedback: null };
+        }
+        
+        return {
+          ...prev,
+          currentOriginalIndex: nextIndex,
+          selectedTranslationId: null,
+          feedback: null,
+          shuffledTranslations: newTranslations,
+        };
       });
+    }, 800);
+  }, [matchState.status, matchState.feedback, matchState.lines, matchState.currentOriginalIndex, completeSessionMutation]);
 
-      return { ...prev, status: 'finished' };
-    });
-  }, [completeSessionMutation]);
+  const handleSpeedAnswer = useCallback((correct: boolean) => {
+    if (speedState.status !== 'playing') return;
 
-  const handleAnswer = useCallback((correct: boolean) => {
-    if (gameState.status !== 'playing') return;
-
-    const currentWord = gameState.words[gameState.currentWordIndex];
+    const currentWord = speedState.words[speedState.currentWordIndex];
     
     if (correct) {
       playSuccessChime();
@@ -140,22 +235,28 @@ export default function GamePlayPage() {
       playErrorBuzzer();
     }
 
-    setGameState(prev => {
+    setSpeedState(prev => {
       const newStreak = correct ? prev.streak + 1 : 0;
       const newBestStreak = Math.max(prev.bestStreak, newStreak);
-      const scoreIncrease = correct ? (10 + prev.streak * 2) : 0; // Bonus for streak
+      const scoreIncrease = correct ? POINTS_PER_LINE : 0;
       
-      const newAttempts = [...prev.attempts, { 
-        word: currentWord.original, 
-        correct,
-        accuracy: correct ? 100 : 0,
-      }];
-
+      const newAttempts = [...prev.attempts, { word: currentWord.original, correct }];
       const nextIndex = prev.currentWordIndex + 1;
       
-      // Check if game should end
       if (nextIndex >= prev.words.length) {
-        setTimeout(() => endGame(), 500);
+        const durationMs = prev.startTime ? Date.now() - prev.startTime : 0;
+        const totalCorrect = newAttempts.filter(a => a.correct).length;
+        const accuracyPct = (totalCorrect / newAttempts.length) * 100;
+        
+        completeSessionMutation.mutate({
+          score: Math.round(prev.score + scoreIncrease),
+          accuracyPct,
+          bestStreak: newBestStreak,
+          wordsCompleted: newAttempts.length,
+          durationMs,
+        });
+        
+        return { ...prev, status: 'finished', score: prev.score + scoreIncrease, attempts: newAttempts, bestStreak: newBestStreak };
       }
 
       return {
@@ -167,29 +268,39 @@ export default function GamePlayPage() {
         attempts: newAttempts,
       };
     });
-  }, [gameState.status, gameState.words, gameState.currentWordIndex, endGame]);
+  }, [speedState.status, speedState.words, speedState.currentWordIndex, completeSessionMutation]);
 
-  // Timer effect for speed round
   useEffect(() => {
-    if (gameState.status === 'playing' && gameType === 'speed_round') {
+    if (speedState.status === 'playing' && gameType === 'speed_round') {
       timerRef.current = setInterval(() => {
-        setGameState(prev => {
+        setSpeedState(prev => {
           const newTime = prev.timeRemaining - 100;
           if (newTime <= 0) {
-            setTimeout(() => endGame(), 0);
-            return { ...prev, timeRemaining: 0 };
+            if (timerRef.current) clearInterval(timerRef.current);
+            
+            const durationMs = prev.startTime ? Date.now() - prev.startTime : 0;
+            const totalCorrect = prev.attempts.filter(a => a.correct).length;
+            const accuracyPct = prev.attempts.length > 0 ? (totalCorrect / prev.attempts.length) * 100 : 0;
+            
+            completeSessionMutation.mutate({
+              score: Math.round(prev.score),
+              accuracyPct,
+              bestStreak: prev.bestStreak,
+              wordsCompleted: prev.attempts.length,
+              durationMs,
+            });
+            
+            return { ...prev, status: 'finished', timeRemaining: 0 };
           }
           return { ...prev, timeRemaining: newTime };
         });
       }, 100);
 
       return () => {
-        if (timerRef.current) {
-          clearInterval(timerRef.current);
-        }
+        if (timerRef.current) clearInterval(timerRef.current);
       };
     }
-  }, [gameState.status, gameType, endGame]);
+  }, [speedState.status, gameType, completeSessionMutation]);
 
   const getGameTitle = () => {
     switch (gameType) {
@@ -209,10 +320,16 @@ export default function GamePlayPage() {
     }
   };
 
-  const currentWord = gameState.words[gameState.currentWordIndex];
-  const progress = gameState.words.length > 0 
-    ? (gameState.currentWordIndex / gameState.words.length) * 100 
-    : 0;
+  const startGame = gameType === 'word_match' ? startWordMatchGame : startSpeedGame;
+  const isIdle = gameType === 'word_match' 
+    ? matchState.status === 'idle' || matchState.status === 'loading'
+    : speedState.status === 'idle';
+  const isPlaying = gameType === 'word_match' ? matchState.status === 'playing' : speedState.status === 'playing';
+  const isFinished = gameType === 'word_match' ? matchState.status === 'finished' : speedState.status === 'finished';
+
+  const finalScore = gameType === 'word_match' ? Math.round(matchState.score) : Math.round(speedState.score);
+  const correctCount = gameType === 'word_match' ? matchState.correctMatches : speedState.attempts.filter(a => a.correct).length;
+  const totalCount = gameType === 'word_match' ? matchState.lines.length : speedState.attempts.length;
 
   return (
     <div className="min-h-screen bg-background">
@@ -229,7 +346,7 @@ export default function GamePlayPage() {
           </div>
         </div>
 
-        {gameState.status === 'idle' && (
+        {isIdle && (
           <Card className="text-center py-12">
             <CardContent>
               <div className="w-24 h-24 mx-auto rounded-3xl bg-primary/10 flex items-center justify-center mb-6">
@@ -237,55 +354,118 @@ export default function GamePlayPage() {
               </div>
               <h2 className="text-2xl font-bold mb-2">{getGameTitle()}</h2>
               <p className="text-muted-foreground mb-6 max-w-sm mx-auto">
+                {gameType === 'word_match' && t('games.wordMatchInstructions', 'Match translations to their original lyrics. Drag the correct translation to score points!')}
                 {gameType === 'speed_round' && t('games.speedRoundInstructions', 'Pronounce each word correctly as fast as you can. You have 60 seconds!')}
                 {gameType === 'streak_challenge' && t('games.streakInstructions', 'Keep your streak alive! One wrong answer ends your streak.')}
-                {gameType === 'word_match' && t('games.matchInstructions', 'Match the phonetic pronunciation to the correct word.')}
               </p>
-              <Button size="lg" onClick={startGame} data-testid="button-start-game">
+              <Button 
+                size="lg" 
+                onClick={startGame} 
+                disabled={matchState.status === 'loading'}
+                data-testid="button-start-game"
+              >
                 <Play className="h-5 w-5 mr-2" />
-                {t('games.startGame', 'Start Game')}
+                {matchState.status === 'loading' ? t('common.loading', 'Loading...') : t('games.startGame', 'Start Game')}
               </Button>
             </CardContent>
           </Card>
         )}
 
-        {gameState.status === 'playing' && currentWord && (
+        {isPlaying && gameType === 'word_match' && (
           <div className="space-y-6">
             <div className="flex items-center justify-between gap-4">
               <div className="flex items-center gap-2">
                 <Trophy className="h-5 w-5 text-yellow-500" />
-                <span className="font-bold text-lg">{gameState.score}</span>
+                <span className="font-bold text-lg">{Math.round(matchState.score)}/{MAX_SCORE}</span>
+              </div>
+              <Badge variant="outline">
+                {matchState.currentOriginalIndex + 1}/{matchState.lines.length}
+              </Badge>
+            </div>
+
+            <Progress value={(matchState.currentOriginalIndex / matchState.lines.length) * 100} className="h-2" />
+
+            <Card className="p-6">
+              <CardContent className="p-0">
+                <div className="text-center mb-6">
+                  <p className="text-sm text-muted-foreground mb-2">{t('games.matchOriginal', 'Match the translation for:')}</p>
+                  <p className="text-2xl font-bold" data-testid="text-original-lyric">
+                    {matchState.lines[matchState.currentOriginalIndex]?.original}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    {matchState.lines[matchState.currentOriginalIndex]?.songTitle} - {matchState.lines[matchState.currentOriginalIndex]?.songArtist}
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <p className="text-sm text-muted-foreground text-center mb-4">{t('games.selectTranslation', 'Select the correct translation:')}</p>
+                  {matchState.shuffledTranslations.filter(t => !t.matched).map((item) => {
+                    const isSelected = matchState.selectedTranslationId === item.id;
+                    const isCorrectAnswer = matchState.lines[matchState.currentOriginalIndex]?.id === item.id;
+                    const showCorrect = matchState.feedback && isCorrectAnswer;
+                    const showWrong = matchState.feedback === 'wrong' && isSelected && !isCorrectAnswer;
+                    
+                    return (
+                      <Button
+                        key={item.id}
+                        variant="outline"
+                        className={`w-full justify-start text-left h-auto py-3 px-4 ${
+                          showCorrect ? 'bg-green-500/20 border-green-500' : 
+                          showWrong ? 'bg-red-500/20 border-red-500' : ''
+                        }`}
+                        onClick={() => handleTranslationSelect(item.id)}
+                        disabled={!!matchState.feedback}
+                        data-testid={`button-translation-${item.id}`}
+                      >
+                        <span className="flex-1 truncate">{item.translation}</span>
+                        {showCorrect && <Check className="h-5 w-5 text-green-500 shrink-0 ml-2" />}
+                        {showWrong && <X className="h-5 w-5 text-red-500 shrink-0 ml-2" />}
+                      </Button>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {isPlaying && gameType !== 'word_match' && (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-2">
+                <Trophy className="h-5 w-5 text-yellow-500" />
+                <span className="font-bold text-lg">{Math.round(speedState.score)}</span>
               </div>
               
               {gameType === 'speed_round' && (
                 <div className="flex items-center gap-2">
                   <Clock className="h-5 w-5" />
                   <span className="font-mono font-bold">
-                    {Math.ceil(gameState.timeRemaining / 1000)}s
+                    {Math.ceil(speedState.timeRemaining / 1000)}s
                   </span>
                 </div>
               )}
               
               <div className="flex items-center gap-2">
                 <Flame className="h-5 w-5 text-orange-500" />
-                <span className="font-bold">{gameState.streak}</span>
+                <span className="font-bold">{speedState.streak}</span>
               </div>
             </div>
 
-            <Progress value={progress} className="h-2" />
+            <Progress value={(speedState.currentWordIndex / speedState.words.length) * 100} className="h-2" />
 
             <Card className="text-center py-8">
               <CardContent>
                 <Badge variant="outline" className="mb-4">
-                  {t('games.wordNumber', 'Word')} {gameState.currentWordIndex + 1}/{gameState.words.length}
+                  {speedState.currentWordIndex + 1}/{speedState.words.length}
                 </Badge>
                 
                 <div className="mb-6">
                   <p className="text-3xl font-bold mb-2" data-testid="text-current-word">
-                    {currentWord.original}
+                    {speedState.words[speedState.currentWordIndex]?.original}
                   </p>
                   <p className="text-xl text-primary font-mono" data-testid="text-phonetic">
-                    {currentWord.phonetic}
+                    {speedState.words[speedState.currentWordIndex]?.phonetic}
                   </p>
                 </div>
 
@@ -293,16 +473,16 @@ export default function GamePlayPage() {
                   <Button 
                     size="lg"
                     variant="outline"
-                    onClick={() => handleAnswer(false)}
+                    onClick={() => handleSpeedAnswer(false)}
                     className="w-32"
                     data-testid="button-incorrect"
                   >
                     <X className="h-5 w-5 mr-2 text-red-500" />
-                    {t('games.tryAgain', 'Wrong')}
+                    {t('games.wrong', 'Wrong')}
                   </Button>
                   <Button 
                     size="lg"
-                    onClick={() => handleAnswer(true)}
+                    onClick={() => handleSpeedAnswer(true)}
                     className="w-32"
                     data-testid="button-correct"
                   >
@@ -319,26 +499,22 @@ export default function GamePlayPage() {
           </div>
         )}
 
-        {gameState.status === 'finished' && (
+        {isFinished && (
           <Card className="text-center py-12">
             <CardContent>
               <Trophy className="h-16 w-16 mx-auto text-yellow-500 mb-4" />
               <h2 className="text-3xl font-bold mb-2">{t('games.gameOver', 'Game Over!')}</h2>
               
-              <div className="grid grid-cols-3 gap-4 my-8 max-w-sm mx-auto">
+              <div className="grid grid-cols-2 gap-4 my-8 max-w-xs mx-auto">
                 <div className="text-center">
-                  <p className="text-3xl font-bold text-primary">{gameState.score}</p>
+                  <p className="text-3xl font-bold text-primary">{finalScore}</p>
                   <p className="text-sm text-muted-foreground">{t('games.score', 'Score')}</p>
                 </div>
                 <div className="text-center">
-                  <p className="text-3xl font-bold text-orange-500">{gameState.bestStreak}</p>
-                  <p className="text-sm text-muted-foreground">{t('games.bestStreak', 'Best Streak')}</p>
-                </div>
-                <div className="text-center">
                   <p className="text-3xl font-bold text-green-500">
-                    {gameState.attempts.filter(a => a.correct).length}/{gameState.attempts.length}
+                    {correctCount}/{totalCount}
                   </p>
-                  <p className="text-sm text-muted-foreground">{t('games.accuracy', 'Correct')}</p>
+                  <p className="text-sm text-muted-foreground">{t('games.correct', 'Correct')}</p>
                 </div>
               </div>
 

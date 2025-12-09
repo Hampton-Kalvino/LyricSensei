@@ -2405,6 +2405,83 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // GET /api/games/word-match-lines - Get random lyric lines for Word Match game
+  app.get("/api/games/word-match-lines", async (req: any, res) => {
+    try {
+      const targetLanguage = (req.query.targetLanguage as string) || 'en';
+      const count = Math.min(parseInt(req.query.count as string) || 10, 20);
+      
+      // Get user ID if authenticated
+      const userId = req.user ? ((req.user as any).id || (req.user as any).claims?.sub) : null;
+      
+      let songIds: string[] = [];
+      
+      // Try to get songs from user history first
+      if (userId) {
+        const history = await storage.getUserRecognitionHistory(userId, 20);
+        songIds = history.map((h: any) => h.songId);
+      }
+      
+      // If no history, get all songs (most popular/recent)
+      if (songIds.length === 0) {
+        const allSongs = await storage.getAllSongs();
+        songIds = allSongs.slice(0, 20).map((s: any) => s.id);
+      }
+      
+      if (songIds.length === 0) {
+        return res.json([]);
+      }
+      
+      // Collect lyrics with translations from these songs
+      const linesWithTranslations: Array<{
+        id: string;
+        original: string;
+        translation: string;
+        songTitle: string;
+        songArtist: string;
+      }> = [];
+      
+      for (const songId of songIds) {
+        if (linesWithTranslations.length >= count * 2) break;
+        
+        const song = await storage.getSong(songId);
+        if (!song) continue;
+        
+        const songLyrics = await storage.getLyrics(songId);
+        const translations = await storage.getTranslations(songId, targetLanguage);
+        
+        if (songLyrics.length === 0 || translations.length === 0) continue;
+        
+        // Match lyrics with translations
+        for (let i = 0; i < Math.min(songLyrics.length, translations.length); i++) {
+          const lyric = songLyrics[i];
+          const translation = translations[i];
+          
+          // Skip very short lines or lines that are the same
+          if (lyric.text.length < 5 || translation.translatedText.length < 5) continue;
+          if (lyric.text.toLowerCase() === translation.translatedText.toLowerCase()) continue;
+          
+          linesWithTranslations.push({
+            id: `${songId}-${i}`,
+            original: lyric.text,
+            translation: translation.translatedText,
+            songTitle: song.title,
+            songArtist: song.artist,
+          });
+        }
+      }
+      
+      // Shuffle and take requested count
+      const shuffled = linesWithTranslations.sort(() => Math.random() - 0.5);
+      const selected = shuffled.slice(0, count);
+      
+      res.json(selected);
+    } catch (error: any) {
+      console.error('[Games] Word match lines error:', error);
+      res.status(500).json({ error: error.message || 'Failed to fetch word match lines' });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;
