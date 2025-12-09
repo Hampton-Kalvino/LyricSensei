@@ -103,10 +103,10 @@ export function NativeMobileShell({ children }: NativeMobileShellProps) {
 
   return (
     <div className="flex flex-col h-screen bg-background">
-      {/* Header with safe area padding */}
+      {/* Header with safe area padding for phone notch/status bar */}
       <header 
         className="flex items-center justify-between px-4 py-2 border-b bg-background/95 backdrop-blur z-40"
-        style={{ paddingTop: 'calc(var(--safe-area-inset-top) + 0.5rem)' }}
+        style={{ paddingTop: 'calc(env(safe-area-inset-top, 24px) + 0.5rem)' }}
       >
         <button
           onClick={() => setDrawerOpen(true)}
