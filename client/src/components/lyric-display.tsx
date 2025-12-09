@@ -18,7 +18,8 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { LyricLine, Translation } from "@shared/schema";
 import { 
   tokenizePhoneticWords, 
-  calculateAccuracy, 
+  calculateAccuracy,
+  calculateAccuracyWithOriginal,
   getAccuracyTier, 
   getAccuracyFeedback,
   type WordPracticeState 
@@ -881,7 +882,8 @@ export function LyricDisplay({
             if (result.isFinal) {
               console.log('[Practice Word] 📝 Final transcript:', transcript);
 
-              const accuracy = calculateAccuracy(expectedWord, transcript);
+              // Use dual-match: try both phonetic AND original word, take best score
+              const accuracy = calculateAccuracyWithOriginal(phoneticWord, originalWord, transcript);
               const tier = getAccuracyTier(accuracy);
               const accuracyPercentage = Math.round(accuracy * 100);
 
@@ -1187,7 +1189,8 @@ export function LyricDisplay({
       let tier: 'success' | 'close' | 'retry' = 'retry';
       
       if (cleanTranscript) {
-        const accuracy = calculateAccuracy(expectedWord, cleanTranscript);
+        // Use dual-match: try both phonetic AND original word, take best score
+        const accuracy = calculateAccuracyWithOriginal(expectedWord, originalWord, cleanTranscript);
         accuracyPercentage = Math.round(accuracy * 100);
         tier = getAccuracyTier(accuracy);
         console.log(`[Capacitor Speech] 🎯 Accuracy: ${accuracyPercentage}% (${tier})`);
