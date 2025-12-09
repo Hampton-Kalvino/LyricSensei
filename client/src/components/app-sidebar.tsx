@@ -98,6 +98,12 @@ export function AppSidebar() {
       icon: User,
       testId: "account",
     },
+    {
+      title: t('nav.settings', 'Settings'),
+      url: "/settings",
+      icon: Settings,
+      testId: "settings",
+    },
   ];
   return (
     <Sidebar>

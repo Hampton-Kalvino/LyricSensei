@@ -24,6 +24,7 @@ import CheckoutReturn from "@/pages/checkout-return";
 import Library from "@/pages/library";
 import PracticeStats from "@/pages/practice-stats";
 import Terms from "@/pages/terms";
+import Settings from "@/pages/settings";
 import NotFound from "@/pages/not-found";
 import { Footer } from "@/components/footer";
 import { AdSense } from "@/components/ad-sense";
@@ -96,6 +97,7 @@ function AuthenticatedRouter() {
       <Route path="/practice-stats" component={PracticeStats} />
       <Route path="/account" component={Account} />
       <Route path="/profile" component={Profile} />
+      <Route path="/settings" component={Settings} />
       <Route path="/checkout" component={Checkout} />
       <Route path="/checkout/return" component={CheckoutReturn} />
       <Route component={NotFound} />

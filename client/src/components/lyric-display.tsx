@@ -27,6 +27,7 @@ import {
 import { Capacitor } from '@capacitor/core';
 import { TextToSpeech } from '@capacitor-community/text-to-speech';
 import { SpeechRecognition as CapacitorSpeechRecognition } from '@capacitor-community/speech-recognition';
+import { playSuccessChime, playErrorBuzzer } from '@/lib/audio-sfx';
 
 type EmphasisMode = 'original' | 'translation' | 'phonetic';
 
@@ -906,6 +907,12 @@ export function LyricDisplay({
               setLastScore(accuracyPercentage);
               setShowScoreBanner(true);
 
+              if (tier === 'success') {
+                playSuccessChime();
+              } else {
+                playErrorBuzzer();
+              }
+
               if (scoreBannerTimeoutRef.current) {
                 clearTimeout(scoreBannerTimeoutRef.current);
               }
@@ -1218,6 +1225,12 @@ export function LyricDisplay({
       console.log('[Capacitor Speech] 🎨 Setting score banner:', accuracyPercentage);
       setLastScore(accuracyPercentage);
       setShowScoreBanner(true);
+
+      if (tier === 'success') {
+        playSuccessChime();
+      } else {
+        playErrorBuzzer();
+      }
 
       // Clear previous banner timeout
       if (scoreBannerTimeoutRef.current) clearTimeout(scoreBannerTimeoutRef.current);
