@@ -2482,6 +2482,93 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // GET /api/games/pronunciation-words - Get words/phrases with phonetics for pronunciation games
+  app.get("/api/games/pronunciation-words", async (req: any, res) => {
+    try {
+      const targetLanguage = (req.query.targetLanguage as string) || 'en';
+      const count = Math.min(parseInt(req.query.count as string) || 10, 20);
+      
+      // Get user ID if authenticated
+      const userId = req.user ? ((req.user as any).id || (req.user as any).claims?.sub) : null;
+      
+      let songIds: string[] = [];
+      
+      // Try to get songs from user history first
+      if (userId) {
+        const history = await storage.getUserRecognitionHistory(userId, 20);
+        songIds = history.map((h: any) => h.songId);
+      }
+      
+      // If no history, get all songs (most popular/recent)
+      if (songIds.length === 0) {
+        const allSongs = await storage.getAllSongs();
+        songIds = allSongs.slice(0, 20).map((s: any) => s.id);
+      }
+      
+      if (songIds.length === 0) {
+        return res.json([]);
+      }
+      
+      // Collect words/phrases with phonetics from these songs
+      const pronunciationWords: Array<{
+        id: string;
+        original: string;
+        phonetic: string;
+        language: string;
+        songTitle: string;
+        songArtist: string;
+      }> = [];
+      
+      for (const songId of songIds) {
+        if (pronunciationWords.length >= count * 3) break;
+        
+        const song = await storage.getSong(songId);
+        if (!song) continue;
+        
+        const translations = await storage.getTranslations(songId, targetLanguage);
+        
+        if (translations.length === 0) continue;
+        
+        // Extract words with phonetics from translations
+        for (const translation of translations) {
+          if (!translation.phoneticGuide || translation.phoneticGuide.length < 3) continue;
+          
+          // Extract individual words or short phrases (2-4 words)
+          const originalWords = translation.originalText.split(/\s+/).filter(w => w.length > 2);
+          const phoneticParts = translation.phoneticGuide.split(/\s+/).filter(p => p.length > 1);
+          
+          if (originalWords.length > 0 && phoneticParts.length > 0) {
+            // Take first 2-3 words as a phrase
+            const phraseLength = Math.min(3, originalWords.length);
+            const original = originalWords.slice(0, phraseLength).join(' ');
+            const phonetic = phoneticParts.slice(0, Math.min(phraseLength, phoneticParts.length)).join(' ');
+            
+            // Avoid duplicates
+            if (!pronunciationWords.some(w => w.original.toLowerCase() === original.toLowerCase())) {
+              pronunciationWords.push({
+                id: `${songId}-${pronunciationWords.length}`,
+                original,
+                phonetic,
+                language: song.detectedLanguage || 'unknown',
+                songTitle: song.title,
+                songArtist: song.artist,
+              });
+            }
+          }
+        }
+      }
+      
+      // Shuffle and take requested count
+      const shuffled = pronunciationWords.sort(() => Math.random() - 0.5);
+      const selected = shuffled.slice(0, count);
+      
+      res.json(selected);
+    } catch (error: any) {
+      console.error('[Games] Pronunciation words error:', error);
+      res.status(500).json({ error: error.message || 'Failed to fetch pronunciation words' });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;
