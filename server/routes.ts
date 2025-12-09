@@ -2460,8 +2460,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         languageSongs.slice(0, 30).forEach(s => songIdSet.add(s.id));
       }
       
-      // 5. Ultimate fallback: any songs
-      if (songIdSet.size === 0) {
+      // 5. Ultimate fallback: any songs (only if NO specific language requested)
+      // If gameLanguage is specified, we should NOT fallback to other languages
+      if (songIdSet.size === 0 && !gameLanguage) {
         const allSongs = await storage.getAllSongs();
         allSongs.slice(0, 20).forEach((s: any) => songIdSet.add(s.id));
       }
@@ -2579,8 +2580,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         languageSongs.slice(0, 30).forEach(s => songIdSet.add(s.id));
       }
       
-      // 5. Ultimate fallback: any songs
-      if (songIdSet.size === 0) {
+      // 5. Ultimate fallback: any songs (only if NO specific language requested)
+      // If gameLanguage is specified, we should NOT fallback to other languages
+      if (songIdSet.size === 0 && !gameLanguage) {
         const allSongs = await storage.getAllSongs();
         allSongs.slice(0, 20).forEach((s: any) => songIdSet.add(s.id));
       }

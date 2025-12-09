@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { Card } from "@/components/ui/card";
-import { Mail, Lock, User, Music2, Music, Eye, EyeOff } from "lucide-react";
+import { Mail, Lock, User, Music2, Music, Eye, EyeOff, Crown, Check } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { clearGuestUserId, setAuthenticatedUserId, clearAuthenticatedUserId } from "@/lib/queryClient";
 import { Capacitor } from "@capacitor/core";
@@ -368,6 +368,35 @@ export default function Login() {
                 : "Sign in to your account"}
             </p>
           </div>
+
+          {/* Premium Benefits - Show on signup */}
+          {isSignUp && (
+            <div className="bg-gradient-to-r from-primary/10 to-accent/10 rounded-lg p-4 border border-primary/20">
+              <div className="flex items-center gap-2 mb-2">
+                <Crown className="h-5 w-5 text-primary" />
+                <span className="font-semibold text-sm">Premium Benefits</span>
+                <span className="text-xs bg-primary/20 text-primary px-2 py-0.5 rounded-full">$4.99/mo</span>
+              </div>
+              <ul className="text-xs text-muted-foreground space-y-1">
+                <li className="flex items-center gap-2">
+                  <Check className="h-3 w-3 text-green-500" />
+                  Unlimited translations and lyrics
+                </li>
+                <li className="flex items-center gap-2">
+                  <Check className="h-3 w-3 text-green-500" />
+                  Ad-free experience
+                </li>
+                <li className="flex items-center gap-2">
+                  <Check className="h-3 w-3 text-green-500" />
+                  Premium pronunciation scoring
+                </li>
+                <li className="flex items-center gap-2">
+                  <Check className="h-3 w-3 text-green-500" />
+                  Unlimited playlist creation
+                </li>
+              </ul>
+            </div>
+          )}
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-3" data-testid="form-auth">

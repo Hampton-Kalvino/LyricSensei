@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useLocation, Link } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { MobileBottomNav } from "./mobile-bottom-nav";
@@ -11,7 +12,7 @@ import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
-import { Loader2 } from "lucide-react";
+import { Loader2, X, UserPlus, Crown } from "lucide-react";
 
 interface NativeMobileShellProps {
   children: React.ReactNode;
@@ -21,9 +22,40 @@ export function NativeMobileShell({ children }: NativeMobileShellProps) {
   const { t } = useTranslation();
   const { toast } = useToast();
   const { user } = useAuth();
+  const [, setLocation] = useLocation();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [showCreatePlaylist, setShowCreatePlaylist] = useState(false);
   const [newPlaylistName, setNewPlaylistName] = useState("");
+  const [showGuestBanner, setShowGuestBanner] = useState(false);
+
+  // Check if user is a guest - use the isGuest flag from backend, with fallbacks
+  const isGuest = user?.isGuest === true || 
+                  user?.username?.startsWith('Guest_') || 
+                  user?.email?.endsWith('@lyricsensei.local') ||
+                  user?.email?.endsWith('@guest.local');
+
+  // Show guest banner after a short delay for new guests
+  useEffect(() => {
+    if (isGuest) {
+      const dismissed = localStorage.getItem('guestBannerDismissed');
+      if (!dismissed) {
+        const timer = setTimeout(() => setShowGuestBanner(true), 2000);
+        return () => clearTimeout(timer);
+      }
+    } else {
+      setShowGuestBanner(false);
+    }
+  }, [isGuest]);
+
+  const dismissGuestBanner = () => {
+    setShowGuestBanner(false);
+    localStorage.setItem('guestBannerDismissed', 'true');
+  };
+
+  const handleCreateAccount = () => {
+    setShowGuestBanner(false);
+    setLocation('/auth/login');
+  };
 
   const createPlaylistMutation = useMutation({
     mutationFn: async (name: string) => {
@@ -70,12 +102,12 @@ export function NativeMobileShell({ children }: NativeMobileShellProps) {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-background" style={{ 
-      paddingTop: 'var(--safe-area-inset-top)', 
-      paddingLeft: 'var(--safe-area-inset-left)', 
-      paddingRight: 'var(--safe-area-inset-right)' 
-    }}>
-      <header className="flex items-center justify-between px-4 py-2 border-b bg-background/95 backdrop-blur z-40">
+    <div className="flex flex-col h-screen bg-background">
+      {/* Header with safe area padding */}
+      <header 
+        className="flex items-center justify-between px-4 py-2 border-b bg-background/95 backdrop-blur z-40"
+        style={{ paddingTop: 'calc(var(--safe-area-inset-top) + 0.5rem)' }}
+      >
         <button
           onClick={() => setDrawerOpen(true)}
           className="focus:outline-none"
@@ -84,13 +116,36 @@ export function NativeMobileShell({ children }: NativeMobileShellProps) {
           <Avatar className="h-8 w-8 border border-border">
             <AvatarImage src={user?.profileImageUrl || undefined} alt={user?.username || 'User'} />
             <AvatarFallback className="bg-primary/10 text-primary text-xs font-semibold">
-              {user ? getInitials() : 'G'}
+              {isGuest ? 'GU' : getInitials()}
             </AvatarFallback>
           </Avatar>
         </button>
 
         <ThemeToggle />
       </header>
+
+      {/* Guest Banner */}
+      {showGuestBanner && (
+        <div className="bg-primary/10 border-b border-primary/20 px-4 py-3 flex items-center gap-3">
+          <UserPlus className="h-5 w-5 text-primary flex-shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium">{t('guest.createAccountPrompt', 'Create an account to save your progress')}</p>
+            <p className="text-xs text-muted-foreground">{t('guest.unlockFeatures', 'Unlock favorites, history, and more')}</p>
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <Button size="sm" onClick={handleCreateAccount} data-testid="button-guest-signup">
+              {t('auth.signUp', 'Sign Up')}
+            </Button>
+            <button 
+              onClick={dismissGuestBanner} 
+              className="p-1 text-muted-foreground hover:text-foreground"
+              data-testid="button-dismiss-guest-banner"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      )}
 
       <main className="flex-1 overflow-auto pb-16">
         {children}
