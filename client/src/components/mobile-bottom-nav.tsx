@@ -27,7 +27,7 @@ export function MobileBottomNav({ onCreatePlaylist }: MobileBottomNavProps) {
     { 
       icon: Library, 
       label: t('nav.library', 'Library'), 
-      path: '/playlists',
+      path: '/library',
       testId: 'nav-library'
     },
     { 
@@ -50,7 +50,7 @@ export function MobileBottomNav({ onCreatePlaylist }: MobileBottomNavProps) {
         {navItems.map((item) => {
           const isActive = location === item.path || 
             (item.path === '/search' && location.startsWith('/search')) ||
-            (item.path === '/playlists' && location.startsWith('/playlists')) ||
+            (item.path === '/library' && (location.startsWith('/library') || location.startsWith('/playlists'))) ||
             (item.path === '/games' && location.startsWith('/games'));
           
           return (

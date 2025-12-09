@@ -141,7 +141,7 @@ export default function Library() {
     <div className="flex flex-col h-full">
       <div className="p-4 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <h1 className="text-2xl font-bold mb-3" data-testid="text-library-title">
-          {t('library.title', 'Your Library')}
+          {t('library.recognitionHistory', 'Recognition History')}
         </h1>
         <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as ViewMode)}>
           <TabsList className="w-full">

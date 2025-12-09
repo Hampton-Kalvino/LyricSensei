@@ -2084,6 +2084,73 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ============== APPLE MUSIC LANGUAGE PLAYLISTS ==============
+  
+  const { getAppleMusicService } = await import("./lib/apple-music");
+  
+  // GET /api/apple-music/playlists/:language - Get curated playlists for a language
+  app.get("/api/apple-music/playlists/:language", async (req, res) => {
+    try {
+      const { language } = req.params;
+      const countryCode = (req.query.country as string) || 'us';
+      
+      const appleMusicService = getAppleMusicService();
+      if (!appleMusicService) {
+        return res.status(503).json({ 
+          error: 'Apple Music service not configured',
+          message: 'Apple Music API credentials are not set up. Please configure APPLE_MUSIC_PRIVATE_KEY, APPLE_TEAM_ID, and APPLE_KEY_ID.'
+        });
+      }
+      
+      const playlists = await appleMusicService.getLanguagePlaylists(language, countryCode);
+      res.json(playlists);
+    } catch (error: any) {
+      console.error('[Apple Music] Error fetching playlists:', error);
+      res.status(500).json({ error: error.message || 'Failed to fetch playlists' });
+    }
+  });
+  
+  // GET /api/apple-music/playlists/:playlistId/tracks - Get tracks from a playlist
+  app.get("/api/apple-music/playlist-tracks/:playlistId", async (req, res) => {
+    try {
+      const { playlistId } = req.params;
+      const countryCode = (req.query.country as string) || 'us';
+      
+      const appleMusicService = getAppleMusicService();
+      if (!appleMusicService) {
+        return res.status(503).json({ 
+          error: 'Apple Music service not configured'
+        });
+      }
+      
+      const tracks = await appleMusicService.getPlaylistTracks(playlistId, countryCode);
+      res.json(tracks);
+    } catch (error: any) {
+      console.error('[Apple Music] Error fetching playlist tracks:', error);
+      res.status(500).json({ error: error.message || 'Failed to fetch tracks' });
+    }
+  });
+  
+  // GET /api/apple-music/charts/:countryCode - Get top charts
+  app.get("/api/apple-music/charts/:countryCode", async (req, res) => {
+    try {
+      const { countryCode } = req.params;
+      
+      const appleMusicService = getAppleMusicService();
+      if (!appleMusicService) {
+        return res.status(503).json({ 
+          error: 'Apple Music service not configured'
+        });
+      }
+      
+      const charts = await appleMusicService.getCharts(countryCode);
+      res.json(charts);
+    } catch (error: any) {
+      console.error('[Apple Music] Error fetching charts:', error);
+      res.status(500).json({ error: error.message || 'Failed to fetch charts' });
+    }
+  });
+
   // ============== PLAYLIST ROUTES ==============
 
   // GET /api/playlists - Get user's playlists (owned + collaborated)
