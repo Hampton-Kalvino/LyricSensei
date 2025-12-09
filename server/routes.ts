@@ -2414,19 +2414,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get user ID if authenticated
       const userId = req.user ? ((req.user as any).id || (req.user as any).claims?.sub) : null;
       
-      let songIds: string[] = [];
+      // Collect song IDs from multiple sources
+      const songIdSet = new Set<string>();
       
-      // Try to get songs from user history first
+      // 1. Try user recognition history first
       if (userId) {
         const history = await storage.getUserRecognitionHistory(userId, 20);
-        songIds = history.map((h: any) => h.songId);
+        history.forEach((h: any) => songIdSet.add(h.songId));
+        
+        // 2. Try user favorites
+        const favorites = await storage.getUserFavorites(userId);
+        favorites.forEach((f: any) => songIdSet.add(f.songId));
       }
       
-      // If no history, get all songs (most popular/recent)
-      if (songIds.length === 0) {
-        const allSongs = await storage.getAllSongs();
-        songIds = allSongs.slice(0, 20).map((s: any) => s.id);
+      // 3. Fallback to top researched songs (popular songs with translations)
+      if (songIdSet.size < 10) {
+        const topSongs = await storage.getTopResearchedSongs(20);
+        topSongs.forEach((s: any) => songIdSet.add(s.id));
       }
+      
+      // 4. Final fallback: get all songs
+      if (songIdSet.size === 0) {
+        const allSongs = await storage.getAllSongs();
+        allSongs.slice(0, 20).forEach((s: any) => songIdSet.add(s.id));
+      }
+      
+      const songIds = Array.from(songIdSet);
       
       if (songIds.length === 0) {
         return res.json([]);
@@ -2491,19 +2504,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get user ID if authenticated
       const userId = req.user ? ((req.user as any).id || (req.user as any).claims?.sub) : null;
       
-      let songIds: string[] = [];
+      // Collect song IDs from multiple sources
+      const songIdSet = new Set<string>();
       
-      // Try to get songs from user history first
+      // 1. Try user recognition history first
       if (userId) {
         const history = await storage.getUserRecognitionHistory(userId, 20);
-        songIds = history.map((h: any) => h.songId);
+        history.forEach((h: any) => songIdSet.add(h.songId));
+        
+        // 2. Try user favorites
+        const favorites = await storage.getUserFavorites(userId);
+        favorites.forEach((f: any) => songIdSet.add(f.songId));
       }
       
-      // If no history, get all songs (most popular/recent)
-      if (songIds.length === 0) {
-        const allSongs = await storage.getAllSongs();
-        songIds = allSongs.slice(0, 20).map((s: any) => s.id);
+      // 3. Fallback to top researched songs (popular songs with translations)
+      if (songIdSet.size < 10) {
+        const topSongs = await storage.getTopResearchedSongs(20);
+        topSongs.forEach((s: any) => songIdSet.add(s.id));
       }
+      
+      // 4. Final fallback: get all songs
+      if (songIdSet.size === 0) {
+        const allSongs = await storage.getAllSongs();
+        allSongs.slice(0, 20).forEach((s: any) => songIdSet.add(s.id));
+      }
+      
+      const songIds = Array.from(songIdSet);
       
       if (songIds.length === 0) {
         return res.json([]);

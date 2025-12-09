@@ -8,9 +8,24 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useTranslation } from "react-i18next";
-import { ArrowLeft, Zap, Flame, Shuffle, Play, RotateCcw, Trophy, Clock, Check, X, Mic, Volume2, Loader2 } from "lucide-react";
+import { ArrowLeft, Zap, Flame, Shuffle, Play, RotateCcw, Trophy, Clock, Check, X, Mic, Volume2, Loader2, Globe, Music } from "lucide-react";
 import { playSuccessChime, playErrorBuzzer } from "@/lib/audio-sfx";
+import { Capacitor } from '@capacitor/core';
+import { TextToSpeech } from '@capacitor-community/text-to-speech';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { GameSession } from "@shared/schema";
+
+const SUPPORTED_LANGUAGES = [
+  { code: 'es', name: 'Spanish' },
+  { code: 'fr', name: 'French' },
+  { code: 'de', name: 'German' },
+  { code: 'it', name: 'Italian' },
+  { code: 'pt', name: 'Portuguese' },
+  { code: 'ja', name: 'Japanese' },
+  { code: 'ko', name: 'Korean' },
+  { code: 'zh', name: 'Chinese' },
+  { code: 'ru', name: 'Russian' },
+];
 
 const GAME_DURATION = 60000;
 const LINES_PER_GAME = 10;
@@ -116,6 +131,8 @@ export default function GamePlayPage() {
   const { toast } = useToast();
   const { gameType } = useParams<{ gameType: string }>();
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [selectedLanguage, setSelectedLanguage] = useState<string>('es');
+  const [gameSongs, setGameSongs] = useState<Array<{ title: string; artist: string }>>([]);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const recognitionRef = useRef<any>(null);
   const synthRef = useRef<SpeechSynthesis | null>(null);
@@ -147,14 +164,14 @@ export default function GamePlayPage() {
   });
 
   const { refetch: refetchLines } = useQuery<WordMatchLine[]>({
-    queryKey: ['/api/games/word-match-lines', 'en', LINES_PER_GAME],
-    queryFn: () => apiRequest<WordMatchLine[]>('GET', `/api/games/word-match-lines?targetLanguage=en&count=${LINES_PER_GAME}`),
+    queryKey: ['/api/games/word-match-lines', selectedLanguage, LINES_PER_GAME],
+    queryFn: () => apiRequest<WordMatchLine[]>('GET', `/api/games/word-match-lines?targetLanguage=${selectedLanguage}&count=${LINES_PER_GAME}`),
     enabled: false,
   });
 
   const { refetch: refetchPronunciationWords } = useQuery<PronunciationWord[]>({
-    queryKey: ['/api/games/pronunciation-words', LINES_PER_GAME],
-    queryFn: () => apiRequest<PronunciationWord[]>('GET', `/api/games/pronunciation-words?count=${LINES_PER_GAME}`),
+    queryKey: ['/api/games/pronunciation-words', selectedLanguage, LINES_PER_GAME],
+    queryFn: () => apiRequest<PronunciationWord[]>('GET', `/api/games/pronunciation-words?targetLanguage=${selectedLanguage}&count=${LINES_PER_GAME}`),
     enabled: false,
   });
 
@@ -189,15 +206,60 @@ export default function GamePlayPage() {
     };
   }, []);
 
-  const speakWord = useCallback((text: string, lang: string) => {
-    if (!synthRef.current) return;
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  
+  const speakWord = useCallback(async (text: string, lang: string) => {
+    const isNative = Capacitor.isNativePlatform();
+    const speechLang = getLanguageLocale(lang);
     
-    synthRef.current.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = getLanguageLocale(lang);
-    utterance.rate = 0.8;
-    synthRef.current.speak(utterance);
-  }, []);
+    if (isSpeaking) {
+      // Stop current speech
+      if (isNative) {
+        try {
+          await TextToSpeech.stop();
+        } catch (error) {
+          console.error('Error stopping speech:', error);
+        }
+      } else if (synthRef.current) {
+        synthRef.current.cancel();
+      }
+      setIsSpeaking(false);
+      return;
+    }
+    
+    setIsSpeaking(true);
+    
+    if (isNative) {
+      // Use Capacitor TextToSpeech for native apps
+      try {
+        await TextToSpeech.stop();
+        await TextToSpeech.speak({
+          text: text,
+          lang: speechLang,
+          rate: 0.7,
+          pitch: 1.0,
+          volume: 1.0,
+          category: 'ambient',
+        });
+        console.log('✅ SPEECH (Native): Completed');
+      } catch (error) {
+        console.error('❌ SPEECH (Native): Error -', error);
+      }
+    } else {
+      // Use Web Speech API for browsers
+      if (synthRef.current) {
+        synthRef.current.cancel();
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = speechLang;
+        utterance.rate = 0.8;
+        utterance.onend = () => setIsSpeaking(false);
+        synthRef.current.speak(utterance);
+        return; // Don't set isSpeaking to false yet
+      }
+    }
+    
+    setIsSpeaking(false);
+  }, [isSpeaking]);
 
   const [speechSupported, setSpeechSupported] = useState(true);
 
@@ -267,6 +329,7 @@ export default function GamePlayPage() {
 
   const startWordMatchGame = useCallback(async () => {
     setMatchState(prev => ({ ...prev, status: 'loading' }));
+    setGameSongs([]);
     createSessionMutation.mutate();
     
     const result = await refetchLines();
@@ -281,6 +344,16 @@ export default function GamePlayPage() {
       setMatchState(prev => ({ ...prev, status: 'idle' }));
       return;
     }
+
+    // Track unique songs used in the game
+    const uniqueSongs = new Map<string, { title: string; artist: string }>();
+    lines.forEach(line => {
+      const key = `${line.songTitle}-${line.songArtist}`;
+      if (!uniqueSongs.has(key)) {
+        uniqueSongs.set(key, { title: line.songTitle, artist: line.songArtist });
+      }
+    });
+    setGameSongs(Array.from(uniqueSongs.values()));
 
     const shuffled = [...lines].map(l => ({ id: l.id, translation: l.translation, matched: false }))
       .sort(() => Math.random() - 0.5);
@@ -313,6 +386,7 @@ export default function GamePlayPage() {
 
   const startSpeechGame = useCallback(async () => {
     setSpeechState(prev => ({ ...prev, status: 'loading' }));
+    setGameSongs([]);
     createSessionMutation.mutate();
     
     let words: PronunciationWord[] = [];
@@ -331,6 +405,16 @@ export default function GamePlayPage() {
     }
 
     const gameWords = words.sort(() => Math.random() - 0.5).slice(0, LINES_PER_GAME);
+
+    // Track unique songs used in the game
+    const uniqueSongs = new Map<string, { title: string; artist: string }>();
+    gameWords.forEach(word => {
+      const key = `${word.songTitle}-${word.songArtist}`;
+      if (!uniqueSongs.has(key)) {
+        uniqueSongs.set(key, { title: word.songTitle, artist: word.songArtist });
+      }
+    });
+    setGameSongs(Array.from(uniqueSongs.values()));
 
     setSpeechState({
       status: 'playing',
@@ -621,11 +705,35 @@ export default function GamePlayPage() {
                 {getGameIcon()}
               </div>
               <h2 className="text-2xl font-bold mb-2">{getGameTitle()}</h2>
-              <p className="text-muted-foreground mb-6 max-w-sm mx-auto">
+              <p className="text-muted-foreground mb-4 max-w-sm mx-auto">
                 {gameType === 'word_match' && t('games.wordMatchInstructions', 'Match translations to their original lyrics.')}
                 {gameType === 'speed_round' && t('games.speedRoundInstructions', 'Listen to words and repeat them correctly. You have 60 seconds!')}
                 {gameType === 'streak_challenge' && t('games.streakInstructions', 'Keep your streak alive! Listen and speak to match the pronunciation.')}
               </p>
+              
+              {/* Language selector */}
+              <div className="mb-6 max-w-xs mx-auto">
+                <div className="flex items-center justify-center gap-2 mb-2">
+                  <Globe className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground">{t('games.selectLanguage', 'Select language to learn:')}</span>
+                </div>
+                <Select value={selectedLanguage} onValueChange={setSelectedLanguage}>
+                  <SelectTrigger className="w-full" data-testid="select-language">
+                    <SelectValue placeholder="Select language" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {SUPPORTED_LANGUAGES.map(lang => (
+                      <SelectItem key={lang.code} value={lang.code}>
+                        <span className="flex items-center gap-2">
+                          <Globe className="h-3 w-3" />
+                          <span>{lang.name}</span>
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
               <Button 
                 size="lg" 
                 onClick={startGame} 
@@ -850,8 +958,43 @@ export default function GamePlayPage() {
                 </div>
               </div>
 
+              {/* Songs used in this game */}
+              {gameSongs.length > 0 && (
+                <div className="mb-6 max-w-sm mx-auto">
+                  <div className="flex items-center justify-center gap-2 mb-3">
+                    <Music className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm font-medium">{t('games.songsInGame', 'Songs in this game:')}</span>
+                  </div>
+                  <div className="space-y-2 max-h-32 overflow-y-auto">
+                    {gameSongs.map((song, index) => (
+                      <div 
+                        key={index} 
+                        className="flex items-center gap-2 p-2 rounded-lg bg-muted/50 text-sm"
+                        data-testid={`song-item-${index}`}
+                      >
+                        <Music className="h-3 w-3 text-primary shrink-0" />
+                        <span className="truncate">{song.title}</span>
+                        <span className="text-muted-foreground">-</span>
+                        <span className="text-muted-foreground truncate">{song.artist}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div className="flex justify-center gap-3">
-                <Button variant="outline" onClick={startGame} data-testid="button-play-again">
+                <Button 
+                  variant="outline" 
+                  onClick={() => {
+                    // Reset to idle state so user can select language again
+                    if (gameType === 'word_match') {
+                      setMatchState(prev => ({ ...prev, status: 'idle' }));
+                    } else {
+                      setSpeechState(prev => ({ ...prev, status: 'idle' }));
+                    }
+                  }} 
+                  data-testid="button-play-again"
+                >
                   <RotateCcw className="h-4 w-4 mr-2" />
                   {t('games.playAgain', 'Play Again')}
                 </Button>
