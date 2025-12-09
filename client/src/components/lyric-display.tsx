@@ -800,17 +800,18 @@ export function LyricDisplay({
         console.log('[Practice Word] Platform:', isNative ? 'Native' : 'Web');
 
         if (isNative) {
-          // Use Capacitor for mobile - pass original word for matching
-          await handleCapacitorSpeech(originalWord, wordIndex, sessionId, bannerStartTime, totalWords);
+          // Use Capacitor for mobile - pass both phonetic and original for dual-matching
+          await handleCapacitorSpeech(phoneticWord, originalWord, wordIndex, sessionId, bannerStartTime, totalWords);
         } else {
-          // Use Web Speech API for web - pass original word for matching
-          handleWebSpeech(originalWord, wordIndex, sessionId, bannerStartTime, totalWords);
+          // Use Web Speech API for web - pass both phonetic and original for dual-matching
+          handleWebSpeech(phoneticWord, originalWord, wordIndex, sessionId, bannerStartTime, totalWords);
         }
       }, [wordStates, toast]);
 
   // Web Speech API handler for web browsers
   const handleWebSpeech = useCallback((
-    expectedWord: string,
+    phoneticWord: string,
+    originalWord: string,
     wordIndex: number,
     sessionId: number,
     bannerStartTime: number,
@@ -1123,7 +1124,8 @@ export function LyricDisplay({
 
   // Capacitor speech recognition handler for mobile platforms
   const handleCapacitorSpeech = useCallback(async (
-    expectedWord: string,
+    phoneticWord: string,
+    originalWord: string,
     wordIndex: number,
     sessionId: number,
     bannerStartTime: number,
@@ -1190,7 +1192,7 @@ export function LyricDisplay({
       
       if (cleanTranscript) {
         // Use dual-match: try both phonetic AND original word, take best score
-        const accuracy = calculateAccuracyWithOriginal(expectedWord, originalWord, cleanTranscript);
+        const accuracy = calculateAccuracyWithOriginal(phoneticWord, originalWord, cleanTranscript);
         accuracyPercentage = Math.round(accuracy * 100);
         tier = getAccuracyTier(accuracy);
         console.log(`[Capacitor Speech] 🎯 Accuracy: ${accuracyPercentage}% (${tier})`);

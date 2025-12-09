@@ -1,0 +1,121 @@
+// lyric-display.tsx - In practiceWord function
+
+const practiceWord = async (wordIndex: number) => {
+  if (wordIndex < 0 || wordIndex >= wordStates.length) {
+    console.error('[Practice] Invalid word index:', wordIndex);
+    return;
+  }
+
+  const currentWord = wordStates[wordIndex];
+  const sessionId = practiceSessionRef.current;
+
+  console.log('[Practice Word] Starting for:', currentWord);
+
+  // Increment session to invalidate old callbacks
+  practiceSessionRef.current++;
+  setIsPracticeListening(true);
+
+  // Reset state
+  recognitionHandledRef.current = false;
+
+  try {
+    if (Capacitor.isNativePlatform()) {
+      console.log('[Capacitor Speech] Starting mobile recognition...');
+
+      // Check permissions first
+      const { available } = await CapacitorSpeechRecognition.available();
+      if (!available) {
+        throw new Error('Speech recognition not available');
+      }
+
+      const { granted } = await CapacitorSpeechRecognition.requestPermissions();
+      if (!granted) {
+        throw new Error('Microphone permission denied');
+      }
+
+      // Detect language from translation
+      const translation = translations.find(t => 
+        t.originalText === lyrics[practiceLineIndex]?.text
+      );
+      const sourceLanguage = translation?.sourceLanguage || 'en';
+      
+      // Map to full locale codes
+      const languageMap: Record<string, string> = {
+        'en': 'en-US',
+        'es': 'es-ES',
+        'fr': 'fr-FR',
+        'de': 'de-DE',
+        'it': 'it-IT',
+        'pt': 'pt-BR',
+        'ja': 'ja-JP',
+        'ko': 'ko-KR',
+        'zh': 'zh-CN'
+      };
+      
+      const locale = languageMap[sourceLanguage] || 'en-US';
+      console.log('[Capacitor Speech] Using locale:', locale);
+
+      // Set up result handler
+      await CapacitorSpeechRecognition.addListener('partialResults', (data: any) => {
+        if (practiceSessionRef.current !== sessionId) {
+          console.log('[Capacitor Speech] Ignoring stale partial result');
+          return;
+        }
+
+        console.log('[Capacitor Speech] Partial:', data.matches);
+        
+        // Show interim results to user
+        if (data.matches && data.matches.length > 0) {
+          const interim = data.matches[0];
+          console.log('[Capacitor Speech] Heard so far:', interim);
+        }
+      });
+
+      await CapacitorSpeechRecognition.addListener('listeningState', (state: any) => {
+        console.log('[Capacitor Speech] Listening state:', state);
+      });
+
+      // Start recognition with optimized settings
+      await CapacitorSpeechRecognition.start({
+        language: locale,
+        maxResults: 5,              // Get multiple alternatives
+        popup: false,               // Don't show system UI
+        partialResults: true,       // Get interim results
+        
+        // IMPORTANT: Adjust these for better detection
+        // @ts-ignore - These may not be in types but work on native
+        speechInputMinimumLengthMillis: 1000,  // Minimum 1s of speech
+        speechInputCompleteSilenceLength: 1000, // 1s silence = done
+        speechInputPossiblyCompleteSilence: 500 // 0.5s pause = maybe done
+      });
+
+      console.log('[Capacitor Speech] Started listening for', locale);
+
+      // Set timeout for max listening duration
+      if (maxListeningTimeoutRef.current) {
+        clearTimeout(maxListeningTimeoutRef.current);
+      }
+
+      maxListeningTimeoutRef.current = setTimeout(() => {
+        if (practiceSessionRef.current === sessionId) {
+          console.log('[Capacitor Speech] Max duration reached, stopping');
+          stopPracticeListening();
+        }
+      }, 8000); // 8 seconds max
+
+    } else {
+      // Web speech recognition (existing code)
+      // ...
+    }
+
+  } catch (error) {
+    console.error('[Practice Word] Error:', error);
+    setIsPracticeListening(false);
+
+    toast({
+      title: 'Speech Recognition Error',
+      description: error instanceof Error ? error.message : 'Failed to start listening',
+      variant: 'destructive'
+    });
+  }
+};
