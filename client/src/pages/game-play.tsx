@@ -45,6 +45,7 @@ interface MatchGameState {
   selectedTranslationId: string | null;
   feedback: 'correct' | 'wrong' | null;
   startTime?: number;
+  displayOptions: Array<{ id: string; translation: string; matched: boolean }>;
 }
 
 interface SpeechGameState {
@@ -129,6 +130,7 @@ export default function GamePlayPage() {
     currentOriginalIndex: 0,
     selectedTranslationId: null,
     feedback: null,
+    displayOptions: [],
   });
 
   const [speechState, setSpeechState] = useState<SpeechGameState>({
@@ -294,8 +296,20 @@ export default function GamePlayPage() {
       selectedTranslationId: null,
       feedback: null,
       startTime: Date.now(),
+      displayOptions: getDisplayOptions(lines[0]?.id, shuffled),
     });
   }, [refetchLines, createSessionMutation, toast, t]);
+  
+  const getDisplayOptions = (correctId: string | undefined, translations: Array<{ id: string; translation: string; matched: boolean }>) => {
+    if (!correctId) return translations.slice(0, 5);
+    const correctOption = translations.find(t => t.id === correctId);
+    if (!correctOption) return translations.slice(0, 5);
+    
+    const wrongOptions = translations.filter(t => t.id !== correctId);
+    const shuffledWrong = [...wrongOptions].sort(() => Math.random() - 0.5).slice(0, 4);
+    
+    return [...shuffledWrong, correctOption].sort(() => Math.random() - 0.5);
+  };
 
   const startSpeechGame = useCallback(async () => {
     setSpeechState(prev => ({ ...prev, status: 'loading' }));
@@ -376,12 +390,14 @@ export default function GamePlayPage() {
           return { ...prev, status: 'finished', shuffledTranslations: newTranslations, feedback: null };
         }
         
+        const nextCorrectId = prev.lines[nextIndex]?.id;
         return {
           ...prev,
           currentOriginalIndex: nextIndex,
           selectedTranslationId: null,
           feedback: null,
           shuffledTranslations: newTranslations,
+          displayOptions: getDisplayOptions(nextCorrectId, newTranslations),
         };
       });
     }, 800);
@@ -441,77 +457,70 @@ export default function GamePlayPage() {
     }, 500);
   }, [speechState.status, speechState.words, speechState.currentWordIndex, completeSessionMutation]);
 
-  const handleSpeakAndListen = useCallback(() => {
+  const handleSpeak = useCallback(() => {
     if (speechState.status !== 'playing') return;
     if (speechState.currentWordIndex >= speechState.words.length) return;
+    if (!speechSupported) return;
     
     const currentWord = speechState.words[speechState.currentWordIndex];
     if (!currentWord) return;
-
-    speakWord(currentWord.original, currentWord.language);
     
-    if (!speechSupported) {
-      return;
-    }
+    setSpeechState(prev => ({ ...prev, status: 'listening', lastTranscript: '' }));
     
-    setTimeout(() => {
-      setSpeechState(prev => ({ ...prev, status: 'listening', lastTranscript: '' }));
-      
-      const success = startListening(currentWord.original, currentWord.language, (transcript, isCorrect) => {
-        if (isCorrect) {
-          playSuccessChime();
-        } else {
-          playErrorBuzzer();
-        }
-
-        setSpeechState(prev => {
-          const newStreak = isCorrect ? prev.streak + 1 : 0;
-          const newBestStreak = Math.max(prev.bestStreak, newStreak);
-          const scoreIncrease = isCorrect ? POINTS_PER_LINE : 0;
-          
-          const newAttempts = [...prev.attempts, { word: currentWord.original, correct: isCorrect, transcript }];
-          const nextIndex = prev.currentWordIndex + 1;
-          
-          return {
-            ...prev,
-            status: 'playing',
-            score: prev.score + scoreIncrease,
-            streak: newStreak,
-            bestStreak: newBestStreak,
-            currentWordIndex: nextIndex <= prev.words.length ? nextIndex : prev.currentWordIndex,
-            attempts: newAttempts,
-            lastTranscript: transcript,
-            feedback: isCorrect ? 'correct' : 'wrong',
-          };
-        });
-
-        setTimeout(() => {
-          setSpeechState(prev => {
-            if (prev.currentWordIndex >= prev.words.length) {
-              const durationMs = prev.startTime ? Date.now() - prev.startTime : 0;
-              const totalCorrect = prev.attempts.filter(a => a.correct).length;
-              const accuracyPct = prev.attempts.length > 0 ? (totalCorrect / prev.attempts.length) * 100 : 0;
-              
-              completeSessionMutation.mutate({
-                score: Math.round(prev.score),
-                accuracyPct,
-                bestStreak: prev.bestStreak,
-                wordsCompleted: prev.attempts.length,
-                durationMs,
-              });
-              
-              return { ...prev, status: 'finished', feedback: null };
-            }
-            return { ...prev, feedback: null };
-          });
-        }, 1000);
-      });
-      
-      if (!success) {
-        setSpeechState(prev => ({ ...prev, status: 'playing' }));
+    const success = startListening(currentWord.original, currentWord.language, (transcript, isCorrect) => {
+      if (isCorrect) {
+        playSuccessChime();
+      } else {
+        playErrorBuzzer();
       }
-    }, 1500);
-  }, [speechState.status, speechState.words, speechState.currentWordIndex, speakWord, startListening, completeSessionMutation, speechSupported]);
+
+      setSpeechState(prev => {
+        const newStreak = isCorrect ? prev.streak + 1 : 0;
+        const newBestStreak = Math.max(prev.bestStreak, newStreak);
+        const scoreIncrease = isCorrect ? POINTS_PER_LINE : 0;
+        
+        const newAttempts = [...prev.attempts, { word: currentWord.original, correct: isCorrect, transcript }];
+        const nextIndex = prev.currentWordIndex + 1;
+        
+        return {
+          ...prev,
+          status: 'playing',
+          score: prev.score + scoreIncrease,
+          streak: newStreak,
+          bestStreak: newBestStreak,
+          currentWordIndex: nextIndex <= prev.words.length ? nextIndex : prev.currentWordIndex,
+          attempts: newAttempts,
+          lastTranscript: transcript,
+          feedback: isCorrect ? 'correct' : 'wrong',
+        };
+      });
+
+      setTimeout(() => {
+        setSpeechState(prev => {
+          if (prev.currentWordIndex >= prev.words.length) {
+            const durationMs = prev.startTime ? Date.now() - prev.startTime : 0;
+            const totalCorrect = prev.attempts.filter(a => a.correct).length;
+            const accuracyPct = prev.attempts.length > 0 ? (totalCorrect / prev.attempts.length) * 100 : 0;
+            
+            completeSessionMutation.mutate({
+              score: Math.round(prev.score),
+              accuracyPct,
+              bestStreak: prev.bestStreak,
+              wordsCompleted: prev.attempts.length,
+              durationMs,
+            });
+            
+            return { ...prev, status: 'finished', feedback: null };
+          }
+          return { ...prev, feedback: null };
+        });
+      }, 1000);
+    });
+    
+    if (!success) {
+      setSpeechState(prev => ({ ...prev, status: 'playing' }));
+    }
+  }, [speechState.status, speechState.words, speechState.currentWordIndex, startListening, completeSessionMutation, speechSupported]);
 
   useEffect(() => {
     const shouldRunTimer = (speechState.status === 'playing' || speechState.status === 'listening') && gameType === 'speed_round';
@@ -658,9 +667,10 @@ export default function GamePlayPage() {
 
                 <div className="space-y-2">
                   <p className="text-sm text-muted-foreground text-center mb-4">{t('games.selectTranslation', 'Select the correct translation:')}</p>
-                  {matchState.shuffledTranslations.filter(t => !t.matched).map((item) => {
+                  {matchState.displayOptions.map((item) => {
+                    const correctId = matchState.lines[matchState.currentOriginalIndex]?.id;
                     const isSelected = matchState.selectedTranslationId === item.id;
-                    const isCorrectAnswer = matchState.lines[matchState.currentOriginalIndex]?.id === item.id;
+                    const isCorrectAnswer = correctId === item.id;
                     const showCorrect = matchState.feedback && isCorrectAnswer;
                     const showWrong = matchState.feedback === 'wrong' && isSelected && !isCorrectAnswer;
                     
@@ -750,67 +760,68 @@ export default function GamePlayPage() {
                   </div>
                 )}
 
-                {speechSupported ? (
-                  <>
+                <div className="flex gap-4 justify-center mb-4">
+                  <Button 
+                    size="lg"
+                    variant="outline"
+                    onClick={() => {
+                      const currentWord = speechState.words[speechState.currentWordIndex];
+                      if (currentWord) {
+                        speakWord(currentWord.original, currentWord.language);
+                      }
+                    }}
+                    disabled={speechState.status === 'listening' || speechState.currentWordIndex >= speechState.words.length}
+                    className="gap-2"
+                    data-testid="button-listen"
+                  >
+                    <Volume2 className="h-5 w-5" /> {t('games.listen', 'Listen')}
+                  </Button>
+                  
+                  {speechSupported ? (
                     <Button 
                       size="lg"
-                      onClick={handleSpeakAndListen}
+                      onClick={handleSpeak}
                       disabled={speechState.status === 'listening' || speechState.currentWordIndex >= speechState.words.length}
                       className="gap-2"
-                      data-testid="button-speak-listen"
+                      data-testid="button-speak"
                     >
                       {speechState.status === 'listening' ? (
                         <><Loader2 className="h-5 w-5 animate-spin" /> {t('games.listening', 'Listening...')}</>
                       ) : (
-                        <><Volume2 className="h-5 w-5" /> <Mic className="h-5 w-5" /> {t('games.speakAndListen', 'Listen & Speak')}</>
+                        <><Mic className="h-5 w-5" /> {t('games.speak', 'Speak')}</>
                       )}
                     </Button>
-                    <p className="text-sm text-muted-foreground mt-4">
-                      {t('games.listenThenRepeat', 'Tap to hear the word, then repeat it')}
-                    </p>
-                  </>
-                ) : (
-                  <>
-                    <div className="flex gap-4 justify-center mb-4">
-                      <Button 
-                        size="lg"
-                        variant="outline"
-                        onClick={handleSpeakAndListen}
-                        disabled={speechState.currentWordIndex >= speechState.words.length}
-                        className="gap-2"
-                        data-testid="button-hear-word"
-                      >
-                        <Volume2 className="h-5 w-5" /> {t('games.hearWord', 'Hear Word')}
-                      </Button>
-                    </div>
-                    <div className="flex gap-4 justify-center">
+                  ) : (
+                    <>
                       <Button 
                         size="lg"
                         variant="outline"
                         onClick={() => handleManualAnswer(false)}
                         disabled={speechState.currentWordIndex >= speechState.words.length}
-                        className="w-28"
+                        className="gap-2"
                         data-testid="button-incorrect"
                       >
-                        <X className="h-5 w-5 mr-2 text-red-500" />
+                        <X className="h-5 w-5 text-red-500" />
                         {t('games.wrong', 'Wrong')}
                       </Button>
                       <Button 
                         size="lg"
                         onClick={() => handleManualAnswer(true)}
                         disabled={speechState.currentWordIndex >= speechState.words.length}
-                        className="w-28"
+                        className="gap-2"
                         data-testid="button-correct"
                       >
-                        <Check className="h-5 w-5 mr-2" />
+                        <Check className="h-5 w-5" />
                         {t('games.correct', 'Correct')}
                       </Button>
-                    </div>
-                    <p className="text-sm text-muted-foreground mt-4">
-                      {t('games.selfJudge', 'Listen and judge your own pronunciation!')}
-                    </p>
-                  </>
-                )}
+                    </>
+                  )}
+                </div>
+                <p className="text-sm text-muted-foreground mt-4">
+                  {speechSupported 
+                    ? t('games.listenThenSpeak', 'Tap Listen to hear the word, then tap Speak to repeat it')
+                    : t('games.selfJudge', 'Listen and judge your own pronunciation!')}
+                </p>
               </CardContent>
             </Card>
           </div>
