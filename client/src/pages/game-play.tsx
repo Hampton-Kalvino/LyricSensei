@@ -686,7 +686,7 @@ export default function GamePlayPage() {
                         disabled={!!matchState.feedback}
                         data-testid={`button-translation-${item.id}`}
                       >
-                        <span className="flex-1 text-left truncate">{item.translation}</span>
+                        <span className="flex-1 text-left whitespace-normal break-words">{item.translation}</span>
                         {showCorrect && <Check className="h-5 w-5 text-green-500 shrink-0 ml-2" />}
                         {showWrong && <X className="h-5 w-5 text-red-500 shrink-0 ml-2" />}
                       </Button>
