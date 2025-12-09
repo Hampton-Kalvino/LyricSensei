@@ -19,6 +19,10 @@ import {
   manualSelectSongSchema,
   updatePracticeStatsSchema,
   insertCommentSchema,
+  insertPlaylistSchema,
+  joinPlaylistSchema,
+  startGameSessionSchema,
+  completeGameSessionSchema,
   type RecognitionResult,
   type User,
 } from "@shared/schema";
@@ -2077,6 +2081,327 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       console.error('[Feedback] Error:', error);
       res.status(500).json({ error: error.message || 'Failed to submit feedback' });
+    }
+  });
+
+  // ============== PLAYLIST ROUTES ==============
+
+  // GET /api/playlists - Get user's playlists (owned + collaborated)
+  app.get("/api/playlists", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = (req.user as any).id || (req.user as any).claims?.sub;
+      const playlists = await storage.getUserPlaylists(userId);
+      res.json(playlists);
+    } catch (error: any) {
+      console.error('[Playlists] Get error:', error);
+      res.status(500).json({ error: error.message || 'Failed to fetch playlists' });
+    }
+  });
+
+  // POST /api/playlists - Create a new playlist
+  app.post("/api/playlists", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = (req.user as any).id || (req.user as any).claims?.sub;
+      const data = insertPlaylistSchema.parse({ ...req.body, ownerId: userId });
+      const playlist = await storage.createPlaylist(data);
+      res.status(201).json(playlist);
+    } catch (error: any) {
+      if (error instanceof ZodError) {
+        return res.status(400).json({ error: 'Invalid playlist data', details: error.errors });
+      }
+      console.error('[Playlists] Create error:', error);
+      res.status(500).json({ error: error.message || 'Failed to create playlist' });
+    }
+  });
+
+  // GET /api/playlists/:id - Get playlist details
+  app.get("/api/playlists/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = (req.user as any).id || (req.user as any).claims?.sub;
+      const playlist = await storage.getPlaylist(req.params.id);
+      
+      if (!playlist) {
+        return res.status(404).json({ error: 'Playlist not found' });
+      }
+
+      // Check if user has access
+      const role = await storage.getPlaylistRole(playlist.id, userId);
+      if (!role && !playlist.isPublic) {
+        return res.status(403).json({ error: 'Access denied' });
+      }
+
+      const songs = await storage.getPlaylistSongs(playlist.id);
+      const collaborators = await storage.getPlaylistCollaborators(playlist.id);
+      
+      res.json({ ...playlist, songs, collaborators, userRole: role });
+    } catch (error: any) {
+      console.error('[Playlists] Get details error:', error);
+      res.status(500).json({ error: error.message || 'Failed to fetch playlist' });
+    }
+  });
+
+  // PATCH /api/playlists/:id - Update playlist
+  app.patch("/api/playlists/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = (req.user as any).id || (req.user as any).claims?.sub;
+      const role = await storage.getPlaylistRole(req.params.id, userId);
+      
+      if (role !== 'owner') {
+        return res.status(403).json({ error: 'Only owner can update playlist' });
+      }
+
+      const updated = await storage.updatePlaylist(req.params.id, req.body);
+      res.json(updated);
+    } catch (error: any) {
+      console.error('[Playlists] Update error:', error);
+      res.status(500).json({ error: error.message || 'Failed to update playlist' });
+    }
+  });
+
+  // DELETE /api/playlists/:id - Delete playlist
+  app.delete("/api/playlists/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = (req.user as any).id || (req.user as any).claims?.sub;
+      const role = await storage.getPlaylistRole(req.params.id, userId);
+      
+      if (role !== 'owner') {
+        return res.status(403).json({ error: 'Only owner can delete playlist' });
+      }
+
+      await storage.deletePlaylist(req.params.id);
+      res.status(204).send();
+    } catch (error: any) {
+      console.error('[Playlists] Delete error:', error);
+      res.status(500).json({ error: error.message || 'Failed to delete playlist' });
+    }
+  });
+
+  // POST /api/playlists/:id/songs - Add song to playlist
+  app.post("/api/playlists/:id/songs", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = (req.user as any).id || (req.user as any).claims?.sub;
+      const role = await storage.getPlaylistRole(req.params.id, userId);
+      
+      if (!role || role === 'viewer') {
+        return res.status(403).json({ error: 'Cannot add songs to this playlist' });
+      }
+
+      const { songId, note } = req.body;
+      if (!songId) {
+        return res.status(400).json({ error: 'songId is required' });
+      }
+
+      const playlistSong = await storage.addPlaylistSong({
+        playlistId: req.params.id,
+        songId,
+        addedBy: userId,
+        orderIndex: 0,
+        note,
+      });
+      res.status(201).json(playlistSong);
+    } catch (error: any) {
+      console.error('[Playlists] Add song error:', error);
+      res.status(500).json({ error: error.message || 'Failed to add song' });
+    }
+  });
+
+  // DELETE /api/playlists/:id/songs/:songId - Remove song from playlist
+  app.delete("/api/playlists/:id/songs/:songId", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = (req.user as any).id || (req.user as any).claims?.sub;
+      const role = await storage.getPlaylistRole(req.params.id, userId);
+      
+      if (!role || role === 'viewer') {
+        return res.status(403).json({ error: 'Cannot remove songs from this playlist' });
+      }
+
+      await storage.removePlaylistSong(req.params.id, req.params.songId);
+      res.status(204).send();
+    } catch (error: any) {
+      console.error('[Playlists] Remove song error:', error);
+      res.status(500).json({ error: error.message || 'Failed to remove song' });
+    }
+  });
+
+  // POST /api/playlists/join - Join playlist via invite code
+  app.post("/api/playlists/join", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = (req.user as any).id || (req.user as any).claims?.sub;
+      const { inviteCode } = joinPlaylistSchema.parse(req.body);
+      
+      const playlist = await storage.getPlaylistByInviteCode(inviteCode.toUpperCase());
+      if (!playlist) {
+        return res.status(404).json({ error: 'Invalid invite code' });
+      }
+
+      // Check if already a member
+      const existingRole = await storage.getPlaylistRole(playlist.id, userId);
+      if (existingRole) {
+        return res.status(400).json({ error: 'Already a member of this playlist' });
+      }
+
+      await storage.addPlaylistCollaborator({
+        playlistId: playlist.id,
+        userId,
+        role: 'editor',
+      });
+
+      res.json({ message: 'Joined playlist successfully', playlist });
+    } catch (error: any) {
+      if (error instanceof ZodError) {
+        return res.status(400).json({ error: 'Invalid request', details: error.errors });
+      }
+      console.error('[Playlists] Join error:', error);
+      res.status(500).json({ error: error.message || 'Failed to join playlist' });
+    }
+  });
+
+  // DELETE /api/playlists/:id/collaborators/:userId - Remove collaborator
+  app.delete("/api/playlists/:id/collaborators/:userId", isAuthenticated, async (req: any, res) => {
+    try {
+      const currentUserId = (req.user as any).id || (req.user as any).claims?.sub;
+      const { id, userId: targetUserId } = req.params;
+      
+      const role = await storage.getPlaylistRole(id, currentUserId);
+      
+      // Owner can remove anyone, or user can leave themselves
+      if (role !== 'owner' && currentUserId !== targetUserId) {
+        return res.status(403).json({ error: 'Permission denied' });
+      }
+
+      await storage.removePlaylistCollaborator(id, targetUserId);
+      res.status(204).send();
+    } catch (error: any) {
+      console.error('[Playlists] Remove collaborator error:', error);
+      res.status(500).json({ error: error.message || 'Failed to remove collaborator' });
+    }
+  });
+
+  // ============== MINI-GAME ROUTES ==============
+
+  // POST /api/games/sessions - Start a new game session
+  app.post("/api/games/sessions", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = (req.user as any).id || (req.user as any).claims?.sub;
+      const { gameType, songId } = startGameSessionSchema.parse(req.body);
+      
+      const session = await storage.createGameSession({
+        userId,
+        gameType,
+        songId,
+      });
+      
+      res.status(201).json(session);
+    } catch (error: any) {
+      if (error instanceof ZodError) {
+        return res.status(400).json({ error: 'Invalid session data', details: error.errors });
+      }
+      console.error('[Games] Create session error:', error);
+      res.status(500).json({ error: error.message || 'Failed to create game session' });
+    }
+  });
+
+  // POST /api/games/sessions/:id/complete - Complete a game session
+  app.post("/api/games/sessions/:id/complete", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = (req.user as any).id || (req.user as any).claims?.sub;
+      const { id } = req.params;
+      
+      const session = await storage.getGameSession(id);
+      if (!session) {
+        return res.status(404).json({ error: 'Session not found' });
+      }
+      if (session.userId !== userId) {
+        return res.status(403).json({ error: 'Not your session' });
+      }
+
+      const data = completeGameSessionSchema.parse(req.body);
+      
+      const updated = await storage.updateGameSession(id, {
+        score: data.score,
+        accuracyPct: data.accuracyPct,
+        bestStreak: data.bestStreak,
+        wordsCompleted: data.wordsCompleted,
+        durationMs: data.durationMs,
+        attempts: data.attempts ? JSON.stringify(data.attempts) : undefined,
+        completedAt: new Date(),
+      });
+
+      // Update leaderboard
+      const now = new Date();
+      const dailyStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const weeklyStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay());
+
+      // Update all period leaderboards
+      await Promise.all([
+        storage.upsertLeaderboardEntry({
+          gameType: session.gameType,
+          period: 'daily',
+          periodStart: dailyStart,
+          userId,
+          bestScore: data.score,
+          bestAccuracy: data.accuracyPct,
+          bestStreak: data.bestStreak,
+          gamesPlayed: 1,
+        }),
+        storage.upsertLeaderboardEntry({
+          gameType: session.gameType,
+          period: 'weekly',
+          periodStart: weeklyStart,
+          userId,
+          bestScore: data.score,
+          bestAccuracy: data.accuracyPct,
+          bestStreak: data.bestStreak,
+          gamesPlayed: 1,
+        }),
+        storage.upsertLeaderboardEntry({
+          gameType: session.gameType,
+          period: 'all_time',
+          periodStart: new Date(0),
+          userId,
+          bestScore: data.score,
+          bestAccuracy: data.accuracyPct,
+          bestStreak: data.bestStreak,
+          gamesPlayed: 1,
+        }),
+      ]);
+
+      res.json(updated);
+    } catch (error: any) {
+      if (error instanceof ZodError) {
+        return res.status(400).json({ error: 'Invalid completion data', details: error.errors });
+      }
+      console.error('[Games] Complete session error:', error);
+      res.status(500).json({ error: error.message || 'Failed to complete session' });
+    }
+  });
+
+  // GET /api/games/history - Get user's game history
+  app.get("/api/games/history", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = (req.user as any).id || (req.user as any).claims?.sub;
+      const limit = parseInt(req.query.limit as string) || 20;
+      
+      const sessions = await storage.getUserGameSessions(userId, limit);
+      res.json(sessions);
+    } catch (error: any) {
+      console.error('[Games] History error:', error);
+      res.status(500).json({ error: error.message || 'Failed to fetch game history' });
+    }
+  });
+
+  // GET /api/games/leaderboard - Get leaderboard
+  app.get("/api/games/leaderboard", async (req: any, res) => {
+    try {
+      const gameType = (req.query.gameType as string) || 'speed_round';
+      const period = (req.query.period as string) || 'weekly';
+      const limit = parseInt(req.query.limit as string) || 10;
+      
+      const leaderboard = await storage.getLeaderboard(gameType, period, limit);
+      res.json(leaderboard);
+    } catch (error: any) {
+      console.error('[Games] Leaderboard error:', error);
+      res.status(500).json({ error: error.message || 'Failed to fetch leaderboard' });
     }
   });
 

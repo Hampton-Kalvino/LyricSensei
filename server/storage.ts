@@ -1184,7 +1184,7 @@ export class DatabaseStorage implements IStorage {
     if (existing) {
       // Update if new score is better
       const updates: Partial<InsertLeaderboardEntry> = { gamesPlayed: (existing.gamesPlayed || 0) + 1 };
-      if (entry.bestScore > existing.bestScore) updates.bestScore = entry.bestScore;
+      if ((entry.bestScore ?? 0) > existing.bestScore) updates.bestScore = entry.bestScore;
       if (entry.bestAccuracy && (!existing.bestAccuracy || entry.bestAccuracy > existing.bestAccuracy)) {
         updates.bestAccuracy = entry.bestAccuracy;
       }
