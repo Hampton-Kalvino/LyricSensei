@@ -38,6 +38,7 @@ interface WordMatchLine {
   translation: string;
   songTitle: string;
   songArtist: string;
+  songArtwork?: string;
 }
 
 interface PronunciationWord {
@@ -47,6 +48,7 @@ interface PronunciationWord {
   language: string;
   songTitle: string;
   songArtist: string;
+  songArtwork?: string;
 }
 
 interface MatchGameState {
@@ -132,7 +134,7 @@ export default function GamePlayPage() {
   const { gameType } = useParams<{ gameType: string }>();
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [selectedLanguage, setSelectedLanguage] = useState<string>('es');
-  const [gameSongs, setGameSongs] = useState<Array<{ title: string; artist: string }>>([]);
+  const [gameSongs, setGameSongs] = useState<Array<{ title: string; artist: string; artwork?: string }>>([]);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const recognitionRef = useRef<any>(null);
   const synthRef = useRef<SpeechSynthesis | null>(null);
@@ -346,11 +348,11 @@ export default function GamePlayPage() {
     }
 
     // Track unique songs used in the game
-    const uniqueSongs = new Map<string, { title: string; artist: string }>();
+    const uniqueSongs = new Map<string, { title: string; artist: string; artwork?: string }>();
     lines.forEach(line => {
       const key = `${line.songTitle}-${line.songArtist}`;
       if (!uniqueSongs.has(key)) {
-        uniqueSongs.set(key, { title: line.songTitle, artist: line.songArtist });
+        uniqueSongs.set(key, { title: line.songTitle, artist: line.songArtist, artwork: line.songArtwork });
       }
     });
     setGameSongs(Array.from(uniqueSongs.values()));
@@ -378,8 +380,20 @@ export default function GamePlayPage() {
     const correctOption = translations.find(t => t.id === correctId);
     if (!correctOption) return translations.slice(0, 5);
     
-    const wrongOptions = translations.filter(t => t.id !== correctId);
-    const shuffledWrong = [...wrongOptions].sort(() => Math.random() - 0.5).slice(0, 4);
+    // Filter out duplicates and the correct answer based on translation text
+    const seenTranslations = new Set<string>([correctOption.translation.toLowerCase().trim()]);
+    const uniqueWrongOptions: typeof translations = [];
+    
+    for (const t of translations) {
+      if (t.id === correctId) continue;
+      const normalizedText = t.translation.toLowerCase().trim();
+      if (!seenTranslations.has(normalizedText)) {
+        seenTranslations.add(normalizedText);
+        uniqueWrongOptions.push(t);
+      }
+    }
+    
+    const shuffledWrong = [...uniqueWrongOptions].sort(() => Math.random() - 0.5).slice(0, 4);
     
     return [...shuffledWrong, correctOption].sort(() => Math.random() - 0.5);
   };
@@ -407,11 +421,11 @@ export default function GamePlayPage() {
     const gameWords = words.sort(() => Math.random() - 0.5).slice(0, LINES_PER_GAME);
 
     // Track unique songs used in the game
-    const uniqueSongs = new Map<string, { title: string; artist: string }>();
+    const uniqueSongs = new Map<string, { title: string; artist: string; artwork?: string }>();
     gameWords.forEach(word => {
       const key = `${word.songTitle}-${word.songArtist}`;
       if (!uniqueSongs.has(key)) {
-        uniqueSongs.set(key, { title: word.songTitle, artist: word.songArtist });
+        uniqueSongs.set(key, { title: word.songTitle, artist: word.songArtist, artwork: word.songArtwork });
       }
     });
     setGameSongs(Array.from(uniqueSongs.values()));
@@ -965,17 +979,28 @@ export default function GamePlayPage() {
                     <Music className="h-4 w-4 text-muted-foreground" />
                     <span className="text-sm font-medium">{t('games.songsInGame', 'Songs in this game:')}</span>
                   </div>
-                  <div className="space-y-2 max-h-32 overflow-y-auto">
+                  <div className="space-y-2 max-h-40 overflow-y-auto">
                     {gameSongs.map((song, index) => (
                       <div 
                         key={index} 
-                        className="flex items-center gap-2 p-2 rounded-lg bg-muted/50 text-sm"
+                        className="flex items-center gap-3 p-2 rounded-lg bg-muted/50 text-sm"
                         data-testid={`song-item-${index}`}
                       >
-                        <Music className="h-3 w-3 text-primary shrink-0" />
-                        <span className="truncate">{song.title}</span>
-                        <span className="text-muted-foreground">-</span>
-                        <span className="text-muted-foreground truncate">{song.artist}</span>
+                        {song.artwork ? (
+                          <img 
+                            src={song.artwork} 
+                            alt={song.title}
+                            className="w-10 h-10 rounded shrink-0 object-cover"
+                          />
+                        ) : (
+                          <div className="w-10 h-10 rounded bg-primary/20 flex items-center justify-center shrink-0">
+                            <Music className="h-4 w-4 text-primary" />
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0 text-left">
+                          <p className="truncate font-medium">{song.title}</p>
+                          <p className="text-muted-foreground text-xs truncate">{song.artist}</p>
+                        </div>
                       </div>
                     ))}
                   </div>

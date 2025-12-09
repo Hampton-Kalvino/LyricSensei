@@ -2452,6 +2452,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         translation: string;
         songTitle: string;
         songArtist: string;
+        songArtwork?: string;
       }> = [];
       
       for (const songId of songIds) {
@@ -2480,6 +2481,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             translation: translation.translatedText,
             songTitle: song.title,
             songArtist: song.artist,
+            songArtwork: song.albumArt || undefined,
           });
         }
       }
@@ -2543,6 +2545,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         language: string;
         songTitle: string;
         songArtist: string;
+        songArtwork?: string;
       }> = [];
       
       for (const songId of songIds) {
@@ -2578,6 +2581,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 language: song.detectedLanguage || 'unknown',
                 songTitle: song.title,
                 songArtist: song.artist,
+                songArtwork: song.albumArt || undefined,
               });
             }
           }
