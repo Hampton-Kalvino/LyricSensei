@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Music2, Menu, Info, Music, Heart, Globe, Mic, MessageCircle, Plus, Loader2, Check, LogIn, FolderPlus, Search } from "lucide-react";
+import { Music2, Menu, Info, Music, Heart, Globe, Mic, MessageCircle, Plus, Loader2, Check, LogIn, FolderPlus, Search, X } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -88,6 +88,14 @@ export function MobileLayout({
   const [showLanguageSheet, setShowLanguageSheet] = useState(false);
   const [isLandscape, setIsLandscape] = useState(window.innerHeight < window.innerWidth);
   const [showPlaylistDialog, setShowPlaylistDialog] = useState(false);
+  const [showHowItWorks, setShowHowItWorks] = useState(() => {
+    return localStorage.getItem('hideHowItWorks') !== 'true';
+  });
+
+  const dismissHowItWorks = () => {
+    setShowHowItWorks(false);
+    localStorage.setItem('hideHowItWorks', 'true');
+  };
   const [addingToPlaylistId, setAddingToPlaylistId] = useState<string | null>(null);
   const [newPlaylistName, setNewPlaylistName] = useState("");
   const [isCreatingPlaylist, setIsCreatingPlaylist] = useState(false);
@@ -213,48 +221,11 @@ export function MobileLayout({
   if (!currentSong) {
     return (
       <div className="min-h-screen bg-background flex flex-col overflow-x-hidden w-full">
-        {/* Language Selector Header */}
-        <div className="bg-card border-b sticky top-0 z-10 w-full">
-          <div className="p-3 flex items-center justify-between gap-2">
-            <h1 className="text-lg font-semibold">{t('home.title', 'Lyric Sensei')}</h1>
-            <div className="flex items-center gap-2">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setShowLanguageSheet(true)}
-                    className="h-10 w-10"
-                    data-testid="button-language-selector-pre"
-                  >
-                    <Globe className="h-5 w-5" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>{t('settings.targetLanguage')}</p>
-                </TooltipContent>
-              </Tooltip>
-              {!user && (
-                <Button
-                  variant="default"
-                  size="sm"
-                  onClick={() => window.location.hash = "#/auth/login"}
-                  className="gap-1.5"
-                  data-testid="button-signin-header"
-                >
-                  <LogIn className="h-4 w-4" />
-                  Sign In
-                </Button>
-              )}
-            </div>
-          </div>
-        </div>
-
         {/* Main Content */}
         <div className="flex-1 overflow-y-auto">
           <div className="max-w-2xl mx-auto w-full p-4 pb-8 space-y-6">
-            {/* Recognition Button */}
-            <div className="flex justify-center pt-4">
+            {/* Recognition Button - Centered */}
+            <div className="flex flex-col items-center justify-center pt-8 pb-4">
               <RecognitionButton
                 isListening={isListening}
                 onStart={onStartListening}
@@ -262,26 +233,57 @@ export function MobileLayout({
                 size="lg"
                 data-testid="button-recognize"
               />
+              <p className="text-sm text-muted-foreground mt-3 text-center">
+                {t('home.tapToRecognize', 'Tap to Recognize')}
+              </p>
+              <p className="text-xs text-muted-foreground text-center">
+                {t('home.playASong', 'Play a song and tap')}
+              </p>
             </div>
 
-            {/* How It Works */}
-            <Card className="p-5 bg-gradient-to-br from-primary/5 to-purple-500/5 border-primary/20">
-              <h2 className="text-base font-semibold mb-3 text-center">{t('home.howItWorks')}</h2>
-              <ol className="space-y-2 text-sm text-muted-foreground">
-                <li className="flex gap-2">
-                  <span className="font-semibold text-primary">1.</span>
-                  <span>{t('home.step1')}</span>
-                </li>
-                <li className="flex gap-2">
-                  <span className="font-semibold text-primary">2.</span>
-                  <span>{t('home.step2')}</span>
-                </li>
-                <li className="flex gap-2">
-                  <span className="font-semibold text-primary">3.</span>
-                  <span>{t('home.step3')}</span>
-                </li>
-              </ol>
-            </Card>
+            {/* How It Works - Dismissable */}
+            {showHowItWorks && (
+              <Card className="p-4 bg-gradient-to-br from-primary/5 to-purple-500/5 border-primary/20 relative">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="absolute top-2 right-2 h-6 w-6"
+                  onClick={dismissHowItWorks}
+                  data-testid="button-dismiss-how-it-works"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+                <h2 className="text-base font-semibold mb-3 text-center">{t('home.howItWorks')}</h2>
+                <ol className="space-y-2 text-sm text-muted-foreground">
+                  <li className="flex gap-2">
+                    <span className="font-semibold text-primary">1.</span>
+                    <span>{t('home.step1')}</span>
+                  </li>
+                  <li className="flex gap-2">
+                    <span className="font-semibold text-primary">2.</span>
+                    <span>{t('home.step2')}</span>
+                  </li>
+                  <li className="flex gap-2">
+                    <span className="font-semibold text-primary">3.</span>
+                    <span>{t('home.step3')}</span>
+                  </li>
+                </ol>
+              </Card>
+            )}
+
+            {/* Language Selector */}
+            <div className="flex justify-center">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowLanguageSheet(true)}
+                className="gap-2"
+                data-testid="button-language-selector-pre"
+              >
+                <Globe className="h-4 w-4" />
+                {t('settings.targetLanguage', 'Translation Language')}
+              </Button>
+            </div>
 
             {/* Recent Songs */}
             {recognitionHistory.length > 0 && (

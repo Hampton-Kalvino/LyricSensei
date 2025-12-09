@@ -127,29 +127,29 @@ export default function PracticeStats() {
   }
 
   return (
-    <div className="container mx-auto py-8 px-4 max-w-6xl">
-      <div className="mb-8">
-        <div className="flex items-center gap-3 mb-2">
-          <Trophy className="h-8 w-8 text-primary" />
-          <h1 className="text-3xl font-bold">Practice Statistics</h1>
+    <div className="container mx-auto py-6 px-4 max-w-lg">
+      <div className="mb-6 text-center">
+        <div className="flex items-center justify-center gap-2 mb-2">
+          <Trophy className="h-6 w-6 text-primary" />
+          <h1 className="text-2xl font-bold">Practice Statistics</h1>
         </div>
-        <p className="text-muted-foreground">
+        <p className="text-sm text-muted-foreground">
           Track your pronunciation practice progress and accuracy across all songs
         </p>
       </div>
 
       {stats.length === 0 ? (
         <Card>
-          <CardContent className="flex flex-col items-center justify-center py-16">
-            <Music className="h-16 w-16 text-muted-foreground mb-4" />
-            <h2 className="text-xl font-semibold mb-2">No Practice Stats Yet</h2>
-            <p className="text-muted-foreground text-center max-w-md">
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <Music className="h-12 w-12 text-muted-foreground mb-4" />
+            <h2 className="text-lg font-semibold mb-2">No Practice Stats Yet</h2>
+            <p className="text-muted-foreground text-center text-sm">
               Start practicing pronunciation using the word-by-word practice mode on any song to see your stats here!
             </p>
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4">
+        <div className="space-y-3">
           {stats.map((stat) => {
             const medal = getMedal(stat.accuracyPercentage);
             
@@ -160,74 +160,71 @@ export default function PracticeStats() {
                 data-testid={`practice-stat-card-${stat.songId}`}
                 onClick={() => handlePracticeSong(stat.songId)}
               >
-                <CardContent className="p-6">
-                  <div className="flex items-center gap-4">
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-3">
                     {/* Album Art */}
                     <div className="flex-shrink-0">
                       {stat.song.albumArt ? (
                         <img
                           src={stat.song.albumArt}
                           alt={stat.song.title}
-                          className="w-20 h-20 rounded-md object-cover"
+                          className="w-14 h-14 rounded-md object-cover"
                         />
                       ) : (
-                        <div className="w-20 h-20 rounded-md bg-muted flex items-center justify-center">
-                          <Music className="h-8 w-8 text-muted-foreground" />
+                        <div className="w-14 h-14 rounded-md bg-muted flex items-center justify-center">
+                          <Music className="h-6 w-6 text-muted-foreground" />
                         </div>
                       )}
                     </div>
 
                     {/* Song Info */}
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-semibold text-lg truncate">{stat.song.title}</h3>
-                      <p className="text-sm text-muted-foreground truncate">{stat.song.artist}</p>
-                      <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
-                        <span>
-                          {stat.successfulAttempts}/{stat.totalAttempts} words correct
-                        </span>
-                        <span className="text-xs">
-                          Last practiced: {new Date(stat.lastPracticedAt).toLocaleDateString()}
-                        </span>
+                      <h3 className="font-semibold text-sm truncate">{stat.song.title}</h3>
+                      <p className="text-xs text-muted-foreground truncate">{stat.song.artist}</p>
+                      <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
+                        <span>{stat.successfulAttempts}/{stat.totalAttempts} words</span>
+                        <span>Last: {new Date(stat.lastPracticedAt).toLocaleDateString()}</span>
                       </div>
                     </div>
 
-                    {/* Accuracy & Medal */}
-                    <div className="flex items-center gap-6 flex-shrink-0">
-                      {/* Accuracy Percentage */}
-                      <div className="text-center">
-                        <div className="text-3xl font-bold" data-testid={`accuracy-${stat.songId}`}>
-                          {stat.accuracyPercentage}%
-                        </div>
-                        <div className="text-xs text-muted-foreground">Accuracy</div>
+                    {/* Accuracy */}
+                    <div className="text-center flex-shrink-0">
+                      <div className="text-xl font-bold" data-testid={`accuracy-${stat.songId}`}>
+                        {stat.accuracyPercentage}%
                       </div>
+                    </div>
 
-                      {/* Medal */}
-                      <div className="text-center">
-                        <div
-                          className={cn(
-                            "w-16 h-16 rounded-full flex items-center justify-center",
-                            medal.bgColor
-                          )}
-                          data-testid={`medal-${stat.songId}`}
-                          title={`${medal.label} Medal`}
-                        >
-                          <Trophy className={cn("w-8 h-8", medal.color)} />
-                        </div>
-                        <div className={cn("text-xs font-medium mt-1", medal.color)}>{medal.label}</div>
-                      </div>
-
-                      {/* Share Button */}
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="gap-2"
-                        onClick={() => handleShare(stat)}
-                        data-testid={`button-share-${stat.songId}`}
+                    {/* Medal */}
+                    <div className="text-center flex-shrink-0">
+                      <div
+                        className={cn(
+                          "w-10 h-10 rounded-full flex items-center justify-center",
+                          medal.bgColor
+                        )}
+                        data-testid={`medal-${stat.songId}`}
+                        title={`${medal.label} Medal`}
                       >
-                        <Share2 className="h-4 w-4" />
-                        Share
-                      </Button>
+                        <Trophy className={cn("w-5 h-5", medal.color)} />
+                      </div>
+                      <div className={cn("text-[10px] font-medium mt-0.5", medal.color)}>{medal.label}</div>
                     </div>
+                  </div>
+                  
+                  {/* Share button row */}
+                  <div className="flex justify-end mt-2 pt-2 border-t border-border/50">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="gap-1.5 h-7 text-xs"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleShare(stat);
+                      }}
+                      data-testid={`button-share-${stat.songId}`}
+                    >
+                      <Share2 className="h-3.5 w-3.5" />
+                      Share
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
