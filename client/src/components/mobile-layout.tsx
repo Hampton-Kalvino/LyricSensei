@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Music2, Menu, Info, Music, Heart, Globe, Search, Mic, MessageCircle, Plus, Loader2, Check, LogIn, FolderPlus } from "lucide-react";
+import { Music2, Menu, Info, Music, Heart, Globe, Mic, MessageCircle, Plus, Loader2, Check, LogIn, FolderPlus, Search } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,7 +8,6 @@ import { LanguageSelector } from "@/components/language-selector";
 import { SongMetadata } from "@/components/song-metadata";
 import { LyricDisplay } from "@/components/lyric-display";
 import { RecognitionHistory } from "@/components/recognition-history";
-import { SongSearch } from "@/components/song-search";
 import { ShareMenu } from "@/components/share-menu";
 import { CommentSection } from "@/components/comment-section";
 import { useSwipeable } from "react-swipeable";
@@ -57,7 +56,6 @@ interface MobileLayoutProps {
   recognitionHistory: RecognitionResult[];
   topResearchedSongs: Array<Song & { recognitionCount: number }>;
   onSelectSong: (songId: string) => void;
-  onSearchSelect: (artist: string, title: string, album: string, albumArt?: string, duration?: number) => void;
   isPremium: boolean;
   onToggleFavorite?: (songId: string, isFavorite: boolean) => void;
 }
@@ -80,7 +78,6 @@ export function MobileLayout({
   recognitionHistory,
   topResearchedSongs,
   onSelectSong,
-  onSearchSelect,
   isPremium,
   onToggleFavorite,
 }: MobileLayoutProps) {
@@ -216,41 +213,40 @@ export function MobileLayout({
   if (!currentSong) {
     return (
       <div className="min-h-screen bg-background flex flex-col overflow-x-hidden w-full">
-        {/* Search Header */}
+        {/* Language Selector Header */}
         <div className="bg-card border-b sticky top-0 z-10 w-full">
-          {/* Search & Language Row */}
-          <div className="p-3 flex items-center gap-2">
-            <div className="flex-1">
-              <SongSearch onSelectSong={onSearchSelect} />
-            </div>
-            <Tooltip>
-              <TooltipTrigger asChild>
+          <div className="p-3 flex items-center justify-between gap-2">
+            <h1 className="text-lg font-semibold">{t('home.title', 'Lyric Sensei')}</h1>
+            <div className="flex items-center gap-2">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setShowLanguageSheet(true)}
+                    className="h-10 w-10"
+                    data-testid="button-language-selector-pre"
+                  >
+                    <Globe className="h-5 w-5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{t('settings.targetLanguage')}</p>
+                </TooltipContent>
+              </Tooltip>
+              {!user && (
                 <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => setShowLanguageSheet(true)}
-                  className="h-12 w-12 flex-shrink-0"
-                  data-testid="button-language-selector-pre"
+                  variant="default"
+                  size="sm"
+                  onClick={() => window.location.hash = "#/auth/login"}
+                  className="gap-1.5"
+                  data-testid="button-signin-header"
                 >
-                  <Globe className="h-5 w-5" />
+                  <LogIn className="h-4 w-4" />
+                  Sign In
                 </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>{t('settings.targetLanguage')}</p>
-              </TooltipContent>
-            </Tooltip>
-            {!user && (
-              <Button
-                variant="default"
-                size="sm"
-                onClick={() => window.location.hash = "#/auth/login"}
-                className="gap-1.5 flex-shrink-0"
-                data-testid="button-signin-header"
-              >
-                <LogIn className="h-4 w-4" />
-                Sign In
-              </Button>
-            )}
+              )}
+            </div>
           </div>
         </div>
 

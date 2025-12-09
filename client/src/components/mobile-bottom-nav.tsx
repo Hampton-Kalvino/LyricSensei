@@ -21,7 +21,7 @@ export function MobileBottomNav({ onCreatePlaylist }: MobileBottomNavProps) {
     { 
       icon: Search, 
       label: t('nav.search', 'Search'), 
-      path: '/library',
+      path: '/search',
       testId: 'nav-search'
     },
     { 
@@ -43,7 +43,7 @@ export function MobileBottomNav({ onCreatePlaylist }: MobileBottomNavProps) {
       <div className="flex items-center justify-around h-14">
         {navItems.map((item) => {
           const isActive = location === item.path || 
-            (item.path === '/library' && location.startsWith('/library')) ||
+            (item.path === '/search' && location.startsWith('/search')) ||
             (item.path === '/playlists' && location.startsWith('/playlists')) ||
             (item.path === '/games' && location.startsWith('/games'));
           

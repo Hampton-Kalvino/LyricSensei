@@ -599,7 +599,6 @@ export default function Home() {
           recognitionHistory={recognitionHistory}
           topResearchedSongs={topResearchedSongs}
           onSelectSong={handleSelectSong}
-          onSearchSelect={handleSearchSelect}
           isPremium={isPremium}
           onToggleFavorite={handleToggleFavorite}
         />

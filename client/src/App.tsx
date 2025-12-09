@@ -30,6 +30,7 @@ import Playlists from "@/pages/playlists";
 import PlaylistDetail from "@/pages/playlist-detail";
 import Games from "@/pages/games";
 import GamePlay from "@/pages/game-play";
+import SearchPage from "@/pages/search";
 import NotFound from "@/pages/not-found";
 import { Footer } from "@/components/footer";
 import { AdSense } from "@/components/ad-sense";
@@ -112,6 +113,7 @@ function AuthenticatedRouter() {
       <Route path="/playlists/:id" component={PlaylistDetail} />
       <Route path="/games" component={Games} />
       <Route path="/games/play/:gameType" component={GamePlay} />
+      <Route path="/search" component={SearchPage} />
       <Route path="/checkout" component={Checkout} />
       <Route path="/checkout/return" component={CheckoutReturn} />
       <Route component={NotFound} />
