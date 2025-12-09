@@ -10,6 +10,7 @@ import {
   SidebarMenuItem,
   SidebarHeader,
   SidebarFooter,
+  useSidebar,
 } from "@/components/ui/sidebar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -30,11 +31,25 @@ export function AppSidebar() {
   const [, setLocation] = useLocation();
   const { isInstalled, showInstallPrompt, hasPrompt } = usePWAInstall();
   const [showManualInstructions, setShowManualInstructions] = useState(false);
+  const { setOpenMobile, isMobile } = useSidebar();
   
   // Hide install button in native Capacitor app (already installed as native app)
   const isNativeApp = !!(window as any).Capacitor;
+  
+  // Auto-close sidebar on mobile/native after menu selection
+  const handleMenuClick = (url: string) => {
+    setLocation(`#${url}`);
+    if (isMobile || isNativeApp) {
+      setOpenMobile(false);
+    }
+  };
 
   const handleAuthButton = async () => {
+    // Close sidebar on mobile/native
+    if (isMobile || isNativeApp) {
+      setOpenMobile(false);
+    }
+    
     if (user) {
       // User is logged in, so log them out
       try {
@@ -131,7 +146,7 @@ export function AppSidebar() {
         
         {user ? (
           <button
-            onClick={() => setLocation("#/account")}
+            onClick={() => handleMenuClick("/account")}
             className="flex items-center gap-3 p-3 rounded-lg bg-sidebar-accent hover-elevate active-elevate-2 w-full text-left transition-colors"
             data-testid="button-profile-box"
           >
@@ -163,10 +178,14 @@ export function AppSidebar() {
               {menuItems.map((item) => (
                 <SidebarMenuItem key={item.testId}>
                   <SidebarMenuButton asChild>
-                    <a href={`#${item.url}`} data-testid={`link-${item.testId}`}>
+                    <button 
+                      onClick={() => handleMenuClick(item.url)} 
+                      data-testid={`link-${item.testId}`}
+                      className="w-full"
+                    >
                       <item.icon />
                       <span>{item.title}</span>
-                    </a>
+                    </button>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}

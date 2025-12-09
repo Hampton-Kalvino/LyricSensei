@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Music2, Menu, Info, Music, Heart, Globe, Search, Mic, MessageCircle, Plus, Loader2, Check } from "lucide-react";
+import { Music2, Menu, Info, Music, Heart, Globe, Search, Mic, MessageCircle, Plus, Loader2, Check, LogIn, FolderPlus } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -92,6 +92,8 @@ export function MobileLayout({
   const [isLandscape, setIsLandscape] = useState(window.innerHeight < window.innerWidth);
   const [showPlaylistDialog, setShowPlaylistDialog] = useState(false);
   const [addingToPlaylistId, setAddingToPlaylistId] = useState<string | null>(null);
+  const [newPlaylistName, setNewPlaylistName] = useState("");
+  const [isCreatingPlaylist, setIsCreatingPlaylist] = useState(false);
   
   const { data: playlists = [] } = useQuery<Playlist[]>({
     queryKey: ["/api/playlists"],
@@ -123,6 +125,41 @@ export function MobileLayout({
       setAddingToPlaylistId(null);
     },
   });
+  
+  const createPlaylistMutation = useMutation({
+    mutationFn: async (name: string): Promise<Response> => {
+      const response = await apiRequest("POST", "/api/playlists", { name });
+      return response as Response;
+    },
+    onSuccess: async (response: Response) => {
+      const newPlaylist = await response.json();
+      if (currentSong && newPlaylist.id) {
+        addToPlaylistMutation.mutate(newPlaylist.id);
+      }
+      setNewPlaylistName("");
+      setIsCreatingPlaylist(false);
+      queryClient.invalidateQueries({ queryKey: ["/api/playlists"] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+  
+  const handleCreateAndAddPlaylist = () => {
+    if (!newPlaylistName.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter a playlist name",
+        variant: "destructive",
+      });
+      return;
+    }
+    createPlaylistMutation.mutate(newPlaylistName.trim());
+  };
 
   useEffect(() => {
     const handleOrientationChange = () => {
@@ -202,6 +239,18 @@ export function MobileLayout({
                 <p>{t('settings.targetLanguage')}</p>
               </TooltipContent>
             </Tooltip>
+            {!user && (
+              <Button
+                variant="default"
+                size="sm"
+                onClick={() => window.location.hash = "#/auth/login"}
+                className="gap-1.5 flex-shrink-0"
+                data-testid="button-signin-header"
+              >
+                <LogIn className="h-4 w-4" />
+                Sign In
+              </Button>
+            )}
           </div>
         </div>
 
@@ -459,50 +508,117 @@ export function MobileLayout({
                     size="sm"
                     className="h-8 w-8 flex-shrink-0"
                   />
-                  {!!user && (
-                    <Dialog open={showPlaylistDialog} onOpenChange={setShowPlaylistDialog}>
-                      <DialogTrigger asChild>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="h-8 w-8 flex-shrink-0"
-                          data-testid="button-add-to-playlist-header"
-                        >
-                          <Plus className="h-4 w-4" />
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent className="max-w-sm">
-                        <DialogHeader>
-                          <DialogTitle>Add to Playlist</DialogTitle>
-                        </DialogHeader>
-                        <div className="space-y-2 max-h-64 overflow-y-auto">
-                          {playlists.length === 0 ? (
-                            <p className="text-sm text-muted-foreground text-center py-4">
-                              No playlists yet. Create one in the Playlists section.
-                            </p>
+                  <Dialog open={showPlaylistDialog} onOpenChange={(open) => {
+                    setShowPlaylistDialog(open);
+                    if (!open) {
+                      setIsCreatingPlaylist(false);
+                      setNewPlaylistName("");
+                    }
+                  }}>
+                    <DialogTrigger asChild>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-8 w-8 flex-shrink-0"
+                        data-testid="button-add-to-playlist-header"
+                      >
+                        <Plus className="h-4 w-4" />
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-sm">
+                      <DialogHeader>
+                        <DialogTitle>Add to Playlist</DialogTitle>
+                      </DialogHeader>
+                      {!user ? (
+                        <div className="text-center py-6 space-y-4">
+                          <p className="text-sm text-muted-foreground">
+                            Sign in to create and manage playlists
+                          </p>
+                          <Button
+                            onClick={() => {
+                              setShowPlaylistDialog(false);
+                              window.location.hash = "#/auth/login";
+                            }}
+                            className="gap-2"
+                            data-testid="button-signin-playlist"
+                          >
+                            <LogIn className="h-4 w-4" />
+                            Sign In
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          {isCreatingPlaylist ? (
+                            <div className="space-y-2">
+                              <Input
+                                placeholder="Enter playlist name..."
+                                value={newPlaylistName}
+                                onChange={(e) => setNewPlaylistName(e.target.value)}
+                                onKeyDown={(e) => e.key === "Enter" && handleCreateAndAddPlaylist()}
+                                data-testid="input-new-playlist-name"
+                              />
+                              <div className="flex gap-2">
+                                <Button
+                                  variant="outline"
+                                  className="flex-1"
+                                  onClick={() => {
+                                    setIsCreatingPlaylist(false);
+                                    setNewPlaylistName("");
+                                  }}
+                                  data-testid="button-cancel-create-playlist"
+                                >
+                                  Cancel
+                                </Button>
+                                <Button
+                                  className="flex-1"
+                                  onClick={handleCreateAndAddPlaylist}
+                                  disabled={createPlaylistMutation.isPending}
+                                  data-testid="button-confirm-create-playlist"
+                                >
+                                  {createPlaylistMutation.isPending ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                  ) : (
+                                    "Create & Add"
+                                  )}
+                                </Button>
+                              </div>
+                            </div>
                           ) : (
-                            playlists.map((playlist) => (
+                            <>
                               <Button
-                                key={playlist.id}
                                 variant="outline"
-                                className="w-full justify-between"
-                                onClick={() => addToPlaylistMutation.mutate(playlist.id)}
-                                disabled={addToPlaylistMutation.isPending}
-                                data-testid={`button-playlist-${playlist.id}`}
+                                className="w-full justify-start gap-2"
+                                onClick={() => setIsCreatingPlaylist(true)}
+                                data-testid="button-create-new-playlist"
                               >
-                                <span className="truncate">{playlist.name}</span>
-                                {addingToPlaylistId === playlist.id ? (
-                                  <Loader2 className="h-4 w-4 animate-spin shrink-0" />
-                                ) : (
-                                  <Check className="h-4 w-4 shrink-0 opacity-0" />
-                                )}
+                                <FolderPlus className="h-4 w-4" />
+                                Create New Playlist
                               </Button>
-                            ))
+                              <div className="space-y-2 max-h-48 overflow-y-auto">
+                                {playlists.map((playlist) => (
+                                  <Button
+                                    key={playlist.id}
+                                    variant="outline"
+                                    className="w-full justify-between"
+                                    onClick={() => addToPlaylistMutation.mutate(playlist.id)}
+                                    disabled={addToPlaylistMutation.isPending}
+                                    data-testid={`button-playlist-${playlist.id}`}
+                                  >
+                                    <span className="truncate">{playlist.name}</span>
+                                    {addingToPlaylistId === playlist.id ? (
+                                      <Loader2 className="h-4 w-4 animate-spin shrink-0" />
+                                    ) : (
+                                      <Check className="h-4 w-4 shrink-0 opacity-0" />
+                                    )}
+                                  </Button>
+                                ))}
+                              </div>
+                            </>
                           )}
                         </div>
-                      </DialogContent>
-                    </Dialog>
-                  )}
+                      )}
+                    </DialogContent>
+                  </Dialog>
                   {onToggleFavorite && (
                     <Button
                       size="icon"
@@ -572,57 +688,124 @@ export function MobileLayout({
                     size="icon"
                     className="h-9 w-9"
                   />
-                  {!!user && (
-                    <Dialog open={showPlaylistDialog} onOpenChange={setShowPlaylistDialog}>
-                      <DialogTrigger asChild>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="h-9 w-9 flex-shrink-0"
-                          data-testid="button-add-to-playlist-header"
-                        >
-                          <Plus className="h-4 w-4" />
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent className="max-w-sm">
-                        <DialogHeader>
-                          <DialogTitle>Add to Playlist</DialogTitle>
-                        </DialogHeader>
-                        <div className="space-y-2 max-h-64 overflow-y-auto">
-                          {playlists.length === 0 ? (
-                            <p className="text-sm text-muted-foreground text-center py-4">
-                              No playlists yet. Create one in the Playlists section.
-                            </p>
+                  <Dialog open={showPlaylistDialog} onOpenChange={(open) => {
+                    setShowPlaylistDialog(open);
+                    if (!open) {
+                      setIsCreatingPlaylist(false);
+                      setNewPlaylistName("");
+                    }
+                  }}>
+                    <DialogTrigger asChild>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-9 w-9 flex-shrink-0"
+                        data-testid="button-add-to-playlist-header-portrait"
+                      >
+                        <Plus className="h-4 w-4" />
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-sm">
+                      <DialogHeader>
+                        <DialogTitle>Add to Playlist</DialogTitle>
+                      </DialogHeader>
+                      {!user ? (
+                        <div className="text-center py-6 space-y-4">
+                          <p className="text-sm text-muted-foreground">
+                            Sign in to create and manage playlists
+                          </p>
+                          <Button
+                            onClick={() => {
+                              setShowPlaylistDialog(false);
+                              window.location.hash = "#/auth/login";
+                            }}
+                            className="gap-2"
+                            data-testid="button-signin-playlist-portrait"
+                          >
+                            <LogIn className="h-4 w-4" />
+                            Sign In
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          {isCreatingPlaylist ? (
+                            <div className="space-y-2">
+                              <Input
+                                placeholder="Enter playlist name..."
+                                value={newPlaylistName}
+                                onChange={(e) => setNewPlaylistName(e.target.value)}
+                                onKeyDown={(e) => e.key === "Enter" && handleCreateAndAddPlaylist()}
+                                data-testid="input-new-playlist-name-portrait"
+                              />
+                              <div className="flex gap-2">
+                                <Button
+                                  variant="outline"
+                                  className="flex-1"
+                                  onClick={() => {
+                                    setIsCreatingPlaylist(false);
+                                    setNewPlaylistName("");
+                                  }}
+                                  data-testid="button-cancel-create-playlist-portrait"
+                                >
+                                  Cancel
+                                </Button>
+                                <Button
+                                  className="flex-1"
+                                  onClick={handleCreateAndAddPlaylist}
+                                  disabled={createPlaylistMutation.isPending}
+                                  data-testid="button-confirm-create-playlist-portrait"
+                                >
+                                  {createPlaylistMutation.isPending ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                  ) : (
+                                    "Create & Add"
+                                  )}
+                                </Button>
+                              </div>
+                            </div>
                           ) : (
-                            playlists.map((playlist) => (
+                            <>
                               <Button
-                                key={playlist.id}
                                 variant="outline"
-                                className="w-full justify-between"
-                                onClick={() => addToPlaylistMutation.mutate(playlist.id)}
-                                disabled={addToPlaylistMutation.isPending}
-                                data-testid={`button-playlist-${playlist.id}`}
+                                className="w-full justify-start gap-2"
+                                onClick={() => setIsCreatingPlaylist(true)}
+                                data-testid="button-create-new-playlist-portrait"
                               >
-                                <span className="truncate">{playlist.name}</span>
-                                {addingToPlaylistId === playlist.id ? (
-                                  <Loader2 className="h-4 w-4 animate-spin shrink-0" />
-                                ) : (
-                                  <Check className="h-4 w-4 shrink-0 opacity-0" />
-                                )}
+                                <FolderPlus className="h-4 w-4" />
+                                Create New Playlist
                               </Button>
-                            ))
+                              <div className="space-y-2 max-h-48 overflow-y-auto">
+                                {playlists.map((playlist) => (
+                                  <Button
+                                    key={playlist.id}
+                                    variant="outline"
+                                    className="w-full justify-between"
+                                    onClick={() => addToPlaylistMutation.mutate(playlist.id)}
+                                    disabled={addToPlaylistMutation.isPending}
+                                    data-testid={`button-playlist-portrait-${playlist.id}`}
+                                  >
+                                    <span className="truncate">{playlist.name}</span>
+                                    {addingToPlaylistId === playlist.id ? (
+                                      <Loader2 className="h-4 w-4 animate-spin shrink-0" />
+                                    ) : (
+                                      <Check className="h-4 w-4 shrink-0 opacity-0" />
+                                    )}
+                                  </Button>
+                                ))}
+                              </div>
+                            </>
                           )}
                         </div>
-                      </DialogContent>
-                    </Dialog>
-                  )}
+                      )}
+                    </DialogContent>
+                  </Dialog>
                   {onToggleFavorite && (
                     <Button
                       size="icon"
                       variant="ghost"
                       onClick={handleFavoriteToggle}
                       className="h-9 w-9"
-                      data-testid="button-favorite-mobile"
+                      data-testid="button-favorite-mobile-portrait"
                     >
                       <Heart 
                         className={cn(
