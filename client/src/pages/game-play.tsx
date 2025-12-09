@@ -785,10 +785,27 @@ export default function GamePlayPage() {
               <CardContent className="p-0">
                 <div className="text-center mb-6">
                   <p className="text-sm text-muted-foreground mb-2">{t('games.matchOriginal', 'Match the translation for:')}</p>
-                  <p className="text-2xl font-bold" data-testid="text-original-lyric">
-                    {matchState.lines[matchState.currentOriginalIndex]?.original}
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-2">
+                  <div className="flex items-center justify-center gap-3 mb-2">
+                    <p className="text-2xl font-bold" data-testid="text-original-lyric">
+                      {matchState.lines[matchState.currentOriginalIndex]?.original}
+                    </p>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => {
+                        const currentLine = matchState.lines[matchState.currentOriginalIndex];
+                        if (currentLine) {
+                          speakWord(currentLine.original, selectedLanguage);
+                        }
+                      }}
+                      disabled={isSpeaking}
+                      className="shrink-0"
+                      data-testid="button-listen-word-match"
+                    >
+                      <Volume2 className={`h-5 w-5 ${isSpeaking ? 'animate-pulse text-primary' : ''}`} />
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
                     {matchState.lines[matchState.currentOriginalIndex]?.songTitle} - {matchState.lines[matchState.currentOriginalIndex]?.songArtist}
                   </p>
                 </div>
