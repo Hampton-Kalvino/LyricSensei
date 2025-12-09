@@ -2409,31 +2409,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/games/word-match-lines", async (req: any, res) => {
     try {
       const targetLanguage = (req.query.targetLanguage as string) || 'en';
+      const gameLanguage = (req.query.gameLanguage as string) || null; // Source language of songs (es, fr, ko, etc.)
       const count = Math.min(parseInt(req.query.count as string) || 10, 20);
       
       // Get user ID if authenticated
       const userId = req.user ? ((req.user as any).id || (req.user as any).claims?.sub) : null;
       
+      // Helper to filter songs by game language
+      const filterByLanguage = async (songIds: string[]): Promise<string[]> => {
+        if (!gameLanguage) return songIds;
+        const filtered: string[] = [];
+        for (const songId of songIds) {
+          const song = await storage.getSong(songId);
+          if (song && song.detectedLanguage === gameLanguage) {
+            filtered.push(songId);
+          }
+        }
+        return filtered;
+      };
+      
       // Collect song IDs from multiple sources
-      const songIdSet = new Set<string>();
+      let songIdSet = new Set<string>();
       
-      // 1. Try user recognition history first
+      // 1. Try user recognition history first (filtered by language)
       if (userId) {
-        const history = await storage.getUserRecognitionHistory(userId, 20);
-        history.forEach((h: any) => songIdSet.add(h.songId));
+        const history = await storage.getUserRecognitionHistory(userId, 50);
+        const historyIds = history.map((h: any) => h.songId);
+        const filtered = await filterByLanguage(historyIds);
+        filtered.forEach(id => songIdSet.add(id));
         
-        // 2. Try user favorites
+        // 2. Try user favorites (filtered by language)
         const favorites = await storage.getUserFavorites(userId);
-        favorites.forEach((f: any) => songIdSet.add(f.songId));
+        const favoriteIds = favorites.map((f: any) => f.songId);
+        const filteredFavorites = await filterByLanguage(favoriteIds);
+        filteredFavorites.forEach(id => songIdSet.add(id));
       }
       
-      // 3. Fallback to top researched songs (popular songs with translations)
+      // 3. Fallback to top researched songs (filtered by language)
       if (songIdSet.size < 10) {
-        const topSongs = await storage.getTopResearchedSongs(20);
-        topSongs.forEach((s: any) => songIdSet.add(s.id));
+        const topSongs = await storage.getTopResearchedSongs(50);
+        const topIds = topSongs.map((s: any) => s.id);
+        const filtered = await filterByLanguage(topIds);
+        filtered.forEach(id => songIdSet.add(id));
       }
       
-      // 4. Final fallback: get all songs
+      // 4. Final fallback: get all songs in the target language
+      if (songIdSet.size < 5 && gameLanguage) {
+        const allSongs = await storage.getAllSongs();
+        const languageSongs = allSongs.filter(s => s.detectedLanguage === gameLanguage);
+        languageSongs.slice(0, 30).forEach(s => songIdSet.add(s.id));
+      }
+      
+      // 5. Ultimate fallback: any songs
       if (songIdSet.size === 0) {
         const allSongs = await storage.getAllSongs();
         allSongs.slice(0, 20).forEach((s: any) => songIdSet.add(s.id));
@@ -2501,31 +2528,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/games/pronunciation-words", async (req: any, res) => {
     try {
       const targetLanguage = (req.query.targetLanguage as string) || 'en';
+      const gameLanguage = (req.query.gameLanguage as string) || null; // Source language of songs (es, fr, ko, etc.)
       const count = Math.min(parseInt(req.query.count as string) || 10, 20);
       
       // Get user ID if authenticated
       const userId = req.user ? ((req.user as any).id || (req.user as any).claims?.sub) : null;
       
+      // Helper to filter songs by game language
+      const filterByLanguage = async (songIds: string[]): Promise<string[]> => {
+        if (!gameLanguage) return songIds;
+        const filtered: string[] = [];
+        for (const songId of songIds) {
+          const song = await storage.getSong(songId);
+          if (song && song.detectedLanguage === gameLanguage) {
+            filtered.push(songId);
+          }
+        }
+        return filtered;
+      };
+      
       // Collect song IDs from multiple sources
-      const songIdSet = new Set<string>();
+      let songIdSet = new Set<string>();
       
-      // 1. Try user recognition history first
+      // 1. Try user recognition history first (filtered by language)
       if (userId) {
-        const history = await storage.getUserRecognitionHistory(userId, 20);
-        history.forEach((h: any) => songIdSet.add(h.songId));
+        const history = await storage.getUserRecognitionHistory(userId, 50);
+        const historyIds = history.map((h: any) => h.songId);
+        const filtered = await filterByLanguage(historyIds);
+        filtered.forEach(id => songIdSet.add(id));
         
-        // 2. Try user favorites
+        // 2. Try user favorites (filtered by language)
         const favorites = await storage.getUserFavorites(userId);
-        favorites.forEach((f: any) => songIdSet.add(f.songId));
+        const favoriteIds = favorites.map((f: any) => f.songId);
+        const filteredFavorites = await filterByLanguage(favoriteIds);
+        filteredFavorites.forEach(id => songIdSet.add(id));
       }
       
-      // 3. Fallback to top researched songs (popular songs with translations)
+      // 3. Fallback to top researched songs (filtered by language)
       if (songIdSet.size < 10) {
-        const topSongs = await storage.getTopResearchedSongs(20);
-        topSongs.forEach((s: any) => songIdSet.add(s.id));
+        const topSongs = await storage.getTopResearchedSongs(50);
+        const topIds = topSongs.map((s: any) => s.id);
+        const filtered = await filterByLanguage(topIds);
+        filtered.forEach(id => songIdSet.add(id));
       }
       
-      // 4. Final fallback: get all songs
+      // 4. Final fallback: get all songs in the target language
+      if (songIdSet.size < 5 && gameLanguage) {
+        const allSongs = await storage.getAllSongs();
+        const languageSongs = allSongs.filter(s => s.detectedLanguage === gameLanguage);
+        languageSongs.slice(0, 30).forEach(s => songIdSet.add(s.id));
+      }
+      
+      // 5. Ultimate fallback: any songs
       if (songIdSet.size === 0) {
         const allSongs = await storage.getAllSongs();
         allSongs.slice(0, 20).forEach((s: any) => songIdSet.add(s.id));

@@ -165,15 +165,20 @@ export default function GamePlayPage() {
     feedback: null,
   });
 
+  // selectedLanguage = source language of songs (es, fr, ko, etc.)
+  // uiLanguage = user's UI language for translations (en, etc.)
+  const { i18n } = useTranslation();
+  const uiLanguage = i18n.language?.split('-')[0] || 'en';
+
   const { refetch: refetchLines } = useQuery<WordMatchLine[]>({
-    queryKey: ['/api/games/word-match-lines', selectedLanguage, LINES_PER_GAME],
-    queryFn: () => apiRequest<WordMatchLine[]>('GET', `/api/games/word-match-lines?targetLanguage=${selectedLanguage}&count=${LINES_PER_GAME}`),
+    queryKey: ['/api/games/word-match-lines', selectedLanguage, uiLanguage, LINES_PER_GAME],
+    queryFn: () => apiRequest<WordMatchLine[]>('GET', `/api/games/word-match-lines?targetLanguage=${uiLanguage}&gameLanguage=${selectedLanguage}&count=${LINES_PER_GAME}`),
     enabled: false,
   });
 
   const { refetch: refetchPronunciationWords } = useQuery<PronunciationWord[]>({
-    queryKey: ['/api/games/pronunciation-words', selectedLanguage, LINES_PER_GAME],
-    queryFn: () => apiRequest<PronunciationWord[]>('GET', `/api/games/pronunciation-words?targetLanguage=${selectedLanguage}&count=${LINES_PER_GAME}`),
+    queryKey: ['/api/games/pronunciation-words', selectedLanguage, uiLanguage, LINES_PER_GAME],
+    queryFn: () => apiRequest<PronunciationWord[]>('GET', `/api/games/pronunciation-words?targetLanguage=${uiLanguage}&gameLanguage=${selectedLanguage}&count=${LINES_PER_GAME}`),
     enabled: false,
   });
 
