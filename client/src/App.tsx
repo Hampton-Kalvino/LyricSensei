@@ -25,6 +25,10 @@ import Library from "@/pages/library";
 import PracticeStats from "@/pages/practice-stats";
 import Terms from "@/pages/terms";
 import Settings from "@/pages/settings";
+import Playlists from "@/pages/playlists";
+import PlaylistDetail from "@/pages/playlist-detail";
+import Games from "@/pages/games";
+import GamePlay from "@/pages/game-play";
 import NotFound from "@/pages/not-found";
 import { Footer } from "@/components/footer";
 import { AdSense } from "@/components/ad-sense";
@@ -98,6 +102,10 @@ function AuthenticatedRouter() {
       <Route path="/account" component={Account} />
       <Route path="/profile" component={Profile} />
       <Route path="/settings" component={Settings} />
+      <Route path="/playlists" component={Playlists} />
+      <Route path="/playlists/:id" component={PlaylistDetail} />
+      <Route path="/games" component={Games} />
+      <Route path="/games/play/:gameType" component={GamePlay} />
       <Route path="/checkout" component={Checkout} />
       <Route path="/checkout/return" component={CheckoutReturn} />
       <Route component={NotFound} />

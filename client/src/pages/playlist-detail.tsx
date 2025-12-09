@@ -35,7 +35,7 @@ export default function PlaylistDetailPage() {
 
   const deleteMutation = useMutation({
     mutationFn: async () => {
-      return apiRequest(`/api/playlists/${id}`, { method: 'DELETE' });
+      return apiRequest('DELETE', `/api/playlists/${id}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/playlists'] });
@@ -49,7 +49,7 @@ export default function PlaylistDetailPage() {
 
   const removeSongMutation = useMutation({
     mutationFn: async (songId: string) => {
-      return apiRequest(`/api/playlists/${id}/songs/${songId}`, { method: 'DELETE' });
+      return apiRequest('DELETE', `/api/playlists/${id}/songs/${songId}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/playlists', id] });
@@ -62,7 +62,7 @@ export default function PlaylistDetailPage() {
 
   const removeCollaboratorMutation = useMutation({
     mutationFn: async (userId: string) => {
-      return apiRequest(`/api/playlists/${id}/collaborators/${userId}`, { method: 'DELETE' });
+      return apiRequest('DELETE', `/api/playlists/${id}/collaborators/${userId}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/playlists', id] });

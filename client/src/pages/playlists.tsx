@@ -30,7 +30,7 @@ export default function PlaylistsPage() {
 
   const createMutation = useMutation({
     mutationFn: async (data: { name: string; description?: string }) => {
-      return apiRequest('/api/playlists', { method: 'POST', body: JSON.stringify(data) });
+      return apiRequest('POST', '/api/playlists', data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/playlists'] });
@@ -46,7 +46,7 @@ export default function PlaylistsPage() {
 
   const joinMutation = useMutation({
     mutationFn: async (code: string) => {
-      return apiRequest('/api/playlists/join', { method: 'POST', body: JSON.stringify({ inviteCode: code }) });
+      return apiRequest('POST', '/api/playlists/join', { inviteCode: code });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/playlists'] });

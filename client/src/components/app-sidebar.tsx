@@ -1,4 +1,4 @@
-import { Music, Library, Settings, Crown, DollarSign, User, Download, Trophy } from "lucide-react";
+import { Music, Library, Settings, Crown, DollarSign, User, Download, Trophy, ListMusic, Gamepad2 } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -85,6 +85,18 @@ export function AppSidebar() {
       url: "/practice-stats",
       icon: Trophy,
       testId: "practice-stats",
+    },
+    {
+      title: t('nav.playlists', 'Playlists'),
+      url: "/playlists",
+      icon: ListMusic,
+      testId: "playlists",
+    },
+    {
+      title: t('nav.games', 'Mini Games'),
+      url: "/games",
+      icon: Gamepad2,
+      testId: "games",
     },
     {
       title: t('nav.pricing'),
