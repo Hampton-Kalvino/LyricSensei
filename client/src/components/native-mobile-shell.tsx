@@ -147,7 +147,10 @@ export function NativeMobileShell({ children }: NativeMobileShellProps) {
         </div>
       )}
 
-      <main className="flex-1 overflow-auto pb-16">
+      <main 
+        className="flex-1 overflow-auto"
+        style={{ paddingBottom: 'calc(56px + env(safe-area-inset-bottom, 0px))' }}
+      >
         {children}
       </main>
 

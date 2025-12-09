@@ -39,8 +39,14 @@ export function MobileBottomNav({ onCreatePlaylist }: MobileBottomNavProps) {
   ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur-lg border-t border-border/50 z-50" style={{ paddingBottom: 'var(--safe-area-inset-bottom)' }}>
-      <div className="flex items-center justify-around h-14">
+    <nav 
+      className="fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur-lg border-t border-border/50 z-50"
+      style={{ 
+        paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+        height: 'calc(56px + env(safe-area-inset-bottom, 0px))'
+      }}
+    >
+      <div className="flex items-center h-14 px-2 gap-1">
         {navItems.map((item) => {
           const isActive = location === item.path || 
             (item.path === '/search' && location.startsWith('/search')) ||
@@ -48,16 +54,16 @@ export function MobileBottomNav({ onCreatePlaylist }: MobileBottomNavProps) {
             (item.path === '/games' && location.startsWith('/games'));
           
           return (
-            <Link key={item.path} href={item.path}>
+            <Link key={item.path} href={item.path} className="flex-1 min-w-0">
               <button
                 className={cn(
-                  "flex flex-col items-center justify-center w-16 h-full transition-colors",
+                  "flex flex-col items-center justify-center w-full h-12 transition-colors",
                   isActive ? "text-primary" : "text-muted-foreground"
                 )}
                 data-testid={`button-${item.testId}`}
               >
                 <item.icon className={cn("h-5 w-5", isActive && "text-primary")} />
-                <span className="text-[10px] mt-0.5 font-medium">{item.label}</span>
+                <span className="text-[10px] mt-0.5 font-medium truncate">{item.label}</span>
               </button>
             </Link>
           );
@@ -65,11 +71,11 @@ export function MobileBottomNav({ onCreatePlaylist }: MobileBottomNavProps) {
         
         <button
           onClick={onCreatePlaylist}
-          className="flex flex-col items-center justify-center w-16 h-full text-muted-foreground transition-colors hover:text-primary"
+          className="flex-1 min-w-0 flex flex-col items-center justify-center h-12 text-muted-foreground transition-colors hover:text-primary"
           data-testid="button-nav-create"
         >
           <Plus className="h-5 w-5" />
-          <span className="text-[10px] mt-0.5 font-medium">{t('nav.create', 'Create')}</span>
+          <span className="text-[10px] mt-0.5 font-medium truncate">{t('nav.create', 'Create')}</span>
         </button>
       </div>
     </nav>
