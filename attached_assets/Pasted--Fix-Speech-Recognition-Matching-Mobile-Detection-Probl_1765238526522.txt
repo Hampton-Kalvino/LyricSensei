@@ -1,0 +1,601 @@
+# 🎤 Fix: Speech Recognition Matching & Mobile Detection
+
+## Problem
+
+**Logs show:**
+```
+Expected: "pehn-sahbah" (phonetic)
+Heard: "Pensaba" (original Spanish word)
+Result: 0% match ❌
+```
+
+The user pronounced it correctly, but the app didn't recognize it because:
+1. Speech recognition returns the **original word** ("Pensaba")
+2. App compares it to **phonetic spelling** ("pehn-sahbah")
+3. They don't match despite being the same word
+
+---
+
+## ✅ Solution 1: Match Against Both Original AND Phonetic
+
+### Update pronunciation-utils.ts
+
+Add a function to check both the original word and phonetic:
+
+```typescript
+// pronunciation-utils.ts
+
+/**
+ * Calculate accuracy with support for matching against original word
+ * Handles cases where speech recognition returns "Pensaba" but phonetic is "pehn-sahbah"
+ */
+export function calculateAccuracyWithOriginal(
+  expectedPhonetic: string,
+  expectedOriginal: string | undefined,
+  actualTranscript: string
+): number {
+  if (!actualTranscript) return 0;
+
+  // Strategy 1: Try matching against phonetic representation
+  const phoneticScore = calculateAccuracy(expectedPhonetic, actualTranscript);
+  
+  console.log('[Accuracy] Phonetic match:', {
+    expected: expectedPhonetic,
+    actual: actualTranscript,
+    score: phoneticScore
+  });
+
+  // Strategy 2: If original word provided, try matching against it
+  if (expectedOriginal) {
+    const originalScore = calculateAccuracy(expectedOriginal, actualTranscript);
+    
+    console.log('[Accuracy] Original match:', {
+      expected: expectedOriginal,
+      actual: actualTranscript,
+      score: originalScore
+    });
+
+    // Take the BEST score from either phonetic or original
+    const bestScore = Math.max(phoneticScore, originalScore);
+    
+    console.log('[Accuracy] Best score:', bestScore, '(from', 
+                bestScore === phoneticScore ? 'phonetic' : 'original', 'match)');
+    
+    return bestScore;
+  }
+
+  return phoneticScore;
+}
+
+/**
+ * Normalize Spanish/French text by removing accents for comparison
+ */
+function removeAccents(text: string): string {
+  return text
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '') // Remove diacritical marks
+    .toLowerCase();
+}
+
+/**
+ * Enhanced accuracy calculation for international languages
+ */
+export function calculateAccuracy(expected: string, actual: string): number {
+  if (!expected || !actual) return 0;
+  
+  // Normalize both strings (remove accents, punctuation, etc.)
+  const normalizedExpected = normalizeForComparison(expected);
+  const normalizedActual = normalizeForComparison(actual);
+  
+  // Also try without accents for Spanish/French words
+  const expectedNoAccents = removeAccents(expected);
+  const actualNoAccents = removeAccents(actual);
+  
+  // Perfect match (with or without accents)
+  if (normalizedExpected === normalizedActual || 
+      expectedNoAccents === actualNoAccents) {
+    return 100;
+  }
+  
+  // Try phonetic simplification
+  const expectedSimple = phoneticToSounds(expected);
+  const actualSimple = phoneticToSounds(actual);
+  
+  if (expectedSimple === actualSimple) {
+    return 100;
+  }
+  
+  // Calculate Levenshtein distances for multiple strategies
+  const strategies = [
+    { name: 'normalized', expected: normalizedExpected, actual: normalizedActual },
+    { name: 'no-accents', expected: expectedNoAccents, actual: actualNoAccents },
+    { name: 'phonetic', expected: expectedSimple, actual: actualSimple },
+  ];
+  
+  let bestScore = 0;
+  
+  for (const strategy of strategies) {
+    const distance = levenshteinDistance(strategy.expected, strategy.actual);
+    const maxLen = Math.max(strategy.expected.length, strategy.actual.length);
+    const score = maxLen > 0 ? Math.max(0, 1 - (distance / maxLen)) : 0;
+    
+    if (score > bestScore) {
+      bestScore = score;
+      console.log(`[Accuracy] Best strategy so far: ${strategy.name} (${Math.round(score * 100)}%)`);
+    }
+  }
+  
+  // Prefix bonus (first 3 chars match)
+  const prefixLen = Math.min(3, expectedNoAccents.length, actualNoAccents.length);
+  const prefixMatch = expectedNoAccents.substring(0, prefixLen) === 
+                      actualNoAccents.substring(0, prefixLen);
+  if (prefixMatch) {
+    bestScore = Math.min(1.0, bestScore + 0.15);
+  }
+  
+  // Contains check (one word contains the other)
+  if (expectedNoAccents.includes(actualNoAccents) || 
+      actualNoAccents.includes(expectedNoAccents)) {
+    const shorter = Math.min(expectedNoAccents.length, actualNoAccents.length);
+    const longer = Math.max(expectedNoAccents.length, actualNoAccents.length);
+    const containsScore = shorter / longer;
+    bestScore = Math.max(bestScore, containsScore);
+  }
+  
+  const percentage = Math.round(bestScore * 100);
+  
+  console.log('[Accuracy] Final score:', percentage + '%', {
+    expected,
+    actual,
+    normalizedExpected,
+    normalizedActual
+  });
+  
+  return percentage;
+}
+```
+
+---
+
+## ✅ Solution 2: Update lyric-display.tsx to Pass Original Word
+
+### Store Original Word in WordPracticeState
+
+```typescript
+// lyric-display.tsx - Line ~70
+
+export interface WordPracticeState {
+  word: string;           // The phonetic representation (e.g., "pehn-sahbah")
+  originalWord?: string;  // The original lyric word (e.g., "Pensaba")
+  status: WordPracticeStatus;
+  attempts: number;
+  bestScore: number;
+}
+```
+
+### Update Word Tokenization
+
+```typescript
+// lyric-display.tsx - In startPracticeMode function
+
+const startPracticeMode = (lineIndex: number) => {
+  const lyric = lyrics[lineIndex];
+  const translation = translations.find(t => t.originalText === lyric.text);
+  
+  if (!translation?.phoneticGuide) {
+    toast({
+      title: "No phonetic guide available",
+      description: "This line doesn't have pronunciation help",
+      variant: "destructive"
+    });
+    return;
+  }
+
+  // Split phonetic guide into words
+  const phoneticWords = tokenizePhoneticWords(translation.phoneticGuide);
+  
+  // Split original lyrics into words
+  const originalWords = lyric.text.trim().split(/\s+/);
+  
+  console.log('[Practice] Original words:', originalWords);
+  console.log('[Practice] Phonetic words:', phoneticWords);
+  
+  // Create word states with BOTH phonetic and original
+  const initialWordStates: WordPracticeState[] = phoneticWords.map((phoneticWord, index) => ({
+    word: phoneticWord,           // "pehn-sahbah"
+    originalWord: originalWords[index] || phoneticWord,  // "Pensaba"
+    status: 'pending',
+    attempts: 0,
+    bestScore: 0
+  }));
+  
+  console.log('[Practice] Word states with originals:', initialWordStates);
+  
+  setWordStates(initialWordStates);
+  setCurrentWordIndex(0);
+  setPracticeLineIndex(lineIndex);
+  setIsPracticeMode(true);
+  practiceSessionRef.current++;
+};
+```
+
+### Update Speech Recognition Handler
+
+```typescript
+// lyric-display.tsx - In handleCapacitorSpeech function (or similar)
+
+const handlePronunciationResult = (transcript: string, wordIndex: number) => {
+  const currentWord = wordStates[wordIndex];
+  
+  console.log('[Practice] Checking pronunciation:', {
+    phonetic: currentWord.word,
+    original: currentWord.originalWord,
+    heard: transcript
+  });
+  
+  // NEW: Use the enhanced matching with original word
+  const accuracy = calculateAccuracyWithOriginal(
+    currentWord.word,           // "pehn-sahbah"
+    currentWord.originalWord,   // "Pensaba"
+    transcript                  // "Pensaba"
+  );
+  
+  console.log('[Practice] Match result:', accuracy + '%');
+
+  // Update word state
+  const newWordStates = [...wordStates];
+  newWordStates[wordIndex] = {
+    ...currentWord,
+    status: accuracy >= 60 ? 'success' : 'error',
+    attempts: currentWord.attempts + 1,
+    bestScore: Math.max(currentWord.bestScore || 0, accuracy)
+  };
+  setWordStates(newWordStates);
+
+  // Show score banner
+  setLastScore(accuracy);
+  setShowScoreBanner(true);
+  
+  // Hide banner and advance
+  if (scoreBannerTimeoutRef.current) {
+    clearTimeout(scoreBannerTimeoutRef.current);
+  }
+
+  const hideDelay = Capacitor.isNativePlatform() ? 3000 : 2000;
+  scoreBannerTimeoutRef.current = setTimeout(() => {
+    setShowScoreBanner(false);
+    setLastScore(null);
+  }, hideDelay);
+
+  if (accuracy >= 60 && wordIndex < wordStates.length - 1) {
+    if (autoAdvanceTimeoutRef.current) {
+      clearTimeout(autoAdvanceTimeoutRef.current);
+    }
+    autoAdvanceTimeoutRef.current = setTimeout(() => {
+      setCurrentWordIndex(wordIndex + 1);
+    }, hideDelay + 500);
+  }
+};
+```
+
+---
+
+## ✅ Solution 3: Improve Mobile Speech Recognition
+
+### Issue: 8-second timeout with no speech detected
+
+The logs show the mic times out without detecting speech. This is often due to:
+1. Mic permissions
+2. Language mismatch
+3. Noise cancellation too aggressive
+4. Low confidence threshold
+
+### Fix Recognition Configuration
+
+```typescript
+// lyric-display.tsx - In practiceWord function
+
+const practiceWord = async (wordIndex: number) => {
+  if (wordIndex < 0 || wordIndex >= wordStates.length) {
+    console.error('[Practice] Invalid word index:', wordIndex);
+    return;
+  }
+
+  const currentWord = wordStates[wordIndex];
+  const sessionId = practiceSessionRef.current;
+
+  console.log('[Practice Word] Starting for:', currentWord);
+
+  // Increment session to invalidate old callbacks
+  practiceSessionRef.current++;
+  setIsPracticeListening(true);
+
+  // Reset state
+  recognitionHandledRef.current = false;
+
+  try {
+    if (Capacitor.isNativePlatform()) {
+      console.log('[Capacitor Speech] Starting mobile recognition...');
+
+      // Check permissions first
+      const { available } = await CapacitorSpeechRecognition.available();
+      if (!available) {
+        throw new Error('Speech recognition not available');
+      }
+
+      const { granted } = await CapacitorSpeechRecognition.requestPermissions();
+      if (!granted) {
+        throw new Error('Microphone permission denied');
+      }
+
+      // Detect language from translation
+      const translation = translations.find(t => 
+        t.originalText === lyrics[practiceLineIndex]?.text
+      );
+      const sourceLanguage = translation?.sourceLanguage || 'en';
+      
+      // Map to full locale codes
+      const languageMap: Record<string, string> = {
+        'en': 'en-US',
+        'es': 'es-ES',
+        'fr': 'fr-FR',
+        'de': 'de-DE',
+        'it': 'it-IT',
+        'pt': 'pt-BR',
+        'ja': 'ja-JP',
+        'ko': 'ko-KR',
+        'zh': 'zh-CN'
+      };
+      
+      const locale = languageMap[sourceLanguage] || 'en-US';
+      console.log('[Capacitor Speech] Using locale:', locale);
+
+      // Set up result handler
+      await CapacitorSpeechRecognition.addListener('partialResults', (data: any) => {
+        if (practiceSessionRef.current !== sessionId) {
+          console.log('[Capacitor Speech] Ignoring stale partial result');
+          return;
+        }
+
+        console.log('[Capacitor Speech] Partial:', data.matches);
+        
+        // Show interim results to user
+        if (data.matches && data.matches.length > 0) {
+          const interim = data.matches[0];
+          console.log('[Capacitor Speech] Heard so far:', interim);
+        }
+      });
+
+      await CapacitorSpeechRecognition.addListener('listeningState', (state: any) => {
+        console.log('[Capacitor Speech] Listening state:', state);
+      });
+
+      // Start recognition with optimized settings
+      await CapacitorSpeechRecognition.start({
+        language: locale,
+        maxResults: 5,              // Get multiple alternatives
+        popup: false,               // Don't show system UI
+        partialResults: true,       // Get interim results
+        
+        // IMPORTANT: Adjust these for better detection
+        // @ts-ignore - These may not be in types but work on native
+        speechInputMinimumLengthMillis: 1000,  // Minimum 1s of speech
+        speechInputCompleteSilenceLength: 1000, // 1s silence = done
+        speechInputPossiblyCompleteSilence: 500 // 0.5s pause = maybe done
+      });
+
+      console.log('[Capacitor Speech] Started listening for', locale);
+
+      // Set timeout for max listening duration
+      if (maxListeningTimeoutRef.current) {
+        clearTimeout(maxListeningTimeoutRef.current);
+      }
+
+      maxListeningTimeoutRef.current = setTimeout(() => {
+        if (practiceSessionRef.current === sessionId) {
+          console.log('[Capacitor Speech] Max duration reached, stopping');
+          stopPracticeListening();
+        }
+      }, 8000); // 8 seconds max
+
+    } else {
+      // Web speech recognition (existing code)
+      // ...
+    }
+
+  } catch (error) {
+    console.error('[Practice Word] Error:', error);
+    setIsPracticeListening(false);
+
+    toast({
+      title: 'Speech Recognition Error',
+      description: error instanceof Error ? error.message : 'Failed to start listening',
+      variant: 'destructive'
+    });
+  }
+};
+```
+
+### Add Better Feedback for User
+
+```typescript
+// Show visual feedback that mic is listening
+
+{isPracticeListening && (
+  <div className="fixed inset-0 z-[9998] flex items-center justify-center bg-black/50 backdrop-blur-sm">
+    <div className="bg-card p-8 rounded-lg shadow-2xl border-2 border-primary max-w-md">
+      {/* Animated waveform */}
+      <div className="flex items-center justify-center gap-2 mb-4">
+        {[...Array(5)].map((_, i) => (
+          <div
+            key={i}
+            className="w-3 bg-primary rounded-full"
+            style={{
+              height: `${Math.random() * 40 + 20}px`,
+              animation: `pulse ${0.5 + Math.random()}s ease-in-out infinite`
+            }}
+          />
+        ))}
+      </div>
+
+      <h3 className="text-2xl font-bold text-center mb-2">
+        Listening...
+      </h3>
+      <p className="text-center text-muted-foreground mb-4">
+        Say: <span className="font-bold text-foreground">{currentWord.originalWord}</span>
+      </p>
+      <p className="text-center text-sm text-muted-foreground">
+        ({currentWord.word})
+      </p>
+
+      <Button
+        variant="destructive"
+        onClick={stopPracticeListening}
+        className="w-full mt-4"
+      >
+        <MicOff className="mr-2" />
+        Stop
+      </Button>
+    </div>
+  </div>
+)}
+```
+
+---
+
+## ✅ Solution 4: Handle Low Confidence Results
+
+Sometimes speech recognition works but gives low confidence. Accept partial matches:
+
+```typescript
+// In speech recognition result handler
+
+const handleSpeechResult = (results: string[]) => {
+  if (!results || results.length === 0) {
+    console.log('[Speech] No results');
+    return;
+  }
+
+  console.log('[Speech] All results:', results);
+
+  // Try to match against ANY of the results (in order of confidence)
+  let bestMatch = { transcript: '', score: 0 };
+
+  for (const transcript of results) {
+    const score = calculateAccuracyWithOriginal(
+      currentWord.word,
+      currentWord.originalWord,
+      transcript
+    );
+
+    console.log('[Speech] Testing:', transcript, '→', score + '%');
+
+    if (score > bestMatch.score) {
+      bestMatch = { transcript, score };
+    }
+  }
+
+  console.log('[Speech] Best match:', bestMatch);
+
+  // Use the best scoring result
+  handlePronunciationResult(bestMatch.transcript, wordIndex);
+};
+```
+
+---
+
+## ✅ Solution 5: Fallback to Web Speech API
+
+If Capacitor speech recognition is unreliable, fall back to web:
+
+```typescript
+const practiceWord = async (wordIndex: number) => {
+  // ... setup code ...
+
+  try {
+    // Try Capacitor first
+    if (Capacitor.isNativePlatform()) {
+      try {
+        await startCapacitorRecognition(wordIndex);
+      } catch (capacitorError) {
+        console.warn('[Practice] Capacitor failed, trying web:', capacitorError);
+        // Fall back to web
+        await startWebRecognition(wordIndex);
+      }
+    } else {
+      await startWebRecognition(wordIndex);
+    }
+  } catch (error) {
+    // Handle error
+  }
+};
+
+async function startWebRecognition(wordIndex: number) {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  
+  if (!SpeechRecognition) {
+    throw new Error('Speech recognition not supported');
+  }
+
+  const recognition = new SpeechRecognition();
+  const translation = translations.find(t => 
+    t.originalText === lyrics[practiceLineIndex]?.text
+  );
+  const sourceLanguage = translation?.sourceLanguage || 'en';
+  
+  recognition.lang = sourceLanguage + '-' + sourceLanguage.toUpperCase();
+  recognition.maxAlternatives = 5;
+  recognition.continuous = false;
+  recognition.interimResults = true;
+
+  recognition.onresult = (event) => {
+    const results = Array.from(event.results[0])
+      .map((result: any) => result.transcript);
+    
+    handleSpeechResult(results);
+  };
+
+  recognition.start();
+  console.log('[Web Speech] Started');
+}
+```
+
+---
+
+## 📊 Summary of Changes
+
+### pronunciation-utils.ts
+- ✅ Added `calculateAccuracyWithOriginal()` - matches against both phonetic AND original word
+- ✅ Enhanced `calculateAccuracy()` - better accent handling, multiple strategies
+- ✅ Added `removeAccents()` - handles Spanish/French characters
+
+### lyric-display.tsx
+- ✅ Store `originalWord` in `WordPracticeState`
+- ✅ Pass original word to accuracy calculation
+- ✅ Improved speech recognition config (longer pauses, multiple results)
+- ✅ Better visual feedback while listening
+- ✅ Handle multiple result alternatives
+- ✅ Fallback to Web Speech API if Capacitor fails
+
+---
+
+## 🎯 Expected Results
+
+**Before:**
+```
+Expected: "pehn-sahbah"
+Heard: "Pensaba"
+Match: 0% ❌
+```
+
+**After:**
+```
+Expected (phonetic): "pehn-sahbah"
+Expected (original): "Pensaba"
+Heard: "Pensaba"
+Match (phonetic): 15%
+Match (original): 100% ✅
+Best match: 100%
+```
+
+**The app will now accept BOTH the phonetic pronunciation AND the actual word!** 🎯✨

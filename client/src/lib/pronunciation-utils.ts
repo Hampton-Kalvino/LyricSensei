@@ -200,6 +200,49 @@ export function calculateAccuracy(expected: string, actual: string): number {
 }
 
 /**
+ * Calculate accuracy with support for matching against BOTH original word AND phonetic
+ * Handles cases where speech recognition returns "Pensaba" but phonetic is "pehn-sahbah"
+ * Takes the BEST score from either match strategy
+ */
+export function calculateAccuracyWithOriginal(
+  expectedPhonetic: string,
+  expectedOriginal: string | undefined,
+  actualTranscript: string
+): number {
+  if (!actualTranscript) return 0;
+
+  // Strategy 1: Try matching against phonetic representation
+  const phoneticScore = calculateAccuracy(expectedPhonetic, actualTranscript);
+  
+  console.log('[Accuracy] Phonetic match:', {
+    expected: expectedPhonetic,
+    actual: actualTranscript,
+    score: Math.round(phoneticScore * 100) + '%'
+  });
+
+  // Strategy 2: If original word provided, try matching against it
+  if (expectedOriginal && expectedOriginal !== expectedPhonetic) {
+    const originalScore = calculateAccuracy(expectedOriginal, actualTranscript);
+    
+    console.log('[Accuracy] Original match:', {
+      expected: expectedOriginal,
+      actual: actualTranscript,
+      score: Math.round(originalScore * 100) + '%'
+    });
+
+    // Take the BEST score from either phonetic or original
+    const bestScore = Math.max(phoneticScore, originalScore);
+    const bestFrom = bestScore === phoneticScore ? 'phonetic' : 'original';
+    
+    console.log('[Accuracy] Best score:', Math.round(bestScore * 100) + '%', '(from', bestFrom, 'match)');
+    
+    return bestScore;
+  }
+
+  return phoneticScore;
+}
+
+/**
  * Get accuracy tier based on score
  */
 export function getAccuracyTier(score: number): 'success' | 'close' | 'retry' {

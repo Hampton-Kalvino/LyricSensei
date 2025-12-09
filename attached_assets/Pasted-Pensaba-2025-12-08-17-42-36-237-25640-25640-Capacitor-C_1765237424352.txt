@@ -1,0 +1,15 @@
+Pensaba
+2025-12-08 17:42:36.237 25640-25640 Capacitor/Console       com.lyricsensei.app                  I  File: https://localhost/assets/index-CogyRoEe.js - Line 427 - Msg: [Practice Word] Setting isPracticeListening to TRUE
+2025-12-08 17:42:36.237 25640-25640 Capacitor/Console       com.lyricsensei.app                  I  File: https://localhost/assets/index-CogyRoEe.js - Line 426 - Msg: [STATE CHANGE] setIsPracticeListening(true) called from: at https://localhost/assets/index-CogyRoEe.js:427:2269
+2025-12-08 17:42:36.237 25640-25640 Capacitor/Console       com.lyricsensei.app                  I  File: https://localhost/assets/index-CogyRoEe.js - Line 427 - Msg: [Practice Word] isPracticeListening state update called
+2025-12-08 17:42:36.237 25640-25640 Capacitor/Console       com.lyricsensei.app                  I  File: https://localhost/assets/index-CogyRoEe.js - Line 427 - Msg: [Practice Word] Platform: Native
+2025-12-08 17:42:36.251 25640-25640 Capacitor/Console       com.lyricsensei.app                  I  File: https://localhost/assets/index-CogyRoEe.js - Line 427 - Msg: [Capacitor Speech] Setting up listeners...
+2025-12-08 17:42:36.252 25640-25640 Capacitor/Console       com.lyricsensei.app                  I  File: https://localhost/assets/index-CogyRoEe.js - Line 427 - Msg: [Capacitor Speech] ✅ Listeners attached
+2025-12-08 17:42:36.252 25640-25640 Capacitor/Console       com.lyricsensei.app                  I  File: https://localhost/assets/index-CogyRoEe.js - Line 427 - Msg: [Capacitor Speech] 🌐 Using language: en-US detected from: en
+2025-12-08 17:42:39.957 25640-25640 Capacitor/Console       com.lyricsensei.app                  I  File: https://localhost/assets/index-CogyRoEe.js - Line 427 - Msg: [Capacitor Speech] ✅ Started listening for en-US
+2025-12-08 17:42:48.061 25640-25640 Capacitor/Console       com.lyricsensei.app                  I  File: https://localhost/assets/index-CogyRoEe.js - Line 427 - Msg: [Capacitor Speech] Timeout, finalizing with: (empty)
+2025-12-08 17:42:48.061 25640-25640 Capacitor/Console       com.lyricsensei.app                  I  File: https://localhost/assets/index-CogyRoEe.js - Line 427 - Msg: [Capacitor Speech] 📊 Finalizing attempt with transcript: 
+2025-12-08 17:42:48.062 25640-25640 Capacitor/Console       com.lyricsensei.app                  I  File: https://localhost/assets/index-CogyRoEe.js - Line 427 - Msg: [Capacitor Speech] No speech detected, score = 0
+2025-12-08 17:42:48.062 25640-25640 Capacitor/Console       com.lyricsensei.app                  I  File: https://localhost/assets/index-CogyRoEe.js - Line 427 - Msg: [Capacitor Speech] 🎨 Setting score banner: 0
+2025-12-08 17:42:48.062 25640-25640 Capacitor/Console       com.lyricsensei.app                  I  File: https://localhost/assets/index-CogyRoEe.js - Line 427 - Msg: [Capacitor Speech] 🧹 Cleanup called
+2025-12-08 17:42:48.062 25640-25640 Capacitor/Console       com.lyricsensei.app                  I  File: https://localhost/assets/index-CogyRoEe.js - Line 426 - Msg: [STATE CHANGE] setIsPracticeListening(false) called from: at yt (https://localhost/assets/index-CogyRoEe.js:427:7643)
