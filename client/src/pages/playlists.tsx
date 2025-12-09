@@ -129,7 +129,7 @@ export default function PlaylistsPage() {
                 </div>
               </div>
               <DialogFooter>
-                <Button variant="outline" onClick={() => setCreateOpen(false)}>
+                <Button variant="outline" onClick={() => setCreateOpen(false)} data-testid="button-cancel-create">
                   {t('common.cancel', 'Cancel')}
                 </Button>
                 <Button 
@@ -171,7 +171,7 @@ export default function PlaylistsPage() {
                 </div>
               </div>
               <DialogFooter>
-                <Button variant="outline" onClick={() => setJoinOpen(false)}>
+                <Button variant="outline" onClick={() => setJoinOpen(false)} data-testid="button-cancel-join">
                   {t('common.cancel', 'Cancel')}
                 </Button>
                 <Button 

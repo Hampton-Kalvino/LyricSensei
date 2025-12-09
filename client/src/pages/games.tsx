@@ -27,11 +27,7 @@ export default function GamesPage() {
 
   const { data: leaderboard, isLoading: leaderboardLoading } = useQuery<LeaderboardEntryWithUser[]>({
     queryKey: ['/api/games/leaderboard', selectedGame, leaderboardPeriod],
-    queryFn: async () => {
-      const res = await fetch(`/api/games/leaderboard?gameType=${selectedGame}&period=${leaderboardPeriod}`);
-      if (!res.ok) throw new Error('Failed to fetch leaderboard');
-      return res.json();
-    },
+    queryFn: () => apiRequest<LeaderboardEntryWithUser[]>('GET', `/api/games/leaderboard?gameType=${selectedGame}&period=${leaderboardPeriod}`),
   });
 
   const { data: history, isLoading: historyLoading } = useQuery<GameSessionWithDetails[]>({
