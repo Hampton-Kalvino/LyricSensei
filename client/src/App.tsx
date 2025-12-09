@@ -10,6 +10,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { UILanguageSelector } from "@/components/ui-language-selector";
 import { GlobalSearchButton } from "@/components/global-search-button";
+import { NativeMobileShell } from "@/components/native-mobile-shell";
 import { useAuth } from "@/hooks/useAuth";
 import Home from "@/pages/home";
 import Landing from "@/pages/landing";
@@ -32,6 +33,7 @@ import GamePlay from "@/pages/game-play";
 import NotFound from "@/pages/not-found";
 import { Footer } from "@/components/footer";
 import { AdSense } from "@/components/ad-sense";
+import { Capacitor } from "@capacitor/core";
 import "@/i18n/config";
 
 // --- Guest User Initialization ---
@@ -52,6 +54,8 @@ initAuth(); // Run this logic once on app load
 
 // Routes that should always be accessible (regardless of auth)
 function PublicRoutes() {
+  const isNative = Capacitor.isNativePlatform();
+  
   return (
     <div className="flex flex-col min-h-screen" style={{ paddingTop: 'var(--safe-area-inset-top)', paddingBottom: 'var(--safe-area-inset-bottom)', paddingLeft: 'var(--safe-area-inset-left)', paddingRight: 'var(--safe-area-inset-right)' }}>
       <div className="flex-1">
@@ -65,13 +69,15 @@ function PublicRoutes() {
           <Route component={NotFound} />
         </Switch>
       </div>
-      <Footer />
+      {!isNative && <Footer />}
     </div>
   );
 }
 
 // Routes for unauthenticated users
 function UnauthenticatedRouter() {
+  const isNative = Capacitor.isNativePlatform();
+  
   return (
     <div className="flex flex-col min-h-screen" style={{ paddingTop: 'var(--safe-area-inset-top)', paddingBottom: 'var(--safe-area-inset-bottom)', paddingLeft: 'var(--safe-area-inset-left)', paddingRight: 'var(--safe-area-inset-right)' }}>
       <div className="flex-1">
@@ -84,7 +90,7 @@ function UnauthenticatedRouter() {
           <Route component={NotFound} />
         </Switch>
       </div>
-      <Footer />
+      {!isNative && <Footer />}
     </div>
   );
 }
@@ -175,11 +181,22 @@ function AuthenticatedApp({ style }: { style: Record<string, string> }) {
   const { isAuthenticated, isLoading } = useAuth();
   const [location] = useLocation();
   const isHomePage = location === "/";
+  const isNative = Capacitor.isNativePlatform();
 
   if (isLoading || !isAuthenticated) {
     return <Router />;
   }
 
+  // Use NativeMobileShell for Capacitor native apps (Android/iOS)
+  if (isNative) {
+    return (
+      <NativeMobileShell>
+        <Router />
+      </NativeMobileShell>
+    );
+  }
+
+  // Web layout with sidebar
   return (
     <SidebarProvider style={style as React.CSSProperties}>
       <div className="flex h-screen w-full" style={{ paddingTop: 'var(--safe-area-inset-top)', paddingBottom: 'var(--safe-area-inset-bottom)', paddingLeft: 'var(--safe-area-inset-left)', paddingRight: 'var(--safe-area-inset-right)' }}>

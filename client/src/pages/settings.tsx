@@ -1,12 +1,12 @@
 import { useState, useEffect } from "react";
-import { useLocation } from "wouter";
+import { useLocation, Link } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
 import { Card } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Volume2, VolumeX, Music, ArrowLeft, Check, X } from "lucide-react";
+import { Volume2, VolumeX, Music, ArrowLeft, Check, X, Shield, FileText, ChevronRight } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { 
   getSfxSettings, 
@@ -155,6 +155,53 @@ export default function Settings() {
                 </Button>
               </div>
             </div>
+          </div>
+        </Card>
+
+        <Card className="p-6 space-y-4">
+          <div className="flex items-center gap-3">
+            <Shield className="h-5 w-5 text-primary" />
+            <h2 className="text-xl font-semibold">{t('settings.privacy', 'Privacy & Legal')}</h2>
+          </div>
+
+          <div className="space-y-2">
+            <Link href="/terms">
+              <div 
+                className="flex items-center justify-between p-3 rounded-lg hover-elevate cursor-pointer border"
+                data-testid="link-terms-settings"
+              >
+                <div className="flex items-center gap-3">
+                  <FileText className="h-5 w-5 text-muted-foreground" />
+                  <div>
+                    <p className="font-medium">{t('settings.termsOfService', 'Terms of Service')}</p>
+                    <p className="text-sm text-muted-foreground">{t('settings.termsDesc', 'View our terms and conditions')}</p>
+                  </div>
+                </div>
+                <ChevronRight className="h-5 w-5 text-muted-foreground" />
+              </div>
+            </Link>
+
+            <Link href="/terms">
+              <div 
+                className="flex items-center justify-between p-3 rounded-lg hover-elevate cursor-pointer border"
+                data-testid="link-privacy-settings"
+              >
+                <div className="flex items-center gap-3">
+                  <Shield className="h-5 w-5 text-muted-foreground" />
+                  <div>
+                    <p className="font-medium">{t('settings.privacyPolicy', 'Privacy Policy')}</p>
+                    <p className="text-sm text-muted-foreground">{t('settings.privacyDesc', 'Learn how we protect your data')}</p>
+                  </div>
+                </div>
+                <ChevronRight className="h-5 w-5 text-muted-foreground" />
+              </div>
+            </Link>
+          </div>
+
+          <div className="pt-4 border-t">
+            <p className="text-xs text-muted-foreground text-center">
+              © 2025 Lyric Sensei. All rights reserved.
+            </p>
           </div>
         </Card>
       </div>
