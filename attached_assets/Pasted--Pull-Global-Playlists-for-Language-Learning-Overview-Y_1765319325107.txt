@@ -1,0 +1,650 @@
+# 🎵 Pull Global Playlists for Language Learning
+
+## Overview
+
+You want to let users browse curated playlists of songs in different languages (Spanish, French, Japanese, etc.) and practice lyrics from those songs.
+
+---
+
+## ✅ Option 1: Apple Music API (MusicKit) - RECOMMENDED
+
+### Best for: iOS users, high-quality metadata, legal compliance
+
+**Pros:**
+- ✅ Official Apple API
+- ✅ 30M+ songs with metadata
+- ✅ Built-in language/genre filtering
+- ✅ Works on iOS/Android/Web
+- ✅ Free tier (no API key needed for basic features)
+- ✅ Deep links to Apple Music
+
+**Cons:**
+- ❌ Users need Apple Music subscription for full playback
+- ❌ API doesn't provide lyrics (need separate source)
+
+### Setup
+
+```bash
+# Install MusicKit JS for web
+npm install musickit-js
+
+# For native iOS
+# Already built into iOS, use native MusicKit framework
+```
+
+### Get Apple Music Developer Token
+
+1. Go to: https://developer.apple.com/account
+2. Create MusicKit identifier
+3. Generate developer token (JWT)
+
+```typescript
+// server/lib/apple-music.ts
+
+import jwt from 'jsonwebtoken';
+import fs from 'fs';
+
+export function generateAppleMusicToken(): string {
+  const privateKey = fs.readFileSync(process.env.APPLE_MUSIC_PRIVATE_KEY_PATH!, 'utf8');
+  
+  const token = jwt.sign({}, privateKey, {
+    algorithm: 'ES256',
+    expiresIn: '180d',
+    issuer: process.env.APPLE_TEAM_ID,
+    header: {
+      alg: 'ES256',
+      kid: process.env.APPLE_KEY_ID
+    }
+  });
+  
+  return token;
+}
+```
+
+### Fetch Curated Playlists by Language
+
+```typescript
+// server/lib/apple-music-playlists.ts
+
+interface AppleMusicPlaylist {
+  id: string;
+  name: string;
+  description: string;
+  artworkUrl: string;
+  trackCount: number;
+  tracks: AppleMusicTrack[];
+}
+
+interface AppleMusicTrack {
+  id: string;
+  title: string;
+  artist: string;
+  album: string;
+  artworkUrl: string;
+  previewUrl?: string;
+  isrc?: string; // International Standard Recording Code
+}
+
+export class AppleMusicService {
+  private developerToken: string;
+  private baseUrl = 'https://api.music.apple.com/v1';
+
+  constructor(developerToken: string) {
+    this.developerToken = developerToken;
+  }
+
+  /**
+   * Get curated playlists for a specific language
+   */
+  async getLanguagePlaylists(language: string, countryCode: string = 'us'): Promise<AppleMusicPlaylist[]> {
+    const searchQueries = this.getLanguageSearchTerms(language);
+    const playlists: AppleMusicPlaylist[] = [];
+
+    for (const query of searchQueries) {
+      try {
+        const response = await fetch(
+          `${this.baseUrl}/catalog/${countryCode}/search?types=playlists&term=${encodeURIComponent(query)}&limit=25`,
+          {
+            headers: {
+              'Authorization': `Bearer ${this.developerToken}`,
+              'Music-User-Token': '', // Optional: user-specific token
+            }
+          }
+        );
+
+        const data = await response.json();
+        
+        if (data.results?.playlists?.data) {
+          const mapped = data.results.playlists.data.map((p: any) => ({
+            id: p.id,
+            name: p.attributes.name,
+            description: p.attributes.description?.standard || '',
+            artworkUrl: p.attributes.artwork?.url?.replace('{w}x{h}', '500x500'),
+            trackCount: p.attributes.trackCount,
+            tracks: [] // Will fetch separately
+          }));
+
+          playlists.push(...mapped);
+        }
+      } catch (error) {
+        console.error(`[Apple Music] Error fetching ${query}:`, error);
+      }
+    }
+
+    return playlists;
+  }
+
+  /**
+   * Get search terms for each language
+   */
+  private getLanguageSearchTerms(language: string): string[] {
+    const searchTerms: Record<string, string[]> = {
+      spanish: [
+        'Spanish Hits',
+        'Latin Pop',
+        'Reggaeton',
+        'Spanish Rock',
+        'Spanish Ballads',
+        'Top Latino'
+      ],
+      french: [
+        'French Pop',
+        'Chanson Française',
+        'French Hits',
+        'French Hip Hop',
+        'French Classics'
+      ],
+      german: [
+        'German Pop',
+        'Deutsche Hits',
+        'German Hip Hop',
+        'Neue Deutsche Welle'
+      ],
+      italian: [
+        'Italian Pop',
+        'Italian Hits',
+        'Musica Italiana'
+      ],
+      japanese: [
+        'J-Pop',
+        'Japanese Hits',
+        'Japanese Rock',
+        'City Pop Japan'
+      ],
+      korean: [
+        'K-Pop',
+        'Korean Hits',
+        'K-Hip Hop'
+      ],
+      portuguese: [
+        'Portuguese Pop',
+        'Brazilian Music',
+        'Música Brasileira',
+        'MPB'
+      ]
+    };
+
+    return searchTerms[language.toLowerCase()] || [`${language} Music`];
+  }
+
+  /**
+   * Get tracks from a specific playlist
+   */
+  async getPlaylistTracks(playlistId: string, countryCode: string = 'us'): Promise<AppleMusicTrack[]> {
+    try {
+      const response = await fetch(
+        `${this.baseUrl}/catalog/${countryCode}/playlists/${playlistId}/tracks?limit=100`,
+        {
+          headers: {
+            'Authorization': `Bearer ${this.developerToken}`
+          }
+        }
+      );
+
+      const data = await response.json();
+
+      if (data.data) {
+        return data.data.map((track: any) => ({
+          id: track.id,
+          title: track.attributes.name,
+          artist: track.attributes.artistName,
+          album: track.attributes.albumName,
+          artworkUrl: track.attributes.artwork?.url?.replace('{w}x{h}', '300x300'),
+          previewUrl: track.attributes.previews?.[0]?.url,
+          isrc: track.attributes.isrc,
+          durationMs: track.attributes.durationInMillis
+        }));
+      }
+
+      return [];
+    } catch (error) {
+      console.error('[Apple Music] Error fetching playlist tracks:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get top charts by language/country
+   */
+  async getCharts(countryCode: string = 'us', genre?: string): Promise<AppleMusicTrack[]> {
+    try {
+      const genreParam = genre ? `&genre=${genre}` : '';
+      const response = await fetch(
+        `${this.baseUrl}/catalog/${countryCode}/charts?types=songs&limit=50${genreParam}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${this.developerToken}`
+          }
+        }
+      );
+
+      const data = await response.json();
+
+      if (data.results?.songs?.[0]?.data) {
+        return data.results.songs[0].data.map((track: any) => ({
+          id: track.id,
+          title: track.attributes.name,
+          artist: track.attributes.artistName,
+          album: track.attributes.albumName,
+          artworkUrl: track.attributes.artwork?.url?.replace('{w}x{h}', '300x300'),
+          previewUrl: track.attributes.previews?.[0]?.url,
+          isrc: track.attributes.isrc
+        }));
+      }
+
+      return [];
+    } catch (error) {
+      console.error('[Apple Music] Error fetching charts:', error);
+      return [];
+    }
+  }
+}
+```
+
+### Backend Routes
+
+```typescript
+// server/routes.ts
+
+const appleMusicService = new AppleMusicService(generateAppleMusicToken());
+
+// Get playlists by language
+app.get('/api/playlists/:language', async (req, res) => {
+  try {
+    const { language } = req.params;
+    const countryCode = req.query.country as string || 'us';
+
+    const playlists = await appleMusicService.getLanguagePlaylists(language, countryCode);
+
+    res.json(playlists);
+  } catch (error) {
+    console.error('[Playlists] Error:', error);
+    res.status(500).json({ error: 'Failed to fetch playlists' });
+  }
+});
+
+// Get tracks from playlist
+app.get('/api/playlists/:playlistId/tracks', async (req, res) => {
+  try {
+    const { playlistId } = req.params;
+    const countryCode = req.query.country as string || 'us';
+
+    const tracks = await appleMusicService.getPlaylistTracks(playlistId, countryCode);
+
+    res.json(tracks);
+  } catch (error) {
+    console.error('[Playlist Tracks] Error:', error);
+    res.status(500).json({ error: 'Failed to fetch tracks' });
+  }
+});
+
+// Get top charts
+app.get('/api/charts/:countryCode', async (req, res) => {
+  try {
+    const { countryCode } = req.params;
+    const genre = req.query.genre as string;
+
+    const charts = await appleMusicService.getCharts(countryCode, genre);
+
+    res.json(charts);
+  } catch (error) {
+    console.error('[Charts] Error:', error);
+    res.status(500).json({ error: 'Failed to fetch charts' });
+  }
+});
+```
+
+### Frontend: Browse Playlists UI
+
+```tsx
+// client/src/pages/browse-playlists.tsx
+
+import { useState, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
+
+const LANGUAGES = [
+  { code: 'spanish', name: 'Spanish', flag: '🇪🇸' },
+  { code: 'french', name: 'French', flag: '🇫🇷' },
+  { code: 'german', name: 'German', flag: '🇩🇪' },
+  { code: 'italian', name: 'Italian', flag: '🇮🇹' },
+  { code: 'japanese', name: 'Japanese', flag: '🇯🇵' },
+  { code: 'korean', name: 'Korean', flag: '🇰🇷' },
+  { code: 'portuguese', name: 'Portuguese', flag: '🇧🇷' }
+];
+
+export default function BrowsePlaylists() {
+  const [selectedLanguage, setSelectedLanguage] = useState('spanish');
+
+  const { data: playlists, isLoading } = useQuery({
+    queryKey: ['playlists', selectedLanguage],
+    queryFn: async () => {
+      const response = await fetch(`/api/playlists/${selectedLanguage}`);
+      return response.json();
+    }
+  });
+
+  return (
+    <div className="p-6">
+      <h1 className="text-3xl font-bold mb-6">🎵 Browse Playlists</h1>
+
+      {/* Language selector */}
+      <div className="flex gap-3 mb-8 overflow-x-auto pb-2">
+        {LANGUAGES.map((lang) => (
+          <Button
+            key={lang.code}
+            variant={selectedLanguage === lang.code ? 'default' : 'outline'}
+            onClick={() => setSelectedLanguage(lang.code)}
+            className="flex items-center gap-2"
+          >
+            <span className="text-2xl">{lang.flag}</span>
+            {lang.name}
+          </Button>
+        ))}
+      </div>
+
+      {/* Playlists grid */}
+      {isLoading ? (
+        <div>Loading playlists...</div>
+      ) : (
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          {playlists?.map((playlist: any) => (
+            <Card
+              key={playlist.id}
+              className="cursor-pointer hover:shadow-lg transition-shadow"
+              onClick={() => openPlaylist(playlist.id)}
+            >
+              <img
+                src={playlist.artworkUrl}
+                alt={playlist.name}
+                className="w-full aspect-square object-cover rounded-t-lg"
+              />
+              <div className="p-4">
+                <h3 className="font-semibold mb-1 line-clamp-2">
+                  {playlist.name}
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  {playlist.trackCount} songs
+                </p>
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+```
+
+---
+
+## ✅ Option 2: Spotify API (Alternative)
+
+### Setup
+
+```bash
+npm install spotify-web-api-node
+```
+
+```typescript
+// server/lib/spotify-playlists.ts
+
+import SpotifyWebApi from 'spotify-web-api-node';
+
+const spotifyApi = new SpotifyWebApi({
+  clientId: process.env.SPOTIFY_CLIENT_ID,
+  clientSecret: process.env.SPOTIFY_CLIENT_SECRET
+});
+
+export async function getSpotifyPlaylists(language: string) {
+  // Get access token
+  const data = await spotifyApi.clientCredentialsGrant();
+  spotifyApi.setAccessToken(data.body.access_token);
+
+  // Search for language playlists
+  const result = await spotifyApi.searchPlaylists(`${language} hits`, { limit: 20 });
+  
+  return result.body.playlists?.items.map(p => ({
+    id: p.id,
+    name: p.name,
+    description: p.description,
+    artworkUrl: p.images[0]?.url,
+    trackCount: p.tracks.total
+  }));
+}
+
+export async function getSpotifyPlaylistTracks(playlistId: string) {
+  const result = await spotifyApi.getPlaylistTracks(playlistId, { limit: 100 });
+  
+  return result.body.items.map(item => ({
+    id: item.track?.id,
+    title: item.track?.name,
+    artist: item.track?.artists[0]?.name,
+    album: item.track?.album?.name,
+    artworkUrl: item.track?.album?.images[0]?.url,
+    previewUrl: item.track?.preview_url,
+    spotifyUri: item.track?.uri
+  }));
+}
+```
+
+---
+
+## ✅ Option 3: YouTube Music API
+
+```typescript
+// server/lib/youtube-music.ts
+
+import { google } from 'googleapis';
+
+const youtube = google.youtube({
+  version: 'v3',
+  auth: process.env.YOUTUBE_API_KEY
+});
+
+export async function getYouTubeMusicPlaylists(language: string) {
+  const response = await youtube.search.list({
+    part: ['snippet'],
+    q: `${language} music playlist`,
+    type: ['playlist'],
+    maxResults: 25,
+    relevanceLanguage: language === 'spanish' ? 'es' : 'en'
+  });
+
+  return response.data.items?.map(item => ({
+    id: item.id?.playlistId,
+    name: item.snippet?.title,
+    description: item.snippet?.description,
+    artworkUrl: item.snippet?.thumbnails?.high?.url
+  }));
+}
+```
+
+---
+
+## 🎯 Getting Lyrics for Songs
+
+**IMPORTANT:** You cannot store or display full copyrighted lyrics without licensing.
+
+### Legal Options:
+
+#### 1. Use LRCLib (Open Source Lyrics)
+
+```typescript
+// Already in your codebase!
+import { fetchLyricsFromLrcLib } from './lrclib';
+
+const lyrics = await fetchLyricsFromLrcLib(trackTitle, artistName);
+```
+
+#### 2. Musixmatch API (Licensed)
+
+```typescript
+const musixmatch = require('musixmatch-node');
+const mxm = new musixmatch(process.env.MUSIXMATCH_API_KEY);
+
+const lyrics = await mxm.getLyrics(trackId);
+```
+
+#### 3. Genius API (Snippets Only)
+
+```typescript
+// Genius only allows short snippets, not full lyrics
+const response = await fetch(
+  `https://api.genius.com/search?q=${encodeURIComponent(query)}`,
+  {
+    headers: {
+      'Authorization': `Bearer ${process.env.GENIUS_ACCESS_TOKEN}`
+    }
+  }
+);
+```
+
+---
+
+## 🎵 Complete Flow
+
+### 1. User Browses Playlists
+
+```typescript
+// User selects "Spanish"
+GET /api/playlists/spanish
+
+// Returns:
+[
+  {
+    id: "pl.123",
+    name: "Top Spanish Hits",
+    trackCount: 50,
+    artworkUrl: "..."
+  }
+]
+```
+
+### 2. User Opens Playlist
+
+```typescript
+// User clicks on playlist
+GET /api/playlists/pl.123/tracks
+
+// Returns:
+[
+  {
+    id: "track.456",
+    title: "Bailando",
+    artist: "Enrique Iglesias",
+    album: "Sex and Love"
+  }
+]
+```
+
+### 3. User Selects Song
+
+```typescript
+// App fetches lyrics
+GET /api/lyrics?title=Bailando&artist=Enrique%20Iglesias
+
+// Returns synced lyrics from LRCLib
+```
+
+### 4. App Translates Lyrics
+
+```typescript
+// Your existing Azure Translator code
+const translations = await batchTranslateLyrics(lyrics, 'es', 'en');
+```
+
+### 5. User Practices!
+
+```typescript
+// Existing practice mode functionality
+```
+
+---
+
+## 📊 Country Codes for Charts
+
+```typescript
+const COUNTRY_CODES = {
+  'Spanish': ['es', 'mx', 'ar', 'co'],  // Spain, Mexico, Argentina, Colombia
+  'French': ['fr', 'ca'],                 // France, Canada
+  'German': ['de', 'at', 'ch'],          // Germany, Austria, Switzerland
+  'Italian': ['it'],
+  'Japanese': ['jp'],
+  'Korean': ['kr'],
+  'Portuguese': ['br', 'pt']             // Brazil, Portugal
+};
+```
+
+---
+
+## 🎯 Recommended Implementation
+
+**For Lyric Sensei:**
+
+1. **Use Apple Music API** for playlists (best metadata)
+2. **Use LRCLib** for lyrics (free, legal, synced)
+3. **Use Azure Translator** for translations (already implemented)
+4. **Store metadata only** (not full lyrics)
+
+```typescript
+// Database schema
+export const playlists = pgTable('playlists', {
+  id: serial('id').primaryKey(),
+  sourceId: text('source_id').notNull(),  // Apple/Spotify playlist ID
+  name: text('name').notNull(),
+  language: text('language').notNull(),
+  artworkUrl: text('artwork_url'),
+  source: text('source').notNull() // 'apple' or 'spotify'
+});
+
+export const playlistTracks = pgTable('playlist_tracks', {
+  id: serial('id').primaryKey(),
+  playlistId: integer('playlist_id').references(() => playlists.id),
+  songId: text('song_id').references(() => songs.id),
+  position: integer('position').notNull()
+});
+```
+
+---
+
+## 🚀 Quick Start
+
+```bash
+# 1. Get Apple Music Developer Token
+# https://developer.apple.com/documentation/applemusicapi/getting_keys_and_creating_tokens
+
+# 2. Add to .env
+APPLE_TEAM_ID=your_team_id
+APPLE_KEY_ID=your_key_id
+APPLE_MUSIC_PRIVATE_KEY_PATH=/path/to/key.p8
+
+# 3. Implement API routes
+# server/routes.ts - add playlist endpoints
+
+# 4. Build UI
+# client/src/pages/browse-playlists.tsx
+
+# 5. Test!
+```
+
+**Users can now browse curated playlists in any language and practice with real songs!** 🎵✨
