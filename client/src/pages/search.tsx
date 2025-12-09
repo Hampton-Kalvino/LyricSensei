@@ -66,7 +66,7 @@ export default function SearchPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [selectedLanguage, setSelectedLanguage] = useState<string | null>(null);
-  const [selectedPlaylistId, setSelectedPlaylistId] = useState<string | null>(null);
+  const [selectedPlaylist, setSelectedPlaylist] = useState<AppleMusicPlaylist | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -108,14 +108,14 @@ export default function SearchPage() {
   });
 
   const { data: playlistTracks = [], isLoading: isLoadingTracks } = useQuery<AppleMusicTrack[]>({
-    queryKey: ['/api/apple-music/playlist-tracks', selectedPlaylistId],
+    queryKey: ['/api/apple-music/playlist-tracks', selectedPlaylist?.id],
     queryFn: async () => {
-      if (!selectedPlaylistId) return [];
-      const response = await fetch(`/api/apple-music/playlist-tracks/${selectedPlaylistId}`);
+      if (!selectedPlaylist?.id) return [];
+      const response = await fetch(`/api/apple-music/playlist-tracks/${selectedPlaylist.id}`);
       if (!response.ok) throw new Error('Failed to fetch tracks');
       return response.json();
     },
-    enabled: !!selectedPlaylistId,
+    enabled: !!selectedPlaylist?.id,
   });
 
   const manualSelectMutation = useMutation({
@@ -212,8 +212,8 @@ export default function SearchPage() {
   };
 
   const handleBackFromPlaylist = () => {
-    if (selectedPlaylistId) {
-      setSelectedPlaylistId(null);
+    if (selectedPlaylist) {
+      setSelectedPlaylist(null);
     } else {
       setSelectedLanguage(null);
     }
@@ -275,14 +275,14 @@ export default function SearchPage() {
                   {t('common.back', 'Back')}
                 </Button>
                 <h2 className="text-lg font-semibold">
-                  {selectedPlaylistId 
-                    ? languagePlaylists.find(p => p.id === selectedPlaylistId)?.name || 'Playlist'
+                  {selectedPlaylist 
+                    ? selectedPlaylist.name
                     : `${LANGUAGE_OPTIONS.find(l => l.code === selectedLanguage)?.name || selectedLanguage} ${t('search.playlists', 'Playlists')}`
                   }
                 </h2>
               </div>
 
-              {!selectedPlaylistId ? (
+              {!selectedPlaylist ? (
                 <>
                   <div className="flex gap-2 overflow-x-auto pb-2">
                     {LANGUAGE_OPTIONS.map((lang) => (
@@ -292,7 +292,7 @@ export default function SearchPage() {
                         size="sm"
                         onClick={() => {
                           setSelectedLanguage(lang.code);
-                          setSelectedPlaylistId(null);
+                          setSelectedPlaylist(null);
                         }}
                         className="flex-shrink-0"
                         data-testid={`button-language-${lang.code}`}
@@ -318,7 +318,7 @@ export default function SearchPage() {
                         <Card
                           key={playlist.id}
                           className="cursor-pointer hover-elevate active-elevate-2 overflow-hidden"
-                          onClick={() => setSelectedPlaylistId(playlist.id)}
+                          onClick={() => setSelectedPlaylist(playlist)}
                           data-testid={`card-playlist-${playlist.id}`}
                         >
                           {playlist.artworkUrl ? (
