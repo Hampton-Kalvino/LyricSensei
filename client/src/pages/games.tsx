@@ -119,22 +119,20 @@ export default function GamesPage() {
 
         <div className="grid gap-6 lg:grid-cols-2">
           <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle className="flex items-center gap-2">
-                  <Trophy className="h-5 w-5 text-yellow-500" />
-                  {t('games.leaderboard', 'Leaderboard')}
-                </CardTitle>
-                <Tabs value={leaderboardPeriod} onValueChange={(v) => setLeaderboardPeriod(v as typeof leaderboardPeriod)}>
-                  <TabsList className="h-8">
-                    <TabsTrigger value="daily" className="text-xs px-2">{t('games.daily', 'Daily')}</TabsTrigger>
-                    <TabsTrigger value="weekly" className="text-xs px-2">{t('games.weekly', 'Weekly')}</TabsTrigger>
-                    <TabsTrigger value="all_time" className="text-xs px-2">{t('games.allTime', 'All Time')}</TabsTrigger>
-                  </TabsList>
-                </Tabs>
-              </div>
-              <CardDescription>
-                {getGameTitle(selectedGame)} - {t(`games.${leaderboardPeriod}`, leaderboardPeriod)}
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2">
+                <Trophy className="h-5 w-5 text-yellow-500" />
+                {t('games.leaderboard', 'Leaderboard')}
+              </CardTitle>
+              <Tabs value={leaderboardPeriod} onValueChange={(v) => setLeaderboardPeriod(v as typeof leaderboardPeriod)}>
+                <TabsList className="h-8 w-full">
+                  <TabsTrigger value="daily" className="text-xs px-3 flex-1">{t('games.daily', 'Daily')}</TabsTrigger>
+                  <TabsTrigger value="weekly" className="text-xs px-3 flex-1">{t('games.weekly', 'Weekly')}</TabsTrigger>
+                  <TabsTrigger value="all_time" className="text-xs px-3 flex-1">{t('games.allTime', 'All Time')}</TabsTrigger>
+                </TabsList>
+              </Tabs>
+              <CardDescription className="pt-1">
+                {getGameTitle(selectedGame)}
               </CardDescription>
             </CardHeader>
             <CardContent>

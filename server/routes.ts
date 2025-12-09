@@ -2598,6 +2598,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         id: string;
         original: string;
         phonetic: string;
+        translation: string;
         language: string;
         songTitle: string;
         songArtist: string;
@@ -2621,12 +2622,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Extract individual words or short phrases (2-4 words)
           const originalWords = translation.originalText.split(/\s+/).filter(w => w.length > 2);
           const phoneticParts = translation.phoneticGuide.split(/\s+/).filter(p => p.length > 1);
+          const translatedWords = translation.translatedText.split(/\s+/).filter(w => w.length > 1);
           
           if (originalWords.length > 0 && phoneticParts.length > 0) {
             // Take first 2-3 words as a phrase
             const phraseLength = Math.min(3, originalWords.length);
             const original = originalWords.slice(0, phraseLength).join(' ');
             const phonetic = phoneticParts.slice(0, Math.min(phraseLength, phoneticParts.length)).join(' ');
+            const translatedPhrase = translatedWords.slice(0, Math.min(phraseLength + 1, translatedWords.length)).join(' ');
             
             // Avoid duplicates
             if (!pronunciationWords.some(w => w.original.toLowerCase() === original.toLowerCase())) {
@@ -2634,6 +2637,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 id: `${songId}-${pronunciationWords.length}`,
                 original,
                 phonetic,
+                translation: translatedPhrase || translation.translatedText,
                 language: song.detectedLanguage || 'unknown',
                 songTitle: song.title,
                 songArtist: song.artist,

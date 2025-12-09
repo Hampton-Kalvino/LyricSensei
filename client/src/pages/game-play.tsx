@@ -45,6 +45,7 @@ interface PronunciationWord {
   id: string;
   original: string;
   phonetic: string;
+  translation: string;
   language: string;
   songTitle: string;
   songArtist: string;
@@ -80,16 +81,16 @@ interface SpeechGameState {
 }
 
 const FALLBACK_WORDS: PronunciationWord[] = [
-  { id: "1", original: "Hello", phonetic: "heh-LOH", language: "en", songTitle: "Sample", songArtist: "Demo" },
-  { id: "2", original: "Bonjour", phonetic: "bohn-ZHOOR", language: "fr", songTitle: "Sample", songArtist: "Demo" },
-  { id: "3", original: "Hola", phonetic: "OH-lah", language: "es", songTitle: "Sample", songArtist: "Demo" },
-  { id: "4", original: "Guten Tag", phonetic: "GOO-ten tahk", language: "de", songTitle: "Sample", songArtist: "Demo" },
-  { id: "5", original: "Ciao", phonetic: "CHOW", language: "it", songTitle: "Sample", songArtist: "Demo" },
-  { id: "6", original: "Konnichiwa", phonetic: "kohn-nee-chee-WAH", language: "ja", songTitle: "Sample", songArtist: "Demo" },
-  { id: "7", original: "Annyeong", phonetic: "ahn-NYUHNG", language: "ko", songTitle: "Sample", songArtist: "Demo" },
-  { id: "8", original: "Ni hao", phonetic: "nee HOW", language: "zh", songTitle: "Sample", songArtist: "Demo" },
-  { id: "9", original: "Obrigado", phonetic: "oh-bree-GAH-doo", language: "pt", songTitle: "Sample", songArtist: "Demo" },
-  { id: "10", original: "Spasibo", phonetic: "spah-SEE-bah", language: "ru", songTitle: "Sample", songArtist: "Demo" },
+  { id: "1", original: "Hello", phonetic: "heh-LOH", translation: "Hello", language: "en", songTitle: "Sample", songArtist: "Demo" },
+  { id: "2", original: "Bonjour", phonetic: "bohn-ZHOOR", translation: "Hello", language: "fr", songTitle: "Sample", songArtist: "Demo" },
+  { id: "3", original: "Hola", phonetic: "OH-lah", translation: "Hello", language: "es", songTitle: "Sample", songArtist: "Demo" },
+  { id: "4", original: "Guten Tag", phonetic: "GOO-ten tahk", translation: "Good day", language: "de", songTitle: "Sample", songArtist: "Demo" },
+  { id: "5", original: "Ciao", phonetic: "CHOW", translation: "Hello/Goodbye", language: "it", songTitle: "Sample", songArtist: "Demo" },
+  { id: "6", original: "Konnichiwa", phonetic: "kohn-nee-chee-WAH", translation: "Good afternoon", language: "ja", songTitle: "Sample", songArtist: "Demo" },
+  { id: "7", original: "Annyeong", phonetic: "ahn-NYUHNG", translation: "Hello", language: "ko", songTitle: "Sample", songArtist: "Demo" },
+  { id: "8", original: "Ni hao", phonetic: "nee HOW", translation: "Hello", language: "zh", songTitle: "Sample", songArtist: "Demo" },
+  { id: "9", original: "Obrigado", phonetic: "oh-bree-GAH-doo", translation: "Thank you", language: "pt", songTitle: "Sample", songArtist: "Demo" },
+  { id: "10", original: "Spasibo", phonetic: "spah-SEE-bah", translation: "Thank you", language: "ru", songTitle: "Sample", songArtist: "Demo" },
 ];
 
 function getLanguageLocale(langCode: string): string {
@@ -861,9 +862,14 @@ export default function GamePlayPage() {
                     <p className="text-3xl font-bold mb-2" data-testid="text-current-word">
                       {speechState.words[speechState.currentWordIndex]?.original}
                     </p>
-                    <p className="text-xl text-primary font-mono mb-4" data-testid="text-phonetic">
+                    <p className="text-xl text-primary font-mono mb-2" data-testid="text-phonetic">
                       {speechState.words[speechState.currentWordIndex]?.phonetic}
                     </p>
+                    {speechState.words[speechState.currentWordIndex]?.translation && (
+                      <p className="text-sm text-muted-foreground mb-3" data-testid="text-translation">
+                        {speechState.words[speechState.currentWordIndex]?.translation}
+                      </p>
+                    )}
                     <p className="text-xs text-muted-foreground">
                       {speechState.words[speechState.currentWordIndex]?.songTitle} - {speechState.words[speechState.currentWordIndex]?.songArtist}
                     </p>
