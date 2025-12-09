@@ -1328,31 +1328,47 @@ export function LyricDisplay({
       console.log('[Capacitor Speech] 🌐 Using language:', speechLang, 'detected from:', detectedLang);
 
       // Start listening with correct language
-      // Use popup: true for more reliable audio capture on Android
+      // Use popup: false for inline experience (user preference)
+      // Improved timing and wait strategy for reliability
       await CapacitorSpeechRecognition.start({
         language: speechLang,
         maxResults: 5,
-        prompt: 'Say the word...',
+        prompt: '',
         partialResults: true,
-        popup: true,  // Android native popup is more reliable for audio capture
+        popup: false,  // Inline mode - no native popup
       });
 
       console.log('[Capacitor Speech] ✅ Started listening for', speechLang);
 
-      // Wait for speech with timeout (increased for Android reliability)
-      let elapsed = 0;
-      const maxWait = 8000; // Increased from 5s to 8s for better detection
-      const checkInterval = 300; // Check more frequently
+      // Give microphone time to properly initialize before checking
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // Wait for speech with timeout
+      // Strategy: Wait for transcript OR timeout, with periodic checks
+      let elapsed = 500; // Already waited 500ms for mic init
+      const maxWait = 6000; // 6 second total listening window
+      const checkInterval = 200; // Check frequently for results
+      let lastTranscriptLength = 0;
+      let noNewSpeechCount = 0;
       
       while (elapsed < maxWait && !speechProcessed && !isCleanedUp) {
         await new Promise(resolve => setTimeout(resolve, checkInterval));
         elapsed += checkInterval;
         
-        // Process early if we got any transcript
-        if (finalTranscript && finalTranscript.length >= 1 && !speechProcessed) {
-          console.log('[Capacitor Speech] Got transcript, processing:', finalTranscript);
-          finalizeAttempt(finalTranscript);
-          return;
+        // Check if we got a transcript
+        if (finalTranscript && finalTranscript.length >= 1) {
+          // If transcript hasn't changed in 600ms (3 checks), user likely finished speaking
+          if (finalTranscript.length === lastTranscriptLength) {
+            noNewSpeechCount++;
+            if (noNewSpeechCount >= 3) {
+              console.log('[Capacitor Speech] Speech ended (no change), processing:', finalTranscript);
+              finalizeAttempt(finalTranscript);
+              return;
+            }
+          } else {
+            noNewSpeechCount = 0;
+            lastTranscriptLength = finalTranscript.length;
+          }
         }
       }
 
