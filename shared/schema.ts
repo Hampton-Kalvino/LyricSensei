@@ -418,3 +418,201 @@ export interface CommentWithUser extends Comment {
   };
   replies?: CommentWithUser[];
 }
+
+// ============== COLLABORATIVE PLAYLISTS ==============
+
+// Playlists table
+export const playlists = pgTable("playlists", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  ownerId: varchar("owner_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  name: varchar("name", { length: 100 }).notNull(),
+  description: text("description"),
+  inviteCode: varchar("invite_code", { length: 12 }).unique(),
+  isPublic: boolean("is_public").notNull().default(false),
+  coverImage: text("cover_image"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const insertPlaylistSchema = createInsertSchema(playlists).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertPlaylist = z.infer<typeof insertPlaylistSchema>;
+export type Playlist = typeof playlists.$inferSelect;
+
+// Playlist songs table
+export const playlistSongs = pgTable("playlist_songs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  playlistId: varchar("playlist_id").notNull().references(() => playlists.id, { onDelete: 'cascade' }),
+  songId: varchar("song_id").notNull().references(() => songs.id, { onDelete: 'cascade' }),
+  addedBy: varchar("added_by").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  orderIndex: integer("order_index").notNull().default(0),
+  note: text("note"),
+  addedAt: timestamp("added_at").notNull().defaultNow(),
+}, (table) => ({
+  uniquePlaylistSong: unique().on(table.playlistId, table.songId),
+  orderIdx: index("playlist_songs_order_idx").on(table.playlistId, table.orderIndex),
+}));
+
+export const insertPlaylistSongSchema = createInsertSchema(playlistSongs).omit({
+  id: true,
+  addedAt: true,
+});
+
+export type InsertPlaylistSong = z.infer<typeof insertPlaylistSongSchema>;
+export type PlaylistSong = typeof playlistSongs.$inferSelect;
+
+// Playlist collaborators table
+export const playlistCollaborators = pgTable("playlist_collaborators", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  playlistId: varchar("playlist_id").notNull().references(() => playlists.id, { onDelete: 'cascade' }),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  role: varchar("role", { length: 20 }).notNull().default("editor"), // "owner", "editor", "viewer"
+  addedAt: timestamp("added_at").notNull().defaultNow(),
+}, (table) => ({
+  uniquePlaylistUser: unique().on(table.playlistId, table.userId),
+}));
+
+export const insertPlaylistCollaboratorSchema = createInsertSchema(playlistCollaborators).omit({
+  id: true,
+  addedAt: true,
+});
+
+export type InsertPlaylistCollaborator = z.infer<typeof insertPlaylistCollaboratorSchema>;
+export type PlaylistCollaborator = typeof playlistCollaborators.$inferSelect;
+
+// Playlist with details for display
+export interface PlaylistWithDetails extends Playlist {
+  owner: {
+    id: string;
+    username: string | null;
+    profileImageUrl: string | null;
+  };
+  songCount: number;
+  collaboratorCount: number;
+  isCollaborator: boolean;
+  role?: string;
+}
+
+export interface PlaylistSongWithDetails extends PlaylistSong {
+  song: Song;
+  addedByUser: {
+    id: string;
+    username: string | null;
+    profileImageUrl: string | null;
+  };
+}
+
+// ============== MINI-GAMES ==============
+
+// Game types enum
+export const GAME_TYPES = ['speed_round', 'streak_challenge', 'word_match'] as const;
+export type GameType = typeof GAME_TYPES[number];
+
+// Leaderboard periods
+export const LEADERBOARD_PERIODS = ['daily', 'weekly', 'all_time'] as const;
+export type LeaderboardPeriod = typeof LEADERBOARD_PERIODS[number];
+
+// Game sessions table
+export const gameSessions = pgTable("game_sessions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  gameType: varchar("game_type", { length: 30 }).notNull(),
+  songId: varchar("song_id").references(() => songs.id, { onDelete: 'set null' }),
+  lineIds: text("line_ids"), // JSON array of lyric line IDs used
+  attempts: text("attempts"), // JSON array of attempt details
+  score: integer("score").notNull().default(0),
+  accuracyPct: real("accuracy_pct"),
+  bestStreak: integer("best_streak").default(0),
+  wordsCompleted: integer("words_completed").default(0),
+  durationMs: integer("duration_ms"),
+  completedAt: timestamp("completed_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => ({
+  userGameIdx: index("game_sessions_user_game_idx").on(table.userId, table.gameType),
+  createdIdx: index("game_sessions_created_idx").on(table.createdAt),
+}));
+
+export const insertGameSessionSchema = createInsertSchema(gameSessions).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertGameSession = z.infer<typeof insertGameSessionSchema>;
+export type GameSession = typeof gameSessions.$inferSelect;
+
+// Leaderboard entries table
+export const leaderboardEntries = pgTable("leaderboard_entries", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  gameType: varchar("game_type", { length: 30 }).notNull(),
+  period: varchar("period", { length: 20 }).notNull(), // "daily", "weekly", "all_time"
+  periodStart: timestamp("period_start").notNull(),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  bestScore: integer("best_score").notNull().default(0),
+  bestAccuracy: real("best_accuracy"),
+  bestStreak: integer("best_streak").default(0),
+  gamesPlayed: integer("games_played").notNull().default(1),
+  recordedAt: timestamp("recorded_at").notNull().defaultNow(),
+}, (table) => ({
+  uniqueEntry: unique().on(table.gameType, table.period, table.periodStart, table.userId),
+  leaderboardIdx: index("leaderboard_entries_idx").on(table.gameType, table.period, table.periodStart, table.bestScore),
+}));
+
+export const insertLeaderboardEntrySchema = createInsertSchema(leaderboardEntries).omit({
+  id: true,
+  recordedAt: true,
+});
+
+export type InsertLeaderboardEntry = z.infer<typeof insertLeaderboardEntrySchema>;
+export type LeaderboardEntry = typeof leaderboardEntries.$inferSelect;
+
+// Leaderboard entry with user info
+export interface LeaderboardEntryWithUser extends LeaderboardEntry {
+  user: {
+    id: string;
+    username: string | null;
+    profileImageUrl: string | null;
+  };
+  rank: number;
+}
+
+// Game session with details for display
+export interface GameSessionWithDetails extends GameSession {
+  song?: {
+    title: string;
+    artist: string;
+    albumArt: string | null;
+  };
+}
+
+// Request schemas for games
+export const startGameSessionSchema = z.object({
+  gameType: z.enum(GAME_TYPES),
+  songId: z.string().optional(),
+});
+
+export const completeGameSessionSchema = z.object({
+  score: z.number().int().nonnegative(),
+  accuracyPct: z.number().min(0).max(100).optional(),
+  bestStreak: z.number().int().nonnegative().optional(),
+  wordsCompleted: z.number().int().nonnegative().optional(),
+  durationMs: z.number().int().nonnegative(),
+  attempts: z.array(z.object({
+    word: z.string(),
+    correct: z.boolean(),
+    accuracy: z.number().optional(),
+  })).optional(),
+});
+
+export type StartGameSession = z.infer<typeof startGameSessionSchema>;
+export type CompleteGameSession = z.infer<typeof completeGameSessionSchema>;
+
+// Request schema for joining playlist
+export const joinPlaylistSchema = z.object({
+  inviteCode: z.string().min(1),
+});
+
+export type JoinPlaylist = z.infer<typeof joinPlaylistSchema>;

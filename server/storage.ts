@@ -1,5 +1,5 @@
-import type { Song, LyricLine, Translation, User, UpsertUser, InsertSong, InsertLyric, InsertTranslationsCache, RecognitionHistory, InsertRecognitionHistory, UserFavorite, InsertUserFavorite, PracticeStats, InsertPracticeStats, PracticeStatsWithSong, PronunciationAssessment, InsertPronunciationAssessment, PracticeSessionCache, InsertPracticeSessionCache, AzureUsageLedger, InsertAzureUsageLedger, PasswordResetToken, Comment, InsertComment, CommentWithUser } from "@shared/schema";
-import { songs, lyrics, translationsCache, users, recognitionHistory, userFavorites, practiceStats, pronunciationAssessments, practiceSessionCache, azureUsageLedger, passwordResetTokens, comments } from "@shared/schema";
+import type { Song, LyricLine, Translation, User, UpsertUser, InsertSong, InsertLyric, InsertTranslationsCache, RecognitionHistory, InsertRecognitionHistory, UserFavorite, InsertUserFavorite, PracticeStats, InsertPracticeStats, PracticeStatsWithSong, PronunciationAssessment, InsertPronunciationAssessment, PracticeSessionCache, InsertPracticeSessionCache, AzureUsageLedger, InsertAzureUsageLedger, PasswordResetToken, Comment, InsertComment, CommentWithUser, Playlist, InsertPlaylist, PlaylistWithDetails, PlaylistSong, InsertPlaylistSong, PlaylistSongWithDetails, PlaylistCollaborator, InsertPlaylistCollaborator, GameSession, InsertGameSession, GameSessionWithDetails, LeaderboardEntry, InsertLeaderboardEntry, LeaderboardEntryWithUser } from "@shared/schema";
+import { songs, lyrics, translationsCache, users, recognitionHistory, userFavorites, practiceStats, pronunciationAssessments, practiceSessionCache, azureUsageLedger, passwordResetTokens, comments, playlists, playlistSongs, playlistCollaborators, gameSessions, leaderboardEntries } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, sql, gte, lte } from "drizzle-orm";
 
@@ -75,6 +75,38 @@ export interface IStorage {
   addComment(comment: InsertComment): Promise<Comment>;
   getSongComments(songId: string, limit?: number): Promise<CommentWithUser[]>;
   deleteComment(commentId: string, userId: string): Promise<void>;
+  
+  // Playlists
+  createPlaylist(playlist: InsertPlaylist): Promise<Playlist>;
+  getPlaylist(id: string): Promise<Playlist | undefined>;
+  getUserPlaylists(userId: string): Promise<PlaylistWithDetails[]>;
+  getPlaylistByInviteCode(inviteCode: string): Promise<Playlist | undefined>;
+  updatePlaylist(id: string, updates: Partial<InsertPlaylist>): Promise<Playlist>;
+  deletePlaylist(id: string): Promise<void>;
+  
+  // Playlist Songs
+  addPlaylistSong(song: InsertPlaylistSong): Promise<PlaylistSong>;
+  getPlaylistSongs(playlistId: string): Promise<PlaylistSongWithDetails[]>;
+  removePlaylistSong(playlistId: string, songId: string): Promise<void>;
+  reorderPlaylistSongs(playlistId: string, songIds: string[]): Promise<void>;
+  
+  // Playlist Collaborators
+  addPlaylistCollaborator(collaborator: InsertPlaylistCollaborator): Promise<PlaylistCollaborator>;
+  getPlaylistCollaborators(playlistId: string): Promise<Array<PlaylistCollaborator & { user: { id: string; username: string | null; profileImageUrl: string | null } }>>;
+  removePlaylistCollaborator(playlistId: string, userId: string): Promise<void>;
+  isPlaylistCollaborator(playlistId: string, userId: string): Promise<boolean>;
+  getPlaylistRole(playlistId: string, userId: string): Promise<string | undefined>;
+  
+  // Game Sessions
+  createGameSession(session: InsertGameSession): Promise<GameSession>;
+  getGameSession(id: string): Promise<GameSession | undefined>;
+  updateGameSession(id: string, updates: Partial<InsertGameSession>): Promise<GameSession>;
+  getUserGameSessions(userId: string, limit?: number): Promise<GameSessionWithDetails[]>;
+  
+  // Leaderboard
+  upsertLeaderboardEntry(entry: InsertLeaderboardEntry): Promise<LeaderboardEntry>;
+  getLeaderboard(gameType: string, period: string, limit?: number): Promise<LeaderboardEntryWithUser[]>;
+  getUserLeaderboardEntry(userId: string, gameType: string, period: string): Promise<LeaderboardEntry | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -894,6 +926,346 @@ export class DatabaseStorage implements IStorage {
     await db.delete(comments).where(
       and(eq(comments.id, commentId), eq(comments.userId, userId))
     );
+  }
+
+  // ============== PLAYLISTS ==============
+  
+  async createPlaylist(playlist: InsertPlaylist): Promise<Playlist> {
+    const inviteCode = Math.random().toString(36).substring(2, 10).toUpperCase();
+    const [newPlaylist] = await db.insert(playlists).values({
+      ...playlist,
+      inviteCode,
+    }).returning();
+    return newPlaylist;
+  }
+
+  async getPlaylist(id: string): Promise<Playlist | undefined> {
+    const [playlist] = await db.select().from(playlists).where(eq(playlists.id, id));
+    return playlist;
+  }
+
+  async getUserPlaylists(userId: string): Promise<PlaylistWithDetails[]> {
+    // Get playlists owned by user
+    const ownedPlaylists = await db
+      .select({
+        playlist: playlists,
+        owner: {
+          id: users.id,
+          username: users.username,
+          profileImageUrl: users.profileImageUrl,
+        },
+      })
+      .from(playlists)
+      .leftJoin(users, eq(playlists.ownerId, users.id))
+      .where(eq(playlists.ownerId, userId));
+
+    // Get playlists where user is a collaborator
+    const collaboratedPlaylists = await db
+      .select({
+        playlist: playlists,
+        owner: {
+          id: users.id,
+          username: users.username,
+          profileImageUrl: users.profileImageUrl,
+        },
+        role: playlistCollaborators.role,
+      })
+      .from(playlistCollaborators)
+      .innerJoin(playlists, eq(playlistCollaborators.playlistId, playlists.id))
+      .leftJoin(users, eq(playlists.ownerId, users.id))
+      .where(eq(playlistCollaborators.userId, userId));
+
+    const allPlaylists = [
+      ...ownedPlaylists.map(p => ({ ...p, role: 'owner', isCollaborator: true })),
+      ...collaboratedPlaylists.map(p => ({ ...p, isCollaborator: true })),
+    ];
+
+    // Get song counts and collaborator counts
+    const result: PlaylistWithDetails[] = [];
+    for (const p of allPlaylists) {
+      const [songCountResult] = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(playlistSongs)
+        .where(eq(playlistSongs.playlistId, p.playlist.id));
+      
+      const [collabCountResult] = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(playlistCollaborators)
+        .where(eq(playlistCollaborators.playlistId, p.playlist.id));
+
+      result.push({
+        ...p.playlist,
+        owner: p.owner || { id: p.playlist.ownerId, username: null, profileImageUrl: null },
+        songCount: Number(songCountResult?.count || 0),
+        collaboratorCount: Number(collabCountResult?.count || 0),
+        isCollaborator: p.isCollaborator,
+        role: p.role,
+      });
+    }
+
+    return result;
+  }
+
+  async getPlaylistByInviteCode(inviteCode: string): Promise<Playlist | undefined> {
+    const [playlist] = await db.select().from(playlists).where(eq(playlists.inviteCode, inviteCode));
+    return playlist;
+  }
+
+  async updatePlaylist(id: string, updates: Partial<InsertPlaylist>): Promise<Playlist> {
+    const [updated] = await db
+      .update(playlists)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(playlists.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deletePlaylist(id: string): Promise<void> {
+    await db.delete(playlists).where(eq(playlists.id, id));
+  }
+
+  // ============== PLAYLIST SONGS ==============
+
+  async addPlaylistSong(song: InsertPlaylistSong): Promise<PlaylistSong> {
+    // Get the next order index
+    const [maxOrder] = await db
+      .select({ max: sql<number>`COALESCE(MAX(order_index), -1)` })
+      .from(playlistSongs)
+      .where(eq(playlistSongs.playlistId, song.playlistId));
+    
+    const [newSong] = await db.insert(playlistSongs).values({
+      ...song,
+      orderIndex: (maxOrder?.max || 0) + 1,
+    }).returning();
+    return newSong;
+  }
+
+  async getPlaylistSongs(playlistId: string): Promise<PlaylistSongWithDetails[]> {
+    const result = await db
+      .select({
+        playlistSong: playlistSongs,
+        song: songs,
+        addedByUser: {
+          id: users.id,
+          username: users.username,
+          profileImageUrl: users.profileImageUrl,
+        },
+      })
+      .from(playlistSongs)
+      .innerJoin(songs, eq(playlistSongs.songId, songs.id))
+      .leftJoin(users, eq(playlistSongs.addedBy, users.id))
+      .where(eq(playlistSongs.playlistId, playlistId))
+      .orderBy(playlistSongs.orderIndex);
+
+    return result.map(r => ({
+      ...r.playlistSong,
+      song: r.song,
+      addedByUser: r.addedByUser || { id: r.playlistSong.addedBy, username: null, profileImageUrl: null },
+    }));
+  }
+
+  async removePlaylistSong(playlistId: string, songId: string): Promise<void> {
+    await db.delete(playlistSongs).where(
+      and(eq(playlistSongs.playlistId, playlistId), eq(playlistSongs.songId, songId))
+    );
+  }
+
+  async reorderPlaylistSongs(playlistId: string, songIds: string[]): Promise<void> {
+    for (let i = 0; i < songIds.length; i++) {
+      await db
+        .update(playlistSongs)
+        .set({ orderIndex: i })
+        .where(and(eq(playlistSongs.playlistId, playlistId), eq(playlistSongs.songId, songIds[i])));
+    }
+  }
+
+  // ============== PLAYLIST COLLABORATORS ==============
+
+  async addPlaylistCollaborator(collaborator: InsertPlaylistCollaborator): Promise<PlaylistCollaborator> {
+    const [newCollab] = await db.insert(playlistCollaborators).values(collaborator).returning();
+    return newCollab;
+  }
+
+  async getPlaylistCollaborators(playlistId: string): Promise<Array<PlaylistCollaborator & { user: { id: string; username: string | null; profileImageUrl: string | null } }>> {
+    const result = await db
+      .select({
+        collaborator: playlistCollaborators,
+        user: {
+          id: users.id,
+          username: users.username,
+          profileImageUrl: users.profileImageUrl,
+        },
+      })
+      .from(playlistCollaborators)
+      .leftJoin(users, eq(playlistCollaborators.userId, users.id))
+      .where(eq(playlistCollaborators.playlistId, playlistId));
+
+    return result.map(r => ({
+      ...r.collaborator,
+      user: r.user || { id: r.collaborator.userId, username: null, profileImageUrl: null },
+    }));
+  }
+
+  async removePlaylistCollaborator(playlistId: string, userId: string): Promise<void> {
+    await db.delete(playlistCollaborators).where(
+      and(eq(playlistCollaborators.playlistId, playlistId), eq(playlistCollaborators.userId, userId))
+    );
+  }
+
+  async isPlaylistCollaborator(playlistId: string, userId: string): Promise<boolean> {
+    const [result] = await db
+      .select({ id: playlistCollaborators.id })
+      .from(playlistCollaborators)
+      .where(and(eq(playlistCollaborators.playlistId, playlistId), eq(playlistCollaborators.userId, userId)));
+    return !!result;
+  }
+
+  async getPlaylistRole(playlistId: string, userId: string): Promise<string | undefined> {
+    // Check if owner
+    const [playlist] = await db.select().from(playlists).where(eq(playlists.id, playlistId));
+    if (playlist?.ownerId === userId) return 'owner';
+    
+    // Check collaborator role
+    const [collab] = await db
+      .select({ role: playlistCollaborators.role })
+      .from(playlistCollaborators)
+      .where(and(eq(playlistCollaborators.playlistId, playlistId), eq(playlistCollaborators.userId, userId)));
+    return collab?.role;
+  }
+
+  // ============== GAME SESSIONS ==============
+
+  async createGameSession(session: InsertGameSession): Promise<GameSession> {
+    const [newSession] = await db.insert(gameSessions).values(session).returning();
+    return newSession;
+  }
+
+  async getGameSession(id: string): Promise<GameSession | undefined> {
+    const [session] = await db.select().from(gameSessions).where(eq(gameSessions.id, id));
+    return session;
+  }
+
+  async updateGameSession(id: string, updates: Partial<InsertGameSession>): Promise<GameSession> {
+    const [updated] = await db
+      .update(gameSessions)
+      .set(updates)
+      .where(eq(gameSessions.id, id))
+      .returning();
+    return updated;
+  }
+
+  async getUserGameSessions(userId: string, limit: number = 20): Promise<GameSessionWithDetails[]> {
+    const result = await db
+      .select({
+        session: gameSessions,
+        song: {
+          title: songs.title,
+          artist: songs.artist,
+          albumArt: songs.albumArt,
+        },
+      })
+      .from(gameSessions)
+      .leftJoin(songs, eq(gameSessions.songId, songs.id))
+      .where(eq(gameSessions.userId, userId))
+      .orderBy(desc(gameSessions.createdAt))
+      .limit(limit);
+
+    return result.map(r => ({
+      ...r.session,
+      song: r.song || undefined,
+    }));
+  }
+
+  // ============== LEADERBOARD ==============
+
+  async upsertLeaderboardEntry(entry: InsertLeaderboardEntry): Promise<LeaderboardEntry> {
+    const existing = await this.getUserLeaderboardEntry(entry.userId, entry.gameType, entry.period);
+    
+    if (existing) {
+      // Update if new score is better
+      const updates: Partial<InsertLeaderboardEntry> = { gamesPlayed: (existing.gamesPlayed || 0) + 1 };
+      if (entry.bestScore > existing.bestScore) updates.bestScore = entry.bestScore;
+      if (entry.bestAccuracy && (!existing.bestAccuracy || entry.bestAccuracy > existing.bestAccuracy)) {
+        updates.bestAccuracy = entry.bestAccuracy;
+      }
+      if (entry.bestStreak && (!existing.bestStreak || entry.bestStreak > existing.bestStreak)) {
+        updates.bestStreak = entry.bestStreak;
+      }
+      
+      const [updated] = await db
+        .update(leaderboardEntries)
+        .set(updates)
+        .where(eq(leaderboardEntries.id, existing.id))
+        .returning();
+      return updated;
+    }
+    
+    const [newEntry] = await db.insert(leaderboardEntries).values(entry).returning();
+    return newEntry;
+  }
+
+  async getLeaderboard(gameType: string, period: string, limit: number = 10): Promise<LeaderboardEntryWithUser[]> {
+    // Calculate period start
+    const now = new Date();
+    let periodStart: Date;
+    if (period === 'daily') {
+      periodStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    } else if (period === 'weekly') {
+      const day = now.getDay();
+      periodStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - day);
+    } else {
+      periodStart = new Date(0); // all_time
+    }
+
+    const result = await db
+      .select({
+        entry: leaderboardEntries,
+        user: {
+          id: users.id,
+          username: users.username,
+          profileImageUrl: users.profileImageUrl,
+        },
+      })
+      .from(leaderboardEntries)
+      .leftJoin(users, eq(leaderboardEntries.userId, users.id))
+      .where(and(
+        eq(leaderboardEntries.gameType, gameType),
+        eq(leaderboardEntries.period, period),
+        gte(leaderboardEntries.periodStart, periodStart)
+      ))
+      .orderBy(desc(leaderboardEntries.bestScore))
+      .limit(limit);
+
+    return result.map((r, index) => ({
+      ...r.entry,
+      user: r.user || { id: r.entry.userId, username: null, profileImageUrl: null },
+      rank: index + 1,
+    }));
+  }
+
+  async getUserLeaderboardEntry(userId: string, gameType: string, period: string): Promise<LeaderboardEntry | undefined> {
+    // Calculate period start
+    const now = new Date();
+    let periodStart: Date;
+    if (period === 'daily') {
+      periodStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    } else if (period === 'weekly') {
+      const day = now.getDay();
+      periodStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - day);
+    } else {
+      periodStart = new Date(0); // all_time
+    }
+
+    const [entry] = await db
+      .select()
+      .from(leaderboardEntries)
+      .where(and(
+        eq(leaderboardEntries.userId, userId),
+        eq(leaderboardEntries.gameType, gameType),
+        eq(leaderboardEntries.period, period),
+        gte(leaderboardEntries.periodStart, periodStart)
+      ));
+    return entry;
   }
 }
 
