@@ -5,6 +5,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { MobileBottomNav } from "./mobile-bottom-nav";
 import { MobileProfileDrawer } from "./mobile-profile-drawer";
 import { ThemeToggle } from "./theme-toggle";
+import { UILanguageSelector } from "./ui-language-selector";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -121,7 +122,10 @@ export function NativeMobileShell({ children }: NativeMobileShellProps) {
           </Avatar>
         </button>
 
-        <ThemeToggle />
+        <div className="flex items-center gap-2">
+          <UILanguageSelector />
+          <ThemeToggle />
+        </div>
       </header>
 
       {/* Guest Banner */}

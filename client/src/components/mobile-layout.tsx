@@ -233,12 +233,6 @@ export function MobileLayout({
                 size="lg"
                 data-testid="button-recognize"
               />
-              <p className="text-sm text-muted-foreground mt-3 text-center">
-                {t('home.tapToRecognize', 'Tap to Recognize')}
-              </p>
-              <p className="text-xs text-muted-foreground text-center">
-                {t('home.playASong', 'Play a song and tap')}
-              </p>
             </div>
 
             {/* How It Works - Dismissable */}
