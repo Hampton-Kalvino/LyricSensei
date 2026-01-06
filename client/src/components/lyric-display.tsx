@@ -1465,7 +1465,7 @@ export function LyricDisplay({
       <>
         {/* Listening Banner - Mobile Portal */}
         {isPracticeListening && (
-          <div className="fixed top-0 left-0 right-0 z-[9999] p-3 bg-background/95 backdrop-blur-sm border-b shadow-lg" style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 9999 }}>
+          <div className="fixed top-0 left-0 right-0 z-[9999] px-3 pb-3 bg-background/95 backdrop-blur-sm border-b shadow-lg" style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 9999, paddingTop: 'calc(env(safe-area-inset-top, 0px) + 12px)' }}>
             <div className="p-3 bg-primary/15 border-2 border-primary/50 rounded-md flex items-center justify-center gap-2 animate-pulse" data-testid="banner-listening-mobile">
               <Mic className="h-5 w-5 text-primary" />
               <p className="text-sm font-semibold text-primary">
@@ -1477,7 +1477,7 @@ export function LyricDisplay({
 
         {/* Score Banner - Mobile Portal */}
         {showScoreBanner && lastScore !== null && !isPracticeListening && (
-          <div className="fixed top-0 left-0 right-0 z-[9999] p-3 bg-background/95 backdrop-blur-sm border-b shadow-lg" style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 9999 }}>
+          <div className="fixed top-0 left-0 right-0 z-[9999] px-3 pb-3 bg-background/95 backdrop-blur-sm border-b shadow-lg" style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 9999, paddingTop: 'calc(env(safe-area-inset-top, 0px) + 12px)' }}>
             <div className={cn(
               "p-4 rounded-md border-2 flex items-center justify-center gap-3 transition-all",
               lastScore > 50 
