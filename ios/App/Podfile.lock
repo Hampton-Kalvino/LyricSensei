@@ -1,0 +1,65 @@
+PODS:
+  - Capacitor (7.4.4):
+    - CapacitorCordova
+  - CapacitorApp (7.1.0):
+    - Capacitor
+  - CapacitorCommunitySpeechRecognition (7.0.1):
+    - Capacitor
+  - CapacitorCommunityTextToSpeech (6.1.0):
+    - Capacitor
+  - CapacitorCordova (7.4.4)
+  - CapacitorFilesystem (7.1.5):
+    - Capacitor
+    - IONFilesystemLib (~> 1.0.1)
+  - CapacitorShare (7.0.2):
+    - Capacitor
+  - CordovaPlugins (7.4.4):
+    - CapacitorCordova
+  - IONFilesystemLib (1.0.1)
+
+DEPENDENCIES:
+  - "Capacitor (from `../../node_modules/@capacitor/ios`)"
+  - "CapacitorApp (from `../../node_modules/@capacitor/app`)"
+  - "CapacitorCommunitySpeechRecognition (from `../../node_modules/@capacitor-community/speech-recognition`)"
+  - "CapacitorCommunityTextToSpeech (from `../../node_modules/@capacitor-community/text-to-speech`)"
+  - "CapacitorCordova (from `../../node_modules/@capacitor/ios`)"
+  - "CapacitorFilesystem (from `../../node_modules/@capacitor/filesystem`)"
+  - "CapacitorShare (from `../../node_modules/@capacitor/share`)"
+  - CordovaPlugins (from `../capacitor-cordova-ios-plugins`)
+
+SPEC REPOS:
+  trunk:
+    - IONFilesystemLib
+
+EXTERNAL SOURCES:
+  Capacitor:
+    :path: "../../node_modules/@capacitor/ios"
+  CapacitorApp:
+    :path: "../../node_modules/@capacitor/app"
+  CapacitorCommunitySpeechRecognition:
+    :path: "../../node_modules/@capacitor-community/speech-recognition"
+  CapacitorCommunityTextToSpeech:
+    :path: "../../node_modules/@capacitor-community/text-to-speech"
+  CapacitorCordova:
+    :path: "../../node_modules/@capacitor/ios"
+  CapacitorFilesystem:
+    :path: "../../node_modules/@capacitor/filesystem"
+  CapacitorShare:
+    :path: "../../node_modules/@capacitor/share"
+  CordovaPlugins:
+    :path: "../capacitor-cordova-ios-plugins"
+
+SPEC CHECKSUMS:
+  Capacitor: 358dd1c3fdd71d969547b17e159fd8a7736cb45f
+  CapacitorApp: 26587c2ce485d88ddb39adb21cac64f8e481afe3
+  CapacitorCommunitySpeechRecognition: 3e03566c44c2bb3b52391a33d4518b1adbdeb38f
+  CapacitorCommunityTextToSpeech: 28e4eaf26995ce7ab710480267841c57ef5eded2
+  CapacitorCordova: bf648a636f3c153f652d312ae145fb508b6ffced
+  CapacitorFilesystem: 609d5cceca1ed93d7f25839dbfdfd224bfe78209
+  CapacitorShare: be166411fa995ead2d39b104aa0aae56d8615c66
+  CordovaPlugins: ba9f78193665c5e2b00f7a2c6ae9990606120df3
+  IONFilesystemLib: 89258b8e3e85465da93127d25d7ce37f977e8a6f
+
+PODFILE CHECKSUM: d07b78b19b6072299eef5743b5115ebd8bf17e8a
+
+COCOAPODS: 1.16.2
