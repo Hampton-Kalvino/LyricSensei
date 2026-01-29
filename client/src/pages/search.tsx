@@ -1,17 +1,46 @@
 import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { Search, Music, Globe, Mic, TrendingUp, Clock, Star, Sparkles, X } from "lucide-react";
+import { Search, Music, Globe, Mic, TrendingUp, Clock, Star, Sparkles, X, ListMusic, ChevronRight } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { useTranslation } from "react-i18next";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { Song, RecognitionResult } from "@shared/schema";
+
+interface AppleMusicPlaylist {
+  id: string;
+  name: string;
+  description: string;
+  artworkUrl: string;
+  trackCount: number;
+}
+
+interface AppleMusicTrack {
+  id: string;
+  title: string;
+  artist: string;
+  album: string;
+  artworkUrl: string;
+  previewUrl?: string;
+  durationMs?: number;
+}
+
+const LANGUAGE_OPTIONS = [
+  { code: 'spanish', name: 'Spanish', nameNative: 'Espanol' },
+  { code: 'french', name: 'French', nameNative: 'Francais' },
+  { code: 'german', name: 'German', nameNative: 'Deutsch' },
+  { code: 'italian', name: 'Italian', nameNative: 'Italiano' },
+  { code: 'japanese', name: 'Japanese', nameNative: '日本語' },
+  { code: 'korean', name: 'Korean', nameNative: '한국어' },
+  { code: 'portuguese', name: 'Portuguese', nameNative: 'Portugues' },
+  { code: 'chinese', name: 'Chinese', nameNative: '中文' },
+] as const;
 
 interface SearchResult {
   trackId: number;
@@ -36,6 +65,8 @@ export default function SearchPage() {
   const [, setLocation] = useLocation();
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
+  const [selectedLanguage, setSelectedLanguage] = useState<string | null>(null);
+  const [selectedPlaylist, setSelectedPlaylist] = useState<AppleMusicPlaylist | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -60,6 +91,31 @@ export default function SearchPage() {
 
   const { data: recentHistory = [] } = useQuery<RecognitionResult[]>({
     queryKey: ["/api/recognition-history?limit=10"],
+  });
+
+  const { data: languagePlaylists = [], isLoading: isLoadingPlaylists } = useQuery<AppleMusicPlaylist[]>({
+    queryKey: ['/api/apple-music/playlists', selectedLanguage],
+    queryFn: async () => {
+      if (!selectedLanguage) return [];
+      const response = await fetch(`/api/apple-music/playlists/${selectedLanguage}`);
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to fetch playlists');
+      }
+      return response.json();
+    },
+    enabled: !!selectedLanguage,
+  });
+
+  const { data: playlistTracks = [], isLoading: isLoadingTracks } = useQuery<AppleMusicTrack[]>({
+    queryKey: ['/api/apple-music/playlist-tracks', selectedPlaylist?.id],
+    queryFn: async () => {
+      if (!selectedPlaylist?.id) return [];
+      const response = await fetch(`/api/apple-music/playlist-tracks/${selectedPlaylist.id}`);
+      if (!response.ok) throw new Error('Failed to fetch tracks');
+      return response.json();
+    },
+    enabled: !!selectedPlaylist?.id,
   });
 
   const manualSelectMutation = useMutation({
@@ -135,13 +191,31 @@ export default function SearchPage() {
       case "trending":
         break;
       case "languages":
-        setLocation("/library");
+        setSelectedLanguage('spanish');
         break;
       case "practice":
         setLocation("/games");
         break;
       case "new":
         break;
+    }
+  };
+
+  const handleSelectAppleMusicTrack = (track: AppleMusicTrack) => {
+    manualSelectMutation.mutate({
+      artist: track.artist,
+      title: track.title,
+      album: track.album,
+      albumArt: track.artworkUrl,
+      duration: track.durationMs ? Math.round(track.durationMs / 1000) : undefined,
+    });
+  };
+
+  const handleBackFromPlaylist = () => {
+    if (selectedPlaylist) {
+      setSelectedPlaylist(null);
+    } else {
+      setSelectedLanguage(null);
     }
   };
 
@@ -188,7 +262,152 @@ export default function SearchPage() {
 
       <ScrollArea className="flex-1">
         <div className="p-4 space-y-6">
-          {showSearchResults ? (
+          {selectedLanguage && !showSearchResults ? (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleBackFromPlaylist}
+                  data-testid="button-back-from-playlist"
+                >
+                  <ChevronRight className="h-4 w-4 rotate-180" />
+                  {t('common.back', 'Back')}
+                </Button>
+                <h2 className="text-lg font-semibold">
+                  {selectedPlaylist 
+                    ? selectedPlaylist.name
+                    : `${LANGUAGE_OPTIONS.find(l => l.code === selectedLanguage)?.name || selectedLanguage} ${t('search.playlists', 'Playlists')}`
+                  }
+                </h2>
+              </div>
+
+              {!selectedPlaylist ? (
+                <>
+                  <div className="flex gap-2 overflow-x-auto pb-2">
+                    {LANGUAGE_OPTIONS.map((lang) => (
+                      <Button
+                        key={lang.code}
+                        variant={selectedLanguage === lang.code ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => {
+                          setSelectedLanguage(lang.code);
+                          setSelectedPlaylist(null);
+                        }}
+                        className="flex-shrink-0"
+                        data-testid={`button-language-${lang.code}`}
+                      >
+                        {lang.name}
+                      </Button>
+                    ))}
+                  </div>
+
+                  {isLoadingPlaylists ? (
+                    <div className="grid grid-cols-2 gap-3">
+                      {Array.from({ length: 6 }).map((_, i) => (
+                        <div key={i} className="space-y-2">
+                          <Skeleton className="aspect-square rounded-lg" />
+                          <Skeleton className="h-4 w-3/4" />
+                          <Skeleton className="h-3 w-1/2" />
+                        </div>
+                      ))}
+                    </div>
+                  ) : languagePlaylists.length > 0 ? (
+                    <div className="grid grid-cols-2 gap-3">
+                      {languagePlaylists.map((playlist) => (
+                        <Card
+                          key={playlist.id}
+                          className="cursor-pointer hover-elevate active-elevate-2 overflow-hidden"
+                          onClick={() => setSelectedPlaylist(playlist)}
+                          data-testid={`card-playlist-${playlist.id}`}
+                        >
+                          {playlist.artworkUrl ? (
+                            <img
+                              src={playlist.artworkUrl}
+                              alt={playlist.name}
+                              className="w-full aspect-square object-cover"
+                            />
+                          ) : (
+                            <div className="w-full aspect-square bg-muted flex items-center justify-center">
+                              <ListMusic className="h-12 w-12 text-muted-foreground" />
+                            </div>
+                          )}
+                          <CardContent className="p-3">
+                            <h3 className="font-semibold text-sm line-clamp-2">{playlist.name}</h3>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {playlist.trackCount} {t('search.songs', 'songs')}
+                            </p>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8">
+                      <ListMusic className="h-12 w-12 mx-auto mb-3 text-muted-foreground" />
+                      <p className="text-muted-foreground">{t('search.noPlaylistsFound', 'No playlists found')}</p>
+                      <p className="text-sm text-muted-foreground mt-1">{t('search.tryDifferentLanguage', 'Try a different language')}</p>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <>
+                  {isLoadingTracks ? (
+                    <div className="space-y-3">
+                      {Array.from({ length: 8 }).map((_, i) => (
+                        <div key={i} className="flex items-center gap-3">
+                          <Skeleton className="h-12 w-12 rounded" />
+                          <div className="flex-1 space-y-2">
+                            <Skeleton className="h-4 w-3/4" />
+                            <Skeleton className="h-3 w-1/2" />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : playlistTracks.length > 0 ? (
+                    <div className="space-y-2">
+                      {playlistTracks.map((track, index) => (
+                        <Card
+                          key={track.id}
+                          className="hover-elevate active-elevate-2 cursor-pointer"
+                          onClick={() => handleSelectAppleMusicTrack(track)}
+                          data-testid={`card-track-${track.id}`}
+                        >
+                          <CardContent className="p-3">
+                            <div className="flex items-center gap-3">
+                              <span className="w-6 text-center text-sm text-muted-foreground">{index + 1}</span>
+                              {track.artworkUrl ? (
+                                <img
+                                  src={track.artworkUrl}
+                                  alt={track.title}
+                                  className="h-12 w-12 rounded object-cover"
+                                />
+                              ) : (
+                                <div className="h-12 w-12 rounded bg-muted flex items-center justify-center">
+                                  <Music className="h-6 w-6 text-muted-foreground" />
+                                </div>
+                              )}
+                              <div className="flex-1 min-w-0">
+                                <p className="font-medium truncate">{track.title}</p>
+                                <p className="text-sm text-muted-foreground truncate">{track.artist}</p>
+                              </div>
+                              {manualSelectMutation.isPending && (
+                                <div className="h-5 w-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                              )}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8">
+                      <Music className="h-12 w-12 mx-auto mb-3 text-muted-foreground" />
+                      <p className="text-muted-foreground">{t('search.noTracksFound', 'No tracks found')}</p>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          ) : showSearchResults ? (
             <div className="space-y-4">
               <h2 className="text-lg font-semibold">{t('search.results', 'Search Results')}</h2>
               
